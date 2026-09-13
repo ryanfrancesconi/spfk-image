@@ -14,12 +14,20 @@ let package = Package(
     ],
     dependencies: [
         .package(url: "https://github.com/ryanfrancesconi/spfk-base", from: "1.10.0"),
+        .package(url: "https://github.com/ryanfrancesconi/spfk-testing", from: "1.10.0"),
     ],
     targets: [
         .target(
             name: "SPFKImage",
             dependencies: [
                 .product(name: "SPFKBase", package: "spfk-base"),
+            ]
+        ),
+        .testTarget(
+            name: "SPFKImageTests",
+            dependencies: [
+                .targetItem(name: "SPFKImage", condition: nil),
+                .product(name: "SPFKTesting", package: "spfk-testing"),
             ]
         ),
     ]
