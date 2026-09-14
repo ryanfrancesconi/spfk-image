@@ -10,6 +10,10 @@ bytes or compare two images can depend on it without taking on more.
 
 ## Features
 
+- **Adjusting** — `ImageAdjustmentDescription` is a color adjustment stored as slider positions, and
+  `ImageAdjustmentRenderer` applies it through Core Image: `render(_:source:)` for a preview bitmap,
+  and `renderFile(_:source:destination:quality:)` to write a new file in the source's format that
+  keeps its metadata, orientation and auxiliary images (gain maps, depth, mattes).
 - **Encoding** — `export(utType:to:)` writes PNG, JPEG, HEIF or TIFF through `CIContext`, and
   `dataRepresentation(utType:dpi:compression:excludeGPSData:otherOptions:)` returns encoded data
   through ImageIO. Neither carries the source file's metadata: they encode a bare image.
