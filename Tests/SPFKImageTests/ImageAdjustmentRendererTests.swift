@@ -124,9 +124,39 @@ final class ImageAdjustmentRendererTests {
         #expect(rendered.colorSpace?.name == CGColorSpace.displayP3)
     }
 
-    private func meanLuminance(_ image: CIImage) throws -> Double {
+    @Test func aGrayscaleSourceRendersInRGB() throws {
+        let gray = try #require(CGColorSpace(name: CGColorSpace.genericGrayGamma2_2))
+        let graySource = try #require(renderer.context.createCGImage(
+            CIImage(cgImage: source), from: CIImage(cgImage: source).extent, format: .L8, colorSpace: gray
+        ))
+        try #require(graySource.colorSpace?.model == .monochrome)
+
+        let rendered = try #require(renderer.render(ImageAdjustmentDescription(exposure: 0.5), source: graySource))
+
+        #expect(rendered.colorSpace?.model == .rgb)
+        #expect(try #require(ImageStatistics(rendered)).meanLuminance > (try #require(ImageStatistics(graySource))).meanLuminance)
+    }
+
+    /// Sepia tones what saturation left, so a fully desaturated file still comes out sepia.
+    @Test func chainAppliesSaturationBeforeSepia() throws {
+        let input = CIImage(cgImage: source)
+        let combined = ImageAdjustmentRenderer.apply(ImageAdjustmentDescription(saturation: -1, sepia: 1), to: input)
+        let sepiaFirst = ImageAdjustmentRenderer.apply(
+            ImageAdjustmentDescription(saturation: -1),
+            to: ImageAdjustmentRenderer.apply(ImageAdjustmentDescription(sepia: 1), to: input)
+        )
+
+        #expect(try statistics(of: combined).meanChannelSpread > 10)
+        #expect(try statistics(of: sepiaFirst).meanChannelSpread < 2)
+    }
+
+    private func statistics(of image: CIImage) throws -> ImageStatistics {
         let space = try #require(CGColorSpace(name: CGColorSpace.sRGB))
         let cgImage = try #require(renderer.context.createCGImage(image, from: image.extent, format: .RGBA8, colorSpace: space))
-        return try #require(ImageStatistics(cgImage)).meanLuminance
+        return try #require(ImageStatistics(cgImage))
+    }
+
+    private func meanLuminance(_ image: CIImage) throws -> Double {
+        try statistics(of: image).meanLuminance
     }
 }
