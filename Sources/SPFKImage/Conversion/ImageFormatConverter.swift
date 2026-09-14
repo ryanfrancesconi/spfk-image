@@ -63,10 +63,17 @@ public struct ImageFormatConverter: Sendable {
             try write(to: written, type: type)
         }
 
+        #if os(macOS)
+            if converted.options.metadata.copiesFinderTags {
+                try (source.originalInput ?? source.input).copyFinderTags(to: written)
+            }
+        #endif
+
         try Task.checkCancellation()
 
         if converted.output.exists {
-            _ = try FileManager.default.replaceItemAt(converted.output, withItemAt: written)
+            // New metadata only, or the replaced file's own Finder tags survive into its replacement.
+            _ = try FileManager.default.replaceItemAt(converted.output, withItemAt: written, options: .usingNewMetadataOnly)
         } else {
             try FileManager.default.moveItem(at: written, to: converted.output)
         }

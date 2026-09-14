@@ -50,7 +50,15 @@ extension ImageFormatConverter {
         UTType.tiff.identifier, UTType.gif.identifier, "com.adobe.photoshop-image",
     ]
 
-    /// Types a transcode carries an HDR gain map into.
+    /// Types whose metadata ImageIO rewrites losslessly. A transcode keeps only a few XMP namespaces, so it
+    /// keeps the rest only into these.
+    ///
+    /// The rewrite drops the EXIF time zone offsets from PSD, which keeps XMP no other way. TIFF rewraps instead.
+    static let mergeTypeIdentifiers: Set<String> = [
+        UTType.jpeg.identifier, UTType.heic.identifier, UTType.png.identifier, "com.adobe.photoshop-image",
+    ]
+
+    /// Types that hold an HDR gain map.
     static let gainMapTypeIdentifiers: Set<String> = [
         UTType.jpeg.identifier, UTType.heic.identifier, avifIdentifier,
     ]

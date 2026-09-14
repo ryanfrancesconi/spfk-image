@@ -1,7 +1,6 @@
 // Copyright Ryan Francesconi. All Rights Reserved. Revision History at https://github.com/ryanfrancesconi/spfk-image
 
 import CoreImage
-import CoreImage.CIFilterBuiltins
 import Foundation
 import ImageIO
 import UniformTypeIdentifiers
@@ -10,6 +9,8 @@ extension ImageFormatConverter {
     enum Route: Equatable {
         /// `CGImageDestinationAddImageFromSource`: ImageIO re-encodes and carries the metadata itself.
         case transcode
+        /// ImageIO's own decode, unrotated, written with the source's metadata and orientation tag.
+        case rewrap
         /// Decoded upright and scaled through Core Image, then written with orientation 1.
         case render
     }
@@ -21,7 +22,13 @@ extension ImageFormatConverter {
 
     static let context = CIContext()
 
-    static func route(to type: UTType, orientation: Int, colorModel: String?, resizes: Bool) -> Route {
+    static func route(
+        to type: UTType,
+        orientation: Int,
+        colorModel: String?,
+        resizes: Bool,
+        metadata: ImageMetadataCopyScheme
+    ) -> Route {
         // A transcode into JPEG or TIFF keeps CMYK as CMYK.
         if let colorModel,
            colorModel != kCGImagePropertyColorModelRGB as String,
@@ -30,13 +37,29 @@ extension ImageFormatConverter {
             return .render
         }
 
-        // AVIF drops the orientation tag, and GIF writes it over pixels it has already rotated.
-        if orientation != 1, [avifIdentifier, UTType.gif.identifier].contains(type.identifier) {
+        // AVIF drops the orientation tag, and refuses the metadata rewrite a transcode needs.
+        if type.identifier == avifIdentifier {
+            return .render
+        }
+
+        // GIF writes the orientation tag over pixels it has already rotated.
+        if orientation != 1, type.identifier == UTType.gif.identifier {
             return .render
         }
 
         // A resize into JPEG strips EXIF and enlarges a smaller source; into PNG or TIFF it adds alpha.
-        if resizes, ![UTType.heic.identifier, avifIdentifier].contains(type.identifier) {
+        if resizes, type.identifier != UTType.heic.identifier {
+            return .render
+        }
+
+        guard metadata != .stripAll else { return .transcode }
+
+        // Rewriting TIFF metadata loses the EXIF time zone offsets.
+        if type.identifier == UTType.tiff.identifier {
+            return .rewrap
+        }
+
+        if carriesMetadata(type), !mergeTypeIdentifiers.contains(type.identifier) {
             return .render
         }
 
@@ -82,7 +105,8 @@ extension ImageFormatConverter {
             to: type,
             orientation: orientation,
             colorModel: properties[kCGImagePropertyColorModel as String] as? String,
-            resizes: limited != nil
+            resizes: limited != nil,
+            metadata: source.options.metadata
         )
 
         switch route {
@@ -90,11 +114,18 @@ extension ImageFormatConverter {
             do {
                 // Only a limit the image exceeds: JPEG enlarges a smaller image to meet it.
                 try transcode(
-                    imageSource, index: index, to: url, type: type,
+                    imageSource, index: index, properties: properties, to: url, type: type,
                     maxPixelSize: limited == nil ? nil : source.options.maxPixelSize
                 )
             } catch ImageConversionError.encodeFailed {
                 // ImageIO cannot transcode some pairs, HEIC into a HEIF sequence among them.
+                try render(imageSource, index: index, properties: properties, to: url, type: type, size: limited)
+            }
+
+        case .rewrap:
+            do {
+                try rewrap(imageSource, index: index, properties: properties, to: url, type: type)
+            } catch ImageConversionError.encodeFailed {
                 try render(imageSource, index: index, properties: properties, to: url, type: type, size: limited)
             }
 
@@ -103,95 +134,6 @@ extension ImageFormatConverter {
         }
 
         try Self.verify(url, displays: limited ?? displayed, tolerance: limited == nil ? 0 : 1)
-    }
-
-    private func transcode(_ imageSource: CGImageSource, index: Int, to url: URL, type: UTType, maxPixelSize: Int?) throws {
-        guard let destination = CGImageDestinationCreateWithURL(url as CFURL, type.identifier as CFString, 1, nil) else {
-            throw ImageConversionError.unwritableType(type.identifier)
-        }
-
-        var options: [CFString: Any] = [
-            kCGImageDestinationLossyCompressionQuality: source.options.quality,
-        ]
-
-        if let maxPixelSize {
-            options[kCGImageDestinationImageMaxPixelSize] = maxPixelSize
-        }
-
-        if Self.gainMapTypeIdentifiers.contains(type.identifier) {
-            options[kCGImageDestinationPreserveGainMap] = true
-        }
-
-        CGImageDestinationAddImageFromSource(destination, imageSource, index, options as CFDictionary)
-
-        guard CGImageDestinationFinalize(destination) else { throw ImageConversionError.encodeFailed(type.identifier) }
-    }
-
-    private func render(
-        _ imageSource: CGImageSource,
-        index: Int,
-        properties: [String: Any],
-        to url: URL,
-        type: UTType,
-        size: PixelSize?
-    ) throws {
-        let decoded = CIImage(cgImageSource: imageSource, index: index, options: [.applyOrientationProperty: true])
-
-        // Core Image reports a CMYK source as RGB, so ImageIO's color model decides whose space is kept.
-        let colorModel = properties[kCGImagePropertyColorModel as String] as? String
-        let keepsSourceSpace = [kCGImagePropertyColorModelRGB as String, kCGImagePropertyColorModelGray as String]
-            .contains(colorModel ?? kCGImagePropertyColorModelRGB as String)
-
-        guard let colorSpace = (keepsSourceSpace ? decoded.colorSpace : nil) ?? CGColorSpace(name: CGColorSpace.sRGB),
-              let format = ImageAdjustmentRenderer.fileFormat(
-                  model: colorSpace.model,
-                  sixteenBit: (properties[kCGImagePropertyDepth as String] as? Int ?? 8) > 8,
-                  alpha: properties[kCGImagePropertyHasAlpha as String] as? Bool ?? false
-              )
-        else { throw ImageConversionError.renderFailed }
-
-        var image = decoded
-        var bounds = decoded.extent
-
-        if let size {
-            let filter = CIFilter.lanczosScaleTransform()
-            filter.inputImage = decoded
-            filter.scale = Float(Double(size.height) / decoded.extent.height)
-            filter.aspectRatio = Float((Double(size.width) / decoded.extent.width) / (Double(size.height) / decoded.extent.height))
-
-            guard let scaled = filter.outputImage else { throw ImageConversionError.renderFailed }
-
-            image = scaled
-            bounds = CGRect(origin: scaled.extent.origin, size: CGSize(width: size.width, height: size.height))
-        }
-
-        guard let cgImage = Self.context.createCGImage(image, from: bounds, format: format, colorSpace: colorSpace, deferred: false) else {
-            throw ImageConversionError.renderFailed
-        }
-
-        // A type that keeps no metadata can refuse the image when metadata comes with it, as HEIF sequences do.
-        let metadata = Self.carriesMetadata(type)
-            ? CGImageSourceCopyMetadataAtIndex(imageSource, index, nil).flatMap { CGImageMetadataCreateMutableCopy($0) }
-            : nil
-
-        if let metadata {
-            CGImageMetadataSetValueMatchingImageProperty(
-                metadata, kCGImagePropertyTIFFDictionary, kCGImagePropertyTIFFOrientation, 1 as CFNumber
-            )
-        }
-
-        guard let destination = CGImageDestinationCreateWithURL(url as CFURL, type.identifier as CFString, 1, nil) else {
-            throw ImageConversionError.unwritableType(type.identifier)
-        }
-
-        let options: [CFString: Any] = [
-            kCGImageDestinationLossyCompressionQuality: source.options.quality,
-            kCGImagePropertyOrientation: 1,
-        ]
-
-        CGImageDestinationAddImageAndMetadata(destination, cgImage, metadata, options as CFDictionary)
-
-        guard CGImageDestinationFinalize(destination) else { throw ImageConversionError.encodeFailed(type.identifier) }
     }
 
     static func verify(_ url: URL, displays expected: PixelSize, tolerance: Int) throws {

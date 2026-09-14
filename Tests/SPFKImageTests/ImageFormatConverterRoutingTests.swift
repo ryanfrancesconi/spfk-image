@@ -11,12 +11,19 @@ import UniformTypeIdentifiers
 struct ImageFormatConverterRoutingTests {
     private let rgb = kCGImagePropertyColorModelRGB as String
 
-    private func route(_ identifier: String, orientation: Int = 1, colorModel: String? = nil, resizes: Bool = false) throws -> ImageFormatConverter.Route {
+    private func route(
+        _ identifier: String,
+        orientation: Int = 1,
+        colorModel: String? = nil,
+        resizes: Bool = false,
+        metadata: ImageMetadataCopyScheme = .copyAll
+    ) throws -> ImageFormatConverter.Route {
         try ImageFormatConverter.route(
             to: #require(UTType(identifier)),
             orientation: orientation,
             colorModel: colorModel ?? rgb,
-            resizes: resizes
+            resizes: resizes,
+            metadata: metadata
         )
     }
 
@@ -27,14 +34,33 @@ struct ImageFormatConverterRoutingTests {
         #expect(try route(identifier, resizes: true) == .render)
     }
 
-    @Test(arguments: [UTType.heic.identifier, "public.avif"])
-    func aResizeIntoHEICOrAVIFTranscodes(identifier: String) throws {
-        #expect(try route(identifier, resizes: true) == .transcode)
+    @Test func aResizeIntoHEICTranscodes() throws {
+        #expect(try route(UTType.heic.identifier, resizes: true) == .transcode)
     }
 
-    @Test(arguments: ["public.avif", UTType.gif.identifier])
-    func aRotatedSourceIntoAVIFOrGIFRenders(identifier: String) throws {
-        #expect(try route(identifier, orientation: 6) == .render)
+    /// AVIF drops the orientation tag and refuses the metadata rewrite, so no scheme transcodes it.
+    @Test(arguments: ImageMetadataCopyScheme.allCases)
+    func anAVIFAlwaysRenders(metadata: ImageMetadataCopyScheme) throws {
+        #expect(try route("public.avif", metadata: metadata) == .render)
+    }
+
+    /// GIF refuses the rewrite that restores what a transcode drops, so only a strip transcodes it.
+    @Test func aGIFRendersUnlessItsMetadataIsStripped() throws {
+        #expect(try route(UTType.gif.identifier, metadata: .copyAll) == .render)
+        #expect(try route(UTType.gif.identifier, metadata: .copyAllExceptLocation) == .render)
+        #expect(try route(UTType.gif.identifier, metadata: .stripAll) == .transcode)
+    }
+
+    /// A TIFF metadata rewrite loses the EXIF time zone offsets, so a TIFF keeping metadata is written from the decode.
+    @Test func aTIFFKeepingMetadataIsRewrapped() throws {
+        #expect(try route(UTType.tiff.identifier, metadata: .copyAll) == .rewrap)
+        #expect(try route(UTType.tiff.identifier, metadata: .copyAllExceptLocation) == .rewrap)
+        #expect(try route(UTType.tiff.identifier, metadata: .stripAll) == .transcode)
+        #expect(try route(UTType.tiff.identifier, resizes: true) == .render)
+    }
+
+    @Test func aRotatedSourceIntoGIFRendersEvenWhenStripped() throws {
+        #expect(try route(UTType.gif.identifier, orientation: 6, metadata: .stripAll) == .render)
     }
 
     @Test(arguments: [UTType.jpeg.identifier, UTType.heic.identifier, UTType.png.identifier])
@@ -92,7 +118,9 @@ struct ImageFormatConverterRoutingTests {
     }
 
     @Test func optionsRoundTripThroughJSON() throws {
-        let options = ImageConversionOptions(format: UTType.png.identifier, quality: 0.4, maxPixelSize: 2048, conflictScheme: .unique)
+        let options = ImageConversionOptions(
+            format: UTType.png.identifier, quality: 0.4, maxPixelSize: 2048, conflictScheme: .unique, metadata: .copyAllExceptLocation
+        )
         let decoded = try JSONDecoder().decode(ImageConversionOptions.self, from: JSONEncoder().encode(options))
 
         #expect(decoded == options)

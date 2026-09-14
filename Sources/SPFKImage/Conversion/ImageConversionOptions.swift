@@ -21,16 +21,20 @@ public struct ImageConversionOptions: Codable, Hashable, Sendable {
 
     public var conflictScheme: FileConflictScheme
 
+    public var metadata: ImageMetadataCopyScheme
+
     public init(
         format: String = UTType.jpeg.identifier,
         quality: Double = ImageAdjustmentRenderer.defaultFileQuality,
         maxPixelSize: Int? = nil,
-        conflictScheme: FileConflictScheme = .overwrite
+        conflictScheme: FileConflictScheme = .overwrite,
+        metadata: ImageMetadataCopyScheme = .copyAll
     ) {
         self.format = format
         self.quality = Self.sanitized(quality: quality)
         self.maxPixelSize = Self.sanitized(maxPixelSize: maxPixelSize)
         self.conflictScheme = conflictScheme
+        self.metadata = metadata
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -38,6 +42,7 @@ public struct ImageConversionOptions: Codable, Hashable, Sendable {
         case quality
         case maxPixelSize
         case conflictScheme
+        case metadata
     }
 
     public init(from decoder: any Decoder) throws {
@@ -48,7 +53,8 @@ public struct ImageConversionOptions: Codable, Hashable, Sendable {
             format: container.decodeIfPresent(String.self, forKey: .format) ?? defaults.format,
             quality: container.decodeIfPresent(Double.self, forKey: .quality) ?? defaults.quality,
             maxPixelSize: container.decodeIfPresent(Int.self, forKey: .maxPixelSize),
-            conflictScheme: container.decodeIfPresent(FileConflictScheme.self, forKey: .conflictScheme) ?? defaults.conflictScheme
+            conflictScheme: container.decodeIfPresent(FileConflictScheme.self, forKey: .conflictScheme) ?? defaults.conflictScheme,
+            metadata: container.decodeIfPresent(ImageMetadataCopyScheme.self, forKey: .metadata) ?? defaults.metadata
         )
     }
 
