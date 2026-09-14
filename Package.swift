@@ -14,6 +14,7 @@ let package = Package(
     ],
     dependencies: [
         .package(url: "https://github.com/ryanfrancesconi/spfk-base", from: "1.10.0"),
+        .package(url: "https://github.com/ryanfrancesconi/spfk-filesystem", from: "1.2.4"),
         .package(url: "https://github.com/ryanfrancesconi/spfk-testing", from: "1.10.0"),
     ],
     targets: [
@@ -21,12 +22,14 @@ let package = Package(
             name: "SPFKImage",
             dependencies: [
                 .product(name: "SPFKBase", package: "spfk-base"),
+                .product(name: "SPFKFileSystem", package: "spfk-filesystem"),
             ]
         ),
         .testTarget(
             name: "SPFKImageTests",
             dependencies: [
                 .targetItem(name: "SPFKImage", condition: nil),
+                .product(name: "SPFKFileSystem", package: "spfk-filesystem"),
                 .product(name: "SPFKTesting", package: "spfk-testing"),
             ]
         ),
