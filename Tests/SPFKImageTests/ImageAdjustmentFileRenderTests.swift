@@ -152,6 +152,33 @@ final class ImageAdjustmentFileRenderTests {
         #expect(try meanLuminance(output) > meanLuminance(source) + 20)
     }
 
+    @Test(arguments: [UTType.png, .tiff])
+    func sixteenBitDepthSurvives(type: UTType) throws {
+        let source = try AdjustmentFileFixtures.sixteenBit(type, in: directory)
+        let depth = try #require(try properties(source)[kCGImagePropertyDepth as String] as? Int)
+        try #require(depth == 16)
+        let output = destination(for: source)
+
+        try renderer.renderFile(brighter, source: source, destination: output)
+
+        #expect(try properties(output)[kCGImagePropertyDepth as String] as? Int == depth)
+    }
+
+    @Test func qualityReachesTheEncoder() throws {
+        let source = try AdjustmentFileFixtures.tagged(.jpeg, orientation: 1, in: directory)
+        let low = directory.appendingPathComponent("low-quality.jpg")
+        let high = directory.appendingPathComponent("high-quality.jpg")
+
+        try renderer.renderFile(brighter, source: source, destination: low, quality: 0.3)
+        try renderer.renderFile(brighter, source: source, destination: high, quality: 1)
+
+        let size = { (url: URL) throws -> Int in
+            try FileManager.default.attributesOfItem(atPath: url.path)[.size] as? Int ?? 0
+        }
+
+        #expect(try size(low) < size(high))
+    }
+
     // MARK: - What the file keeps
 
     @Test(arguments: [UTType.jpeg, .heic])
@@ -241,5 +268,55 @@ final class ImageAdjustmentFileRenderTests {
         }
 
         #expect(try Data(contentsOf: output) == occupant)
+    }
+
+    @Test func aCMYKFileIsRefused() throws {
+        let source = try AdjustmentFileFixtures.cmykTIFF(in: directory)
+        try #require(try properties(source)[kCGImagePropertyColorModel as String] as? String == kCGImagePropertyColorModelCMYK as String)
+        let output = destination(for: source)
+
+        #expect(throws: ImageAdjustmentRenderError.unsupportedColorModel) {
+            try self.renderer.renderFile(self.brighter, source: source, destination: output)
+        }
+
+        #expect(!FileManager.default.fileExists(atPath: output.path))
+    }
+
+    /// Core Image reads an indexed file as RGB, so without the refusal it would be written back as truecolor.
+    @Test func anIndexedFileIsRefused() throws {
+        let source = try AdjustmentFileFixtures.indexedPNG(in: directory)
+        try #require(try properties(source)[kCGImagePropertyIsIndexed as String] as? Bool == true)
+        let output = destination(for: source)
+
+        #expect(throws: ImageAdjustmentRenderError.unsupportedColorModel) {
+            try self.renderer.renderFile(self.brighter, source: source, destination: output)
+        }
+
+        #expect(!FileManager.default.fileExists(atPath: output.path))
+    }
+
+    @Test func aFormatImageIOCannotWriteIsRefused() throws {
+        let source = TestBundleResources.shared.sharksandwich_webp
+        let reader = try #require(CGImageSourceCreateWithURL(source as CFURL, nil))
+        let sourceType = try #require(CGImageSourceGetType(reader)) as String
+        let output = destination(for: source)
+
+        #expect(throws: ImageAdjustmentRenderError.unwritableType(sourceType)) {
+            try self.renderer.renderFile(self.brighter, source: source, destination: output)
+        }
+
+        #expect(!FileManager.default.fileExists(atPath: output.path))
+    }
+
+    @Test func aFileThatIsNotAnImageIsRefused() throws {
+        let source = directory.appendingPathComponent("not-an-image.jpg")
+        try Data("not an image".utf8).write(to: source)
+        let output = destination(for: source)
+
+        #expect(throws: ImageAdjustmentRenderError.unreadable) {
+            try self.renderer.renderFile(self.brighter, source: source, destination: output)
+        }
+
+        #expect(!FileManager.default.fileExists(atPath: output.path))
     }
 }

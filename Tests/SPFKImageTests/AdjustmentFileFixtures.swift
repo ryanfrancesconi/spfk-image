@@ -125,6 +125,65 @@ enum AdjustmentFileFixtures {
         return url
     }
 
+    /// A flat CMYK TIFF.
+    static func cmykTIFF(in directory: URL) throws -> URL {
+        let url = directory.appendingPathComponent("cmyk.tiff")
+
+        guard let space = CGColorSpace(name: CGColorSpace.genericCMYK),
+              let context = CGContext(
+                  data: nil, width: 64, height: 48, bitsPerComponent: 8, bytesPerRow: 0,
+                  space: space, bitmapInfo: CGImageAlphaInfo.none.rawValue
+              )
+        else { throw GenerationError(message: "no CMYK context") }
+
+        context.setFillColor(CGColor(genericCMYKCyan: 0.2, magenta: 0.4, yellow: 0.6, black: 0.1, alpha: 1))
+        context.fill(CGRect(x: 0, y: 0, width: 64, height: 48))
+
+        guard let image = context.makeImage() else { throw GenerationError(message: "no image") }
+        try encode(image, to: url, type: .tiff, metadata: nil)
+
+        return url
+    }
+
+    /// A flat two-color indexed PNG.
+    static func indexedPNG(in directory: URL) throws -> URL {
+        let url = directory.appendingPathComponent("indexed.png")
+        var palette: [UInt8] = [255, 0, 0, 0, 0, 255]
+
+        guard let base = CGColorSpace(name: CGColorSpace.sRGB),
+              let space = CGColorSpace(indexedBaseSpace: base, last: 1, colorTable: &palette),
+              let provider = CGDataProvider(data: Data(repeating: 1, count: 64 * 48) as CFData),
+              let image = CGImage(
+                  width: 64, height: 48, bitsPerComponent: 8, bitsPerPixel: 8, bytesPerRow: 64, space: space,
+                  bitmapInfo: [], provider: provider, decode: nil, shouldInterpolate: false, intent: .defaultIntent
+              )
+        else { throw GenerationError(message: "no indexed image") }
+
+        try encode(image, to: url, type: .png, metadata: nil)
+
+        return url
+    }
+
+    /// A flat 16-bit-per-channel RGB file of `type`.
+    static func sixteenBit(_ type: UTType, in directory: URL) throws -> URL {
+        let url = directory.appendingPathComponent("sixteen-bit").appendingPathExtension(for: type)
+
+        guard let space = CGColorSpace(name: CGColorSpace.sRGB),
+              let context = CGContext(
+                  data: nil, width: 64, height: 48, bitsPerComponent: 16, bytesPerRow: 0,
+                  space: space, bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue
+              )
+        else { throw GenerationError(message: "no 16-bit context") }
+
+        context.setFillColor(CGColor(red: 0.4, green: 0.3, blue: 0.2, alpha: 1))
+        context.fill(CGRect(x: 0, y: 0, width: 64, height: 48))
+
+        guard let image = context.makeImage() else { throw GenerationError(message: "no image") }
+        try encode(image, to: url, type: type, metadata: nil)
+
+        return url
+    }
+
     /// A TIFF holding two pages.
     static func twoPageTIFF(in directory: URL) throws -> URL {
         let url = directory.appendingPathComponent("pages.tiff")

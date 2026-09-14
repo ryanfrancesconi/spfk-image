@@ -73,6 +73,13 @@ extension ImageAdjustmentRenderer {
 
         guard CGImageSourceGetCount(source) == 1 else { throw ImageAdjustmentRenderError.multipleImages }
 
+        // Core Image reads CMYK and indexed sources as RGB, so ImageIO's own properties decide.
+        let colorModel = properties[kCGImagePropertyColorModel as String] as? String
+
+        guard colorModel.map({ $0 == kCGImagePropertyColorModelRGB as String || $0 == kCGImagePropertyColorModelGray as String }) ?? true,
+              properties[kCGImagePropertyIsIndexed as String] as? Bool != true
+        else { throw ImageAdjustmentRenderError.unsupportedColorModel }
+
         let geometry = Geometry(
             orientation: properties[kCGImagePropertyOrientation as String] as? Int ?? 1,
             width: width,
