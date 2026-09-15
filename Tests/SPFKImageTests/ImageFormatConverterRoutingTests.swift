@@ -92,7 +92,7 @@ struct ImageFormatConverterRoutingTests {
     // MARK: - Offered types
 
     @Test func theOfferedTypesIncludeThePhotoFormatsAndNoDocumentsTexturesOrIcons() {
-        let identifiers = ImageFormatConverter.outputTypes.map(\.identifier)
+        let identifiers = ImageConversionFormats().outputTypes.map(\.identifier)
 
         for required in [UTType.jpeg.identifier, UTType.heic.identifier, UTType.png.identifier, UTType.tiff.identifier, "public.avif"] {
             #expect(identifiers.contains(required), "\(required) is not offered")
@@ -104,7 +104,8 @@ struct ImageFormatConverterRoutingTests {
     }
 
     @Test func typesThatKeepMetadataAreOfferedFirst() {
-        let keeps = ImageFormatConverter.outputTypes.map(ImageFormatConverter.carriesMetadata)
+        let formats = ImageConversionFormats()
+        let keeps = formats.outputTypes.map(formats.carriesMetadata)
 
         #expect(keeps == keeps.sorted { $0 && !$1 })
     }

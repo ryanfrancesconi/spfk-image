@@ -7,16 +7,8 @@ import ImageIO
 import UniformTypeIdentifiers
 
 extension ImageFormatConverter {
-    /// Decodes upright, scales to `size`, and writes with orientation 1, the scheme's metadata and each gain map
-    /// turned to match.
-    func render(
-        _ imageSource: CGImageSource,
-        index: Int,
-        properties: [String: Any],
-        to url: URL,
-        type: UTType,
-        size: PixelSize?
-    ) throws {
+    /// Decodes upright and scales to `size`, in the source's color space when it is RGB or gray and sRGB otherwise.
+    func renderedImage(_ imageSource: CGImageSource, index: Int, properties: [String: Any], size: PixelSize?) throws -> CGImage {
         let decoded = CIImage(cgImageSource: imageSource, index: index, options: [.applyOrientationProperty: true])
 
         // Core Image reports a CMYK source as RGB, so ImageIO's color model decides whose space is kept.
@@ -50,6 +42,21 @@ extension ImageFormatConverter {
         guard let cgImage = Self.context.createCGImage(image, from: bounds, format: format, colorSpace: colorSpace, deferred: false) else {
             throw ImageConversionError.renderFailed
         }
+
+        return cgImage
+    }
+
+    /// Writes ``renderedImage(_:index:properties:size:)`` with orientation 1, the scheme's metadata and each gain map
+    /// turned to match.
+    func render(
+        _ imageSource: CGImageSource,
+        index: Int,
+        properties: [String: Any],
+        to url: URL,
+        type: UTType,
+        size: PixelSize?
+    ) throws {
+        let cgImage = try renderedImage(imageSource, index: index, properties: properties, size: size)
 
         guard let destination = CGImageDestinationCreateWithURL(url as CFURL, type.identifier as CFString, 1, nil) else {
             throw ImageConversionError.unwritableType(type.identifier)

@@ -5,7 +5,8 @@ import SPFKBase
 import SPFKFileSystem
 import UniformTypeIdentifiers
 
-/// Converts one image file into another format through ImageIO.
+/// Converts one image file into another format through ImageIO, or an ``ImageFileEncoder`` for a type ImageIO
+/// cannot write.
 ///
 /// Copies through ImageIO where that keeps the source's pixels and metadata, and renders upright through
 /// Core Image where it would not. The output is written elsewhere and moved into place only once it reads
@@ -13,8 +14,11 @@ import UniformTypeIdentifiers
 public struct ImageFormatConverter: Sendable {
     public let source: ImageConversionSource
 
-    public init(source: ImageConversionSource) {
+    public let formats: ImageConversionFormats
+
+    public init(source: ImageConversionSource, formats: ImageConversionFormats = ImageConversionFormats()) {
         self.source = source
+        self.formats = formats
     }
 
     /// Converts the source's primary image and returns the source as written, its output renamed by a
@@ -29,9 +33,9 @@ public struct ImageFormatConverter: Sendable {
             throw ImageConversionError.outputReplacesInput(protected)
         }
 
-        guard let type = UTType(source.options.format),
-              Self.writableTypeIdentifiers.contains(type.identifier)
-        else { throw ImageConversionError.unwritableType(source.options.format) }
+        guard let type = UTType(source.options.format), formats.canWrite(type) else {
+            throw ImageConversionError.unwritableType(source.options.format)
+        }
 
         var converted = source
 

@@ -101,6 +101,18 @@ extension ImageFormatConverter {
         let displayed = Self.displayedSize(width: width, height: height, orientation: orientation)
         let limited = Self.limitedSize(displayed, maxPixelSize: source.options.maxPixelSize)
 
+        if let encoder = formats.encoder(for: type) {
+            let written = limited ?? displayed
+
+            if let maxPixelSize = encoder.maxPixelSize, max(written.width, written.height) > maxPixelSize {
+                throw ImageConversionError.exceedsMaxPixelSize(type.identifier, maxPixelSize)
+            }
+
+            try encode(imageSource, index: index, properties: properties, to: url, encoder: encoder, size: limited)
+            try Self.verify(url, displays: written, tolerance: limited == nil ? 0 : 1)
+            return
+        }
+
         let route = Self.route(
             to: type,
             orientation: orientation,

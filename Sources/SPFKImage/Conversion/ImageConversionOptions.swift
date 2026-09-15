@@ -6,10 +6,10 @@ import UniformTypeIdentifiers
 
 /// What ``ImageFormatConverter`` writes for each file.
 public struct ImageConversionOptions: Codable, Hashable, Sendable {
-    /// The output's type identifier. ``ImageFormatConverter/outputTypes`` lists those offered.
+    /// The output's type identifier. ``ImageConversionFormats/outputTypes`` lists those offered.
     public var format: String
 
-    /// Encode quality from 0 to 1, for the types ``ImageFormatConverter/usesQuality(_:)`` accepts.
+    /// Encode quality from 0 to 1, for the types ``ImageConversionFormats/usesQuality(_:)`` accepts.
     public var quality: Double {
         didSet { quality = Self.sanitized(quality: quality) }
     }

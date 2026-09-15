@@ -62,7 +62,7 @@ final class ImageFormatConverterTests: BinTestCase {
 
     // MARK: - Formats
 
-    @Test(arguments: ImageFormatConverter.outputTypes)
+    @Test(arguments: ImageConversionFormats().outputTypes)
     func everyOfferedTypeConvertsAtTheSourceSize(type: UTType) throws {
         let input = try source()
         let expected = try displayedSize(input)

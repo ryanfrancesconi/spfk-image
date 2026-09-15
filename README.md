@@ -14,6 +14,10 @@ bytes or compare two images can depend on it without taking on more.
   `ImageAdjustmentRenderer` applies it through Core Image: `render(_:source:)` for a preview bitmap,
   and `renderFile(_:source:destination:quality:)` to write a new file in the source's format that
   keeps its metadata, orientation and auxiliary images (gain maps, depth, mattes).
+- **Converting** — `ImageFormatConverter` writes one file into another format, keeping, dropping the
+  location from, or stripping its metadata, and never replacing its input. `ImageConversionFormats` lists
+  what it can write: ImageIO's types, plus any `ImageFileEncoder` supplied for a type ImageIO only reads
+  ([spfk-webp](https://github.com/ryanfrancesconi/spfk-webp), [spfk-jxl](https://github.com/ryanfrancesconi/spfk-jxl)).
 - **Encoding** — `export(utType:to:)` writes PNG, JPEG, HEIF or TIFF through `CIContext`, and
   `dataRepresentation(utType:dpi:compression:excludeGPSData:otherOptions:)` returns encoded data
   through ImageIO. Neither carries the source file's metadata: they encode a bare image.

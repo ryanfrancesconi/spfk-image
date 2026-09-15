@@ -11,8 +11,10 @@ public enum ImageConversionError: LocalizedError, Equatable, Sendable {
     case outputExists(URL)
     /// The input could not be opened as an image, or reports no pixel dimensions.
     case unreadable(URL)
-    /// ImageIO has no encoder for this type identifier.
+    /// Neither ImageIO nor a supplied encoder writes this type identifier.
     case unwritableType(String)
+    /// The image is larger on a side than the type identifier holds.
+    case exceedsMaxPixelSize(String, Int)
     case renderFailed
     case encodeFailed(String)
     /// The written file does not display at the size it was written at.
@@ -28,6 +30,8 @@ public enum ImageConversionError: LocalizedError, Equatable, Sendable {
             "The file could not be read as an image."
         case let .unwritableType(type):
             "This Mac cannot write \(Self.name(of: type))."
+        case let .exceedsMaxPixelSize(type, maxPixelSize):
+            "\(Self.name(of: type)) holds images up to \(maxPixelSize) pixels on a side. Set a maximum size to convert this one."
         case .renderFailed:
             "The image could not be rendered."
         case let .encodeFailed(type):
