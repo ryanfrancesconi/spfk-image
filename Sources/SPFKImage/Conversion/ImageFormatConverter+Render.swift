@@ -87,6 +87,9 @@ extension ImageFormatConverter {
 
             if source.options.metadata == .copyAllExceptLocation {
                 options[kCGImageMetadataShouldExcludeGPS] = true
+
+                // The exclusion leaves a GPS field in the `exifEX` namespace.
+                if let metadata { Self.removeLocation(from: metadata) }
             }
 
             CGImageDestinationAddImageAndMetadata(destination, cgImage, metadata, options as CFDictionary)

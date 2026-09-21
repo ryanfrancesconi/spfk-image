@@ -271,6 +271,17 @@ final class ImageFormatConverterEncoderTests: BinTestCase {
         #expect(paths.contains("dc:subject"))
     }
 
+    /// A location field in the `exifEX` namespace, which `exif:GPS` alone does not cover.
+    @Test func copyAllExceptLocationHandsOverNoPositioningError() throws {
+        let input = try ConversionFixtures.fields(orientation: 6, in: bin)
+        try #require(xmpPaths(metadata(.copyAll, of: input).xmp).contains("exifEX:GPSHPositioningError"))
+
+        let paths = try xmpPaths(metadata(.copyAllExceptLocation, of: input).xmp)
+
+        #expect(!paths.contains { $0.contains(":GPS") })
+        #expect(paths.contains("photoshop:LabelColor"))
+    }
+
     @Test func stripAllHandsOverNoMetadata() throws {
         let metadata = try metadata(.stripAll)
 

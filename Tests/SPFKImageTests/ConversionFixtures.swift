@@ -14,7 +14,9 @@ enum ConversionFixtures {
     static let finderTags = ["Converted", "Red\n6"]
 
     /// A JPEG tagged with `orientation`, a capture date and time zone, GPS, `dc:subject`, and two TorchTag fields
-    /// ImageIO's own transcode drops: `photoshop:LabelColor` and `Iptc4xmpCore:AltTextAccessibility`.
+    /// ImageIO's own transcode drops: `photoshop:LabelColor` and `Iptc4xmpCore:AltTextAccessibility`. Its horizontal
+    /// accuracy is in the `exifEX` spelling a Lightroom-style XMP packet uses, a location field outside `exif:GPS`;
+    /// ImageIO's own JPEG write drops that spelling, so it goes into the written XMP segment afterwards.
     static func fields(orientation: Int, in directory: URL) throws -> URL {
         let url = directory.appendingPathComponent("fields-\(orientation).jpg")
         let metadata = CGImageMetadataCreateMutable()
@@ -57,7 +59,48 @@ enum ConversionFixtures {
 
         guard CGImageDestinationFinalize(destination) else { throw GenerationError(message: "JPEG did not encode") }
 
+        try addPositioningError(to: url)
         return url
+    }
+
+    private static func addPositioningError(to url: URL) throws {
+        guard let source = CGImageSourceCreateWithURL(url as CFURL, nil),
+              let written = CGImageSourceCopyMetadataAtIndex(source, 0, nil),
+              let metadata = CGImageMetadataCreateMutableCopy(written),
+              CGImageMetadataRegisterNamespaceForPrefix(metadata, kCGImageMetadataNamespaceExifEX, kCGImageMetadataPrefixExifEX, nil),
+              let tag = CGImageMetadataTagCreate(
+                  kCGImageMetadataNamespaceExifEX, kCGImageMetadataPrefixExifEX, "GPSHPositioningError" as CFString, .string, "5/1" as CFString
+              ),
+              CGImageMetadataSetTagWithPath(metadata, nil, "exifEX:GPSHPositioningError" as CFString, tag),
+              let xmp = CGImageMetadataCreateXMPData(metadata, nil) as Data?
+        else { throw GenerationError(message: "exifEX:GPSHPositioningError could not be set") }
+
+        try replacingXMP(in: Data(contentsOf: url), with: xmp).write(to: url)
+    }
+
+    /// `jpeg` with its XMP APP1 segment replaced by one holding `xmp`.
+    private static func replacingXMP(in jpeg: Data, with xmp: Data) throws -> Data {
+        let header = Data("http://ns.adobe.com/xap/1.0/\0".utf8)
+        let payload = header + xmp
+        var offset = 2
+
+        while offset + 4 <= jpeg.count, jpeg[offset] == 0xFF, jpeg[offset + 1] != 0xDA {
+            let length = Int(jpeg[offset + 2]) << 8 | Int(jpeg[offset + 3])
+
+            if jpeg[offset + 1] == 0xE1, jpeg[(offset + 4)...].starts(with: header) {
+                let segmentLength = payload.count + 2
+                var segment = Data([0xFF, 0xE1, UInt8(segmentLength >> 8), UInt8(segmentLength & 0xFF)])
+                segment.append(payload)
+
+                var result = jpeg
+                result.replaceSubrange(offset ..< offset + 2 + length, with: segment)
+                return result
+            }
+
+            offset += 2 + length
+        }
+
+        throw GenerationError(message: "no XMP segment to replace")
     }
 
     /// ``AdjustmentFileFixtures/gainMapped(_:in:)`` as HEIC, tagged with `orientation` and its pixels and gain map

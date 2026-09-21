@@ -87,7 +87,9 @@ final class ImageFormatConverterMetadataTests: BinTestCase {
         let source = try readBack(url)
         try #require(source.exif[kCGImagePropertyExifOffsetTimeOriginal as String] as? String == ConversionFixtures.timeZoneOffset)
         try #require(source.gps.isNotEmpty)
-        try #require(source.paths.isSuperset(of: ["dc:subject", "photoshop:LabelColor", "Iptc4xmpCore:AltTextAccessibility"]))
+        try #require(source.paths.isSuperset(of: [
+            "dc:subject", "photoshop:LabelColor", "Iptc4xmpCore:AltTextAccessibility", "exifEX:GPSHPositioningError",
+        ]))
         #if os(macOS)
         try #require(Set(url.tagNames) == Set(ConversionFixtures.finderTags))
         #endif

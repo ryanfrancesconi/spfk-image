@@ -68,12 +68,12 @@ extension ImageFormatConverter {
         return try (exifBlock(metadata, type: type), xmp)
     }
 
-    /// Removes the GPS tags, which ImageIO keeps in the EXIF namespace.
+    /// Removes the GPS tags: ImageIO keeps them in `exif`, and an XMP packet may carry some in `exifEX`.
     static func removeLocation(from metadata: CGMutableImageMetadata) {
         var paths: [CFString] = []
 
         CGImageMetadataEnumerateTagsUsingBlock(metadata, nil, nil) { path, tag in
-            if CGImageMetadataTagCopyNamespace(tag) as String? == kCGImageMetadataNamespaceExif as String,
+            if cameraPrefixes.contains(CGImageMetadataTagCopyPrefix(tag) as String? ?? ""),
                (CGImageMetadataTagCopyName(tag) as String?)?.hasPrefix("GPS") == true
             {
                 paths.append(path)
