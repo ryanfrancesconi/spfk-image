@@ -19,20 +19,43 @@ final class ImageFormatConverterEncoderTests: BinTestCase {
         var type: UTType = .webP
         var maxPixelSize: Int?
 
+        /// Writes a 1×1 image whatever it is handed, as an encoder ignoring its input would.
+        var writesOnePixel = false
+
+        /// Cancels the task converting, as a Cancel pressed while the file is written does.
+        var cancelsItsTask = false
+
         var usesQuality: Bool { false }
 
         func encode(_ input: ImageFileEncoderInput) throws -> Data {
+            if cancelsItsTask {
+                withUnsafeCurrentTask { $0?.cancel() }
+            }
+
+            let image = writesOnePixel ? try onePixel() : input.image
             let data = NSMutableData()
 
             guard let destination = CGImageDestinationCreateWithData(data, UTType.png.identifier as CFString, 1, nil) else {
                 throw ImageConversionError.encodeFailed(type.identifier)
             }
 
-            CGImageDestinationAddImage(destination, input.image, nil)
+            CGImageDestinationAddImage(destination, image, nil)
 
             guard CGImageDestinationFinalize(destination) else { throw ImageConversionError.encodeFailed(type.identifier) }
 
             return data as Data
+        }
+
+        private func onePixel() throws -> CGImage {
+            guard let space = CGColorSpace(name: CGColorSpace.sRGB),
+                  let context = CGContext(
+                      data: nil, width: 1, height: 1, bitsPerComponent: 8, bytesPerRow: 0, space: space,
+                      bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue
+                  ),
+                  let image = context.makeImage()
+            else { throw ImageConversionError.encodeFailed(type.identifier) }
+
+            return image
         }
     }
 
@@ -167,6 +190,41 @@ final class ImageFormatConverterEncoderTests: BinTestCase {
 
         let limited = try pixelSize(properties(convert(input, named: "limited", encoder: encoder, maxPixelSize: 100)))
         #expect(max(limited.width, limited.height) == 100)
+    }
+
+    /// An output that reads back at the wrong size never replaces the file already at its path.
+    @Test func anEncoderWritingTheWrongSizeLeavesTheExistingOutput() throws {
+        try requireWebPIsReadOnly()
+
+        let input = try AdjustmentFileFixtures.tagged(.jpeg, orientation: 1, in: bin)
+        let output = bin.appending(component: "existing.png", directoryHint: .notDirectory)
+        let existing = Data("existing".utf8)
+        try existing.write(to: output)
+
+        #expect(throws: ImageConversionError.readBackMismatch) {
+            try self.convert(input, named: "existing", encoder: PNGStandInEncoder(writesOnePixel: true))
+        }
+        #expect(try Data(contentsOf: output) == existing)
+    }
+
+    /// A Cancel landing while the file is written leaves the file already at the output path.
+    @Test func aCancelDuringTheWriteLeavesTheExistingOutput() async throws {
+        try requireWebPIsReadOnly()
+
+        let input = try AdjustmentFileFixtures.tagged(.jpeg, orientation: 1, in: bin)
+        let output = bin.appending(component: "existing.png", directoryHint: .notDirectory)
+        let existing = Data("existing".utf8)
+        try existing.write(to: output)
+
+        let converter = ImageFormatConverter(
+            source: ImageConversionSource(input: input, output: output, options: ImageConversionOptions(format: UTType.webP.identifier)),
+            formats: ImageConversionFormats(encoders: [PNGStandInEncoder(cancelsItsTask: true)])
+        )
+
+        await #expect(throws: CancellationError.self) {
+            try await Task { try converter.convert() }.value
+        }
+        #expect(try Data(contentsOf: output) == existing)
     }
 
     // MARK: - Metadata

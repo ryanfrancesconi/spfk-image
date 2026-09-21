@@ -80,13 +80,17 @@ final class ImageFormatConverterMetadataTests: BinTestCase {
     /// A rotated source with every field, the fields and its Finder tags asserted before use.
     private func taggedSource() throws -> (url: URL, readBack: ReadBack) {
         let url = try ConversionFixtures.fields(orientation: 6, in: bin)
+        #if os(macOS)
         try url.set(tagNames: ConversionFixtures.finderTags)
+        #endif
 
         let source = try readBack(url)
         try #require(source.exif[kCGImagePropertyExifOffsetTimeOriginal as String] as? String == ConversionFixtures.timeZoneOffset)
         try #require(source.gps.isNotEmpty)
         try #require(source.paths.isSuperset(of: ["dc:subject", "photoshop:LabelColor", "Iptc4xmpCore:AltTextAccessibility"]))
+        #if os(macOS)
         try #require(Set(url.tagNames) == Set(ConversionFixtures.finderTags))
+        #endif
 
         return (url, source)
     }
@@ -103,7 +107,9 @@ final class ImageFormatConverterMetadataTests: BinTestCase {
         #expect(written.exif[kCGImagePropertyExifDateTimeOriginal as String] as? String == AdjustmentFileFixtures.captureDate)
         #expect(written.gps.isNotEmpty)
         #expect(written.paths.isSuperset(of: ["dc:subject", "photoshop:LabelColor", "Iptc4xmpCore:AltTextAccessibility"]))
+        #if os(macOS)
         #expect(Set(output.tagNames) == Set(ConversionFixtures.finderTags))
+        #endif
 
         // PSD holds XMP only through a metadata rewrite, and that rewrite drops the offsets.
         if identifier != "com.adobe.photoshop-image" {
@@ -121,7 +127,9 @@ final class ImageFormatConverterMetadataTests: BinTestCase {
         #expect(!written.hasLocationInXMP)
         #expect(written.exif[kCGImagePropertyExifDateTimeOriginal as String] as? String == AdjustmentFileFixtures.captureDate)
         #expect(written.paths.isSuperset(of: ["dc:subject", "photoshop:LabelColor", "Iptc4xmpCore:AltTextAccessibility"]))
+        #if os(macOS)
         #expect(Set(output.tagNames) == Set(ConversionFixtures.finderTags))
+        #endif
     }
 
     @Test(arguments: keepingTypes)
@@ -135,7 +143,9 @@ final class ImageFormatConverterMetadataTests: BinTestCase {
         #expect(written.gps.isEmpty)
         #expect(!written.hasLocationInXMP)
         #expect(written.paths.isDisjoint(with: ["dc:subject", "photoshop:LabelColor", "Iptc4xmpCore:AltTextAccessibility"]))
+        #if os(macOS)
         #expect(output.tagNames.isEmpty)
+        #endif
     }
 
     /// A resize into JPEG goes through the render path, which must honor the scheme as the transcode does.
@@ -148,6 +158,7 @@ final class ImageFormatConverterMetadataTests: BinTestCase {
         #expect(written.gps.isEmpty == (metadata != .copyAll))
     }
 
+    #if os(macOS)
     /// The replaced file's own tags are not carried into its replacement.
     @Test func replacingATaggedOutputUnderStripAllLeavesNoTags() throws {
         let source = try taggedSource()
@@ -164,6 +175,7 @@ final class ImageFormatConverterMetadataTests: BinTestCase {
         #expect(output == stripped)
         #expect(output.tagNames.isEmpty)
     }
+    #endif
 
     @Test func anUnreadableSourceIsRefusedWithAReason() throws {
         let input = bin.appending(component: "broken.jpg", directoryHint: .notDirectory)
