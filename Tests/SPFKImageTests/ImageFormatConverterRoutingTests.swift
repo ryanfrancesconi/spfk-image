@@ -16,6 +16,7 @@ struct ImageFormatConverterRoutingTests {
         orientation: Int = 1,
         colorModel: String? = nil,
         resizes: Bool = false,
+        adjusts: Bool = false,
         metadata: ImageMetadataCopyScheme = .copyAll
     ) throws -> ImageFormatConverter.Route {
         try ImageFormatConverter.route(
@@ -23,6 +24,7 @@ struct ImageFormatConverterRoutingTests {
             orientation: orientation,
             colorModel: colorModel ?? rgb,
             resizes: resizes,
+            adjusts: adjusts,
             metadata: metadata
         )
     }
@@ -32,6 +34,14 @@ struct ImageFormatConverterRoutingTests {
     @Test(arguments: [UTType.jpeg.identifier, UTType.png.identifier, UTType.tiff.identifier])
     func aResizeIntoJPEGPNGOrTIFFRenders(identifier: String) throws {
         #expect(try route(identifier, resizes: true) == .render)
+    }
+
+    /// Every path but the render writes the source's own pixels.
+    @Test(arguments: [UTType.jpeg.identifier, UTType.heic.identifier, UTType.tiff.identifier, UTType.png.identifier])
+    func anAdjustedFileRenders(identifier: String) throws {
+        for metadata in ImageMetadataCopyScheme.allCases {
+            #expect(try route(identifier, adjusts: true, metadata: metadata) == .render)
+        }
     }
 
     @Test func aResizeIntoHEICTranscodes() throws {

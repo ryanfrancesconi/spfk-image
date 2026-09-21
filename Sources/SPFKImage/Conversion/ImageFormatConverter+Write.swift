@@ -27,8 +27,14 @@ extension ImageFormatConverter {
         orientation: Int,
         colorModel: String?,
         resizes: Bool,
+        adjusts: Bool,
         metadata: ImageMetadataCopyScheme
     ) -> Route {
+        // Only a decode can take the adjustments.
+        if adjusts {
+            return .render
+        }
+
         // A transcode into JPEG or TIFF keeps CMYK as CMYK.
         if let colorModel,
            colorModel != kCGImagePropertyColorModelRGB as String,
@@ -118,6 +124,7 @@ extension ImageFormatConverter {
             orientation: orientation,
             colorModel: properties[kCGImagePropertyColorModel as String] as? String,
             resizes: limited != nil,
+            adjusts: source.hasAdjustments,
             metadata: source.options.metadata
         )
 

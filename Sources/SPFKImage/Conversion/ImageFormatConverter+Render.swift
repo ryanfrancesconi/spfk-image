@@ -7,16 +7,18 @@ import ImageIO
 import UniformTypeIdentifiers
 
 extension ImageFormatConverter {
-    /// Decodes upright and scales to `size`, in the source's color space when it is RGB or gray and sRGB otherwise.
+    /// Decodes upright, applies the source's adjustments at full size and scales to `size`, in the source's color space
+    /// when it is RGB or gray and sRGB otherwise.
     func renderedImage(_ imageSource: CGImageSource, index: Int, properties: [String: Any], size: PixelSize?) throws -> CGImage {
-        let decoded = CIImage(cgImageSource: imageSource, index: index, options: [.applyOrientationProperty: true])
+        let upright = CIImage(cgImageSource: imageSource, index: index, options: [.applyOrientationProperty: true])
+        let decoded = source.adjustments.map { ImageAdjustmentRenderer.apply($0, to: upright) } ?? upright
 
         // Core Image reports a CMYK source as RGB, so ImageIO's color model decides whose space is kept.
         let colorModel = properties[kCGImagePropertyColorModel as String] as? String
         let keepsSourceSpace = [kCGImagePropertyColorModelRGB as String, kCGImagePropertyColorModelGray as String]
             .contains(colorModel ?? kCGImagePropertyColorModelRGB as String)
 
-        guard let colorSpace = (keepsSourceSpace ? decoded.colorSpace : nil) ?? CGColorSpace(name: CGColorSpace.sRGB),
+        guard let colorSpace = (keepsSourceSpace ? upright.colorSpace : nil) ?? CGColorSpace(name: CGColorSpace.sRGB),
               let format = ImageAdjustmentRenderer.fileFormat(
                   model: colorSpace.model,
                   sixteenBit: (properties[kCGImagePropertyDepth as String] as? Int ?? 8) > 8,
