@@ -36,6 +36,7 @@ bytes or compare two images can depend on it without taking on more.
 | Package | Description |
 |---------|-------------|
 | [spfk-base](https://github.com/ryanfrancesconi/spfk-base) | Core utilities and extensions |
+| [spfk-filesystem](https://github.com/ryanfrancesconi/spfk-filesystem) | Conflict handling and file identity for the converter's outputs |
 
 ## Requirements
 
