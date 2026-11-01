@@ -4,44 +4,21 @@
 [![](https://img.shields.io/endpoint?url=https%3A%2F%2Fswiftpackageindex.com%2Fapi%2Fpackages%2Fryanfrancesconi%2Fspfk-image%2Fbadge%3Ftype%3Dswift-versions)](https://swiftpackageindex.com/ryanfrancesconi/spfk-image)
 [![](https://img.shields.io/endpoint?url=https%3A%2F%2Fswiftpackageindex.com%2Fapi%2Fpackages%2Fryanfrancesconi%2Fspfk-image%2Fbadge%3Ftype%3Dplatforms)](https://swiftpackageindex.com/ryanfrancesconi/spfk-image)
 
-Pixel-level image work for Swift, over Core Image and ImageIO: encoding, decoding, resizing and
-hashing `CGImage`. It holds no metadata model and no UI, so anything that needs to turn pixels into
-bytes or compare two images can depend on it without taking on more.
+Pixel-level image work over Core Image and ImageIO: decoding, encoding, resizing, adjusting and
+comparing images, and converting a file to another format. It is a capability the products embed for
+anything that turns pixels into bytes, and it holds no metadata model and no UI, so it can be
+depended on without taking either on.
 
-## Features
+Two kinds of identity live here, for two questions. A byte fingerprint answers whether a store has
+already written this exact image; a perceptual hash answers whether two files are the same picture
+across re-encoding and resizing.
 
-- **Adjusting** — `ImageAdjustmentDescription` is a color adjustment stored as slider positions, and
-  `ImageAdjustmentRenderer` applies it through Core Image: `render(_:source:)` for a preview bitmap,
-  and `renderFile(_:source:destination:quality:)` to write a new file in the source's format that
-  keeps its metadata, orientation and auxiliary images (gain maps, depth, mattes).
-- **Converting** — `ImageFormatConverter` writes one file into another format, keeping, dropping the
-  location from, or stripping its metadata, and never replacing its input. `ImageConversionFormats` lists
-  what it can write: ImageIO's types, plus any `ImageFileEncoder` supplied for a type ImageIO only reads
-  ([spfk-webp](https://github.com/ryanfrancesconi/spfk-webp), [spfk-jxl](https://github.com/ryanfrancesconi/spfk-jxl)).
-- **Encoding** — `export(utType:to:)` writes PNG, JPEG, HEIF or TIFF through `CIContext`, and
-  `dataRepresentation(utType:dpi:compression:excludeGPSData:otherOptions:)` returns encoded data
-  through ImageIO. Neither carries the source file's metadata: they encode a bare image.
-- **Decoding** — `CGImage.create(from:)` and `CGImage.contentsOf(url:)` decode the first image of a
-  file or data blob.
-- **Resizing** — `scaled(to:)` redraws at a target size with high-quality interpolation.
-- **Byte identity** — `fingerprint` hashes geometry plus the whole pixel buffer, and
-  `hasEqualPixelData(_:)` compares buffers directly. The right question for a store deduplicating
-  what it has already written.
-- **Perceptual identity** — `perceptualHash` is a 64-bit difference hash, compared with
-  `perceptualDistance(to:)` or `isPerceptuallySimilar(to:tolerance:)`. The right question for "is
-  this the same picture", across re-encoding and resizing.
+Conversion writes a new file and never replaces its input. It writes what ImageIO can, plus any type
+an `ImageFileEncoder` is supplied for: [spfk-webp](https://github.com/ryanfrancesconi/spfk-webp) and
+[spfk-jxl](https://github.com/ryanfrancesconi/spfk-jxl) add the formats ImageIO only reads.
 
-## Dependencies
-
-| Package | Description |
-|---------|-------------|
-| [spfk-base](https://github.com/ryanfrancesconi/spfk-base) | Core utilities and extensions |
-| [spfk-filesystem](https://github.com/ryanfrancesconi/spfk-filesystem) | Conflict handling and file identity for the converter's outputs |
-
-## Requirements
-
-- **Platforms:** macOS 13+, iOS 16+
-- **Swift:** 6.2+
+XMP and descriptive metadata belong to spfk-metadata-image, video frames to spfk-video, and anything
+on screen to the UI packages.
 
 ## About
 
