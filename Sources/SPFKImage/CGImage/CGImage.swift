@@ -73,13 +73,18 @@ extension CGImage {
         return selfData == otherData
     }
 
-    public static func create(from data: Data) throws -> CGImage {
+    /// Creates the first image in `data`.
+    ///
+    /// Without `decodingImmediately` the pixels are decoded on first draw, on whatever thread
+    /// draws it -- for a layer's `contents`, the main thread during the Core Animation commit.
+    public static func create(from data: Data, decodingImmediately: Bool = false) throws -> CGImage {
         guard let source = CGImageSourceCreateWithData(data as CFData, nil) else {
             throw NSError(description: "CGImageSourceCreateWithData failed to create source")
         }
 
-        // Get the first image from the source
-        guard let cgImage = CGImageSourceCreateImageAtIndex(source, 0, nil) else {
+        let options = decodingImmediately ? [kCGImageSourceShouldCacheImmediately: true] as CFDictionary : nil
+
+        guard let cgImage = CGImageSourceCreateImageAtIndex(source, 0, options) else {
             throw NSError(description: "CGImageSourceCreateImageAtIndex 0 failed to create cgImage")
         }
 
