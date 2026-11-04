@@ -50,41 +50,13 @@ final class ImageFormatConverterMemoryTests: BinTestCase {
         let options = ImageConversionOptions(format: UTType.heic.identifier)
         let bin = bin
 
-        func convert(_ count: Int, from start: Int) async throws {
-            try await withThrowingTaskGroup(of: Void.self) { group in
-                for index in start ..< start + count {
-                    if index - start >= 8 { try await group.next() }
-
-                    group.addTask {
-                        let output = bin.appendingPathComponent("out-\(index).heic")
-                        let source = ImageConversionSource(input: input, output: output, options: options)
-                        _ = try ImageFormatConverter(source: source).convert()
-                        try FileManager.default.removeItem(at: output)
-                    }
-                }
-                try await group.waitForAll()
-            }
+        let grown = try await retainedMemoryMB(warmUp: 16, measured: 60, width: 8) { index in
+            let output = bin.appendingPathComponent("out-\(index).heic")
+            let source = ImageConversionSource(input: input, output: output, options: options)
+            _ = try ImageFormatConverter(source: source).convert()
+            try FileManager.default.removeItem(at: output)
         }
-
-        // Caches and pools fill on the first files; growth after that is what is kept per file.
-        try await convert(16, from: 0)
-        let settled = Self.footprintMB()
-        try await convert(60, from: 16)
-        let grown = Self.footprintMB() - settled
 
         #expect(grown < 100, "grew \(Int(grown)) MB over 60 files")
-    }
-
-    private static func footprintMB() -> Double {
-        var info = task_vm_info_data_t()
-        var count = mach_msg_type_number_t(MemoryLayout<task_vm_info_data_t>.size / MemoryLayout<natural_t>.size)
-
-        let result = withUnsafeMutablePointer(to: &info) {
-            $0.withMemoryRebound(to: integer_t.self, capacity: Int(count)) {
-                task_info(mach_task_self_, task_flavor_t(TASK_VM_INFO), $0, &count)
-            }
-        }
-
-        return result == KERN_SUCCESS ? Double(info.phys_footprint) / 1_048_576 : 0
     }
 }
