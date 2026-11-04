@@ -167,6 +167,19 @@ final class ImageFormatConverterTests: BinTestCase {
         #expect(CGImageSourceCopyAuxiliaryDataInfoAtIndex(written, 0, kCGImageAuxiliaryDataTypeHDRGainMap) != nil)
     }
 
+    /// A resize into HEIC stays on the transcode, which carries the map at its own size for the reader to scale.
+    @Test(.tags(.conversion)) func aGainMapIsCarriedIntoAResizedHEIC() throws {
+        let input = try AdjustmentFileFixtures.gainMapped(.heic, in: bin)
+        let size = try displayedSize(input)
+        let limit = max(size.width, size.height) / 2
+
+        let converted = try convert(input, to: output("resized", .heic), ImageConversionOptions(format: UTType.heic.identifier, maxPixelSize: limit))
+        let written = try #require(CGImageSourceCreateWithURL(converted.output as CFURL, nil))
+
+        #expect(try max(displayedSize(converted.output).width, displayedSize(converted.output).height) == limit)
+        #expect(CGImageSourceCopyAuxiliaryDataInfoAtIndex(written, 0, kCGImageAuxiliaryDataTypeHDRGainMap) != nil)
+    }
+
     // MARK: - Conflicts
 
     @Test func theErrorSchemeLeavesAnExistingOutputAlone() throws {

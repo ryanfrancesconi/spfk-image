@@ -38,10 +38,6 @@ extension ImageFormatConverter {
             options[kCGImageDestinationImageMaxPixelSize] = maxPixelSize
         }
 
-        if Self.gainMapTypeIdentifiers.contains(type.identifier) {
-            options[kCGImageDestinationPreserveGainMap] = true
-        }
-
         switch scheme {
         case .copyAll:
             break
@@ -54,6 +50,12 @@ extension ImageFormatConverter {
         }
 
         CGImageDestinationAddImageFromSource(destination, imageSource, index, options as CFDictionary)
+
+        // Copied rather than through kCGImageDestinationPreserveGainMap, which keeps an IOSurface per image
+        // for the life of the process. The pixels keep their stored layout, so the map keeps its own.
+        if Self.gainMapTypeIdentifiers.contains(type.identifier) {
+            Self.addGainMaps(from: imageSource, index: index, orientation: 1, to: destination)
+        }
 
         guard CGImageDestinationFinalize(destination) else { throw ImageConversionError.encodeFailed(type.identifier) }
 
