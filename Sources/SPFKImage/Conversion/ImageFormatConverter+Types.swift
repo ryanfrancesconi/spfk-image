@@ -7,10 +7,13 @@ import UniformTypeIdentifiers
 extension ImageFormatConverter {
     /// How many files to convert at once when writing `type`, where it differs from the batch default.
     ///
-    /// HEIC is fastest at 4: 1,000 photos took 42 s at 4 and 47 s at 8 on an M1 Max, where JPEG kept
-    /// scaling to 8.
+    /// Both are 4 on an M1 Max, 1,000 photos: HEIC took 41 s at 4 and 45 s at 8; JPEG XL took 40 s at
+    /// either while its peak memory rose from 3.8 GB to 5.6 GB. JPEG kept scaling to 8.
     public static func preferredBatchSize(writing type: UTType) -> Int? {
-        type.identifier == UTType.heic.identifier ? 4 : nil
+        switch type.identifier {
+        case UTType.heic.identifier, "public.jpeg-xl": 4
+        default: nil
+        }
     }
 
     /// Every type identifier ImageIO can write on this system.
