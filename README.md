@@ -1,24 +1,23 @@
 # SPFKImage
 
 [![Version](https://img.shields.io/github/v/tag/ryanfrancesconi/spfk-image)](https://github.com/ryanfrancesconi/spfk-image/tags)
-[![](https://img.shields.io/endpoint?url=https%3A%2F%2Fswiftpackageindex.com%2Fapi%2Fpackages%2Fryanfrancesconi%2Fspfk-image%2Fbadge%3Ftype%3Dswift-versions)](https://swiftpackageindex.com/ryanfrancesconi/spfk-image)
-[![](https://img.shields.io/endpoint?url=https%3A%2F%2Fswiftpackageindex.com%2Fapi%2Fpackages%2Fryanfrancesconi%2Fspfk-image%2Fbadge%3Ftype%3Dplatforms)](https://swiftpackageindex.com/ryanfrancesconi/spfk-image)
+[![Swift](https://img.shields.io/endpoint?url=https%3A%2F%2Fswiftpackageindex.com%2Fapi%2Fpackages%2Fryanfrancesconi%2Fspfk-image%2Fbadge%3Ftype%3Dswift-versions)](https://swiftpackageindex.com/ryanfrancesconi/spfk-image)
+[![Platforms](https://img.shields.io/endpoint?url=https%3A%2F%2Fswiftpackageindex.com%2Fapi%2Fpackages%2Fryanfrancesconi%2Fspfk-image%2Fbadge%3Ftype%3Dplatforms)](https://swiftpackageindex.com/ryanfrancesconi/spfk-image)
 
-Pixel-level image work over Core Image and ImageIO: decoding, encoding, resizing, adjusting and
-comparing images, and converting a file to another format. It is a capability the products embed for
-anything that turns pixels into bytes, and it holds no metadata model and no UI, so it can be
-depended on without taking either on.
+Image decoding, encoding, resizing, color adjustment, comparison and format conversion over Core
+Image and ImageIO.
 
-Two kinds of identity live here, for two questions. A byte fingerprint answers whether a store has
-already written this exact image; a perceptual hash answers whether two files are the same picture
-across re-encoding and resizing.
+## Features
 
-Conversion writes a new file and never replaces its input. It writes what ImageIO can, plus any type
-an `ImageFileEncoder` is supplied for: [spfk-webp](https://github.com/ryanfrancesconi/spfk-webp) and
-[spfk-jxl](https://github.com/ryanfrancesconi/spfk-jxl) add the formats ImageIO only reads.
-
-XMP and descriptive metadata belong to spfk-metadata-image, video frames to spfk-video, and anything
-on screen to the UI packages.
+- Decode, scale and export `CGImage`
+- Color adjustments: exposure, contrast, highlights, shadows, saturation, temperature, tint and more
+  (`ImageAdjustmentDescription`, `ImageAdjustmentRenderer`)
+- A byte fingerprint for exact matches, and a perceptual hash for images that look the same across
+  re-encoding and resizing
+- Format conversion to a new file (`ImageFormatConverter`). It writes the types ImageIO can write,
+  plus any type an `ImageFileEncoder` is supplied for, such as
+  [spfk-webp](https://github.com/ryanfrancesconi/spfk-webp) and
+  [spfk-jxl](https://github.com/ryanfrancesconi/spfk-jxl).
 
 ## About
 
