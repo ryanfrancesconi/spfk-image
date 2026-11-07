@@ -174,6 +174,49 @@ final class ImageOrientationFileTests {
     }
 }
 
+extension ImageOrientationFileTests {
+    /// The 2×3 grid as a lossless file tagged `orientation`.
+    private func gridFile(_ type: UTType, orientation: Int) throws -> URL {
+        let url = directory.appendingPathComponent("grid-\(orientation)").appendingPathExtension(for: type)
+        let destination = try #require(CGImageDestinationCreateWithURL(url as CFURL, type.identifier as CFString, 1, nil))
+        let image = try ImageOrientationEditTests.image(ImageOrientationEditTests.values)
+        CGImageDestinationAddImage(destination, image, [kCGImagePropertyOrientation: orientation] as CFDictionary)
+        try #require(CGImageDestinationFinalize(destination))
+        return url
+    }
+
+    private func displayedGrid(_ url: URL) throws -> ImageOrientationEditTests.Grid {
+        let source = try #require(CGImageSourceCreateWithURL(url as CFURL, nil))
+        let options: [CFString: Any] = [
+            kCGImageSourceCreateThumbnailFromImageAlways: true,
+            kCGImageSourceCreateThumbnailWithTransform: true,
+            kCGImageSourceThumbnailMaxPixelSize: 3,
+        ]
+        return try ImageOrientationEditTests.grid(try #require(CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary)))
+    }
+
+    /// Export renders the edit on top of the file's own tag, whichever route the format would otherwise take.
+    @Test(arguments: [UTType.png, .tiff], [ImageOrientationEdit.right, .upMirrored, .leftMirrored])
+    func anExportRendersTheEditOverTheFilesTag(format: UTType, edit: ImageOrientationEdit) throws {
+        let source = try gridFile(.png, orientation: 6)
+        let output = directory.appendingPathComponent("export-\(edit.rawValue)").appendingPathExtension(for: format)
+
+        let written = try ImageFormatConverter(
+            source: ImageConversionSource(
+                input: source,
+                output: output,
+                options: ImageConversionOptions(format: format.identifier),
+                orientation: edit
+            ),
+            formats: ImageConversionFormats()
+        ).convert().output
+
+        #expect(try displayedGrid(written) == ImageOrientationEditTests.displayed(
+            ImageOrientationEditTests.values, tag: edit.applied(toFileOrientation: 6)
+        ))
+    }
+}
+
 private extension ImageOrientationEdit {
     /// Rotate Right then Flip Horizontal: a mirrored value, so a test sees both halves composed.
     static let flippedRight = ImageOrientationEdit.up.rotatedRight.flippedHorizontally

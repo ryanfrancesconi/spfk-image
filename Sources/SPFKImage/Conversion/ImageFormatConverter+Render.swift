@@ -7,11 +7,12 @@ import ImageIO
 import UniformTypeIdentifiers
 
 extension ImageFormatConverter {
-    /// Decodes upright, applies the source's adjustments at full size and scales to `size`, in the source's color space
-    /// when it is RGB or gray and sRGB otherwise.
+    /// Decodes upright, applies the source's adjustments and orientation at full size and scales to `size`, in the
+    /// source's color space when it is RGB or gray and sRGB otherwise.
     func renderedImage(_ imageSource: CGImageSource, index: Int, properties: [String: Any], size: PixelSize?) throws -> CGImage {
         let upright = CIImage(cgImageSource: imageSource, index: index, options: [.applyOrientationProperty: true])
-        let decoded = source.adjustments.map { ImageAdjustmentRenderer.apply($0, to: upright) } ?? upright
+        let adjusted = source.adjustments.map { ImageAdjustmentRenderer.apply($0, to: upright) } ?? upright
+        let decoded = source.orientation.apply(to: adjusted)
 
         // Core Image reports a CMYK source as RGB, so ImageIO's color model decides whose space is kept.
         let colorModel = properties[kCGImagePropertyColorModel as String] as? String
@@ -99,7 +100,7 @@ extension ImageFormatConverter {
             Self.addGainMaps(
                 from: imageSource,
                 index: index,
-                orientation: properties[kCGImagePropertyOrientation as String] as? Int ?? 1,
+                orientation: source.displayedOrientation(fileOrientation: properties[kCGImagePropertyOrientation as String] as? Int ?? 1),
                 to: destination
             )
         }

@@ -103,7 +103,7 @@ extension ImageFormatConverter {
               let height = properties[kCGImagePropertyPixelHeight as String] as? Int
         else { throw ImageConversionError.unreadable(source.input) }
 
-        let orientation = properties[kCGImagePropertyOrientation as String] as? Int ?? 1
+        let orientation = source.displayedOrientation(fileOrientation: properties[kCGImagePropertyOrientation as String] as? Int ?? 1)
         let displayed = Self.displayedSize(width: width, height: height, orientation: orientation)
         let limited = Self.limitedSize(displayed, maxPixelSize: source.options.maxPixelSize)
 
@@ -124,7 +124,7 @@ extension ImageFormatConverter {
             orientation: orientation,
             colorModel: properties[kCGImagePropertyColorModel as String] as? String,
             resizes: limited != nil,
-            adjusts: source.hasAdjustments,
+            adjusts: source.rendersEdits,
             metadata: source.options.metadata
         )
 

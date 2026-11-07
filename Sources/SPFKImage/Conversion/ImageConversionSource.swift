@@ -15,21 +15,36 @@ public struct ImageConversionSource: Sendable {
     /// Pending adjustments rendered into the output. The input is only read.
     public var adjustments: ImageAdjustmentDescription?
 
+    /// A pending rotation or mirror rendered into the output, after ``adjustments``.
+    public var orientation: ImageOrientationEdit
+
     public init(
         input: URL,
         output: URL,
         options: ImageConversionOptions,
         originalInput: URL? = nil,
-        adjustments: ImageAdjustmentDescription? = nil
+        adjustments: ImageAdjustmentDescription? = nil,
+        orientation: ImageOrientationEdit = .up
     ) {
         self.input = input
         self.output = output
         self.options = options
         self.originalInput = originalInput
         self.adjustments = adjustments
+        self.orientation = orientation
     }
 
     var hasAdjustments: Bool {
         adjustments.map { !$0.isEmpty } ?? false
+    }
+
+    /// Whether the output needs a decode: neither a transcode nor a rewrap can take a pending edit.
+    var rendersEdits: Bool {
+        hasAdjustments || !orientation.isIdentity
+    }
+
+    /// The orientation the output displays with, from the source's own tag and ``orientation``.
+    func displayedOrientation(fileOrientation: Int) -> Int {
+        orientation.applied(toFileOrientation: fileOrientation)
     }
 }
