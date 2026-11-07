@@ -188,6 +188,16 @@ final class ImageFormatConverterMetadataTests: BinTestCase {
         }
     }
 
+    /// SVG renders through `SVGImage` elsewhere, but Convert reads pixels through ImageIO.
+    @Test func anSVGSourceIsUnreadable() throws {
+        let input = bin.appending(component: "icon.svg", directoryHint: .notDirectory)
+        try Data(#"<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10"><rect width="10" height="10"/></svg>"#.utf8).write(to: input)
+
+        #expect(throws: ImageConversionError.unreadable(input)) {
+            try self.convert(input, to: UTType.png.identifier, .copyAll)
+        }
+    }
+
     // MARK: - Gain maps
 
     @Test(arguments: [UTType.jpeg.identifier, UTType.heic.identifier, "public.avif"])
