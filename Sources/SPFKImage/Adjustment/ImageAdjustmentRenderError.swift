@@ -2,7 +2,8 @@
 
 import Foundation
 
-/// Why ``ImageAdjustmentRenderer/renderFile(_:source:destination:quality:)`` wrote nothing.
+/// Why ``ImageAdjustmentRenderer/renderFile(_:orientation:source:destination:quality:)`` or
+/// ``ImageOrientationEdit/rewriteFile(source:destination:)`` wrote nothing.
 public enum ImageAdjustmentRenderError: Error, Equatable, Sendable, CustomStringConvertible {
     /// The destination already exists. Nothing was written or removed.
     case destinationExists

@@ -75,16 +75,21 @@ public struct ImageAdjustmentRenderer: Sendable {
         return output.cropped(to: image.extent)
     }
 
-    /// Renders `source` with `adjustments` into a bitmap in the source's color space and bit depth.
+    /// Renders `source` with `adjustments`, then `orientation`, into a bitmap in the source's color space
+    /// and bit depth.
     ///
     /// Eager (`deferred: false`), so the cost lands here rather than wherever the image is first drawn.
-    public func render(_ adjustments: ImageAdjustmentDescription, source: CGImage) -> CGImage? {
+    public func render(
+        _ adjustments: ImageAdjustmentDescription,
+        orientation: ImageOrientationEdit = .up,
+        source: CGImage
+    ) -> CGImage? {
         autoreleasepool {
-            let input = CIImage(cgImage: source)
+            let output = orientation.apply(to: Self.apply(adjustments, to: CIImage(cgImage: source)))
 
             return context.createCGImage(
-                Self.apply(adjustments, to: input),
-                from: input.extent,
+                output,
+                from: output.extent,
                 format: source.bitsPerComponent > 8 ? .RGBA16 : .RGBA8,
                 colorSpace: Self.renderColorSpace(for: source),
                 deferred: false

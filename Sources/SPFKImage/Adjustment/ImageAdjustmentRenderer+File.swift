@@ -11,21 +11,26 @@ extension ImageAdjustmentRenderer {
 
     /// Renders `adjustments` into a new file at `destination`, in the source's own format.
     ///
-    /// Adjusts the source's unoriented pixels and writes them with its metadata, its orientation tag and
-    /// every auxiliary image (gain maps, depth, mattes) carried unchanged. `destination` must not exist,
-    /// and exists afterwards only if this returns; `source` is never written.
+    /// Adjusts the source's unoriented pixels and writes them with its metadata, its orientation tag with
+    /// `orientation` performed, and every auxiliary image (gain maps, depth, mattes) carried unchanged.
+    /// `destination` must not exist, and exists afterwards only if this returns; `source` is never written.
     public func renderFile(
         _ adjustments: ImageAdjustmentDescription,
+        orientation: ImageOrientationEdit = .up,
         source: URL,
         destination: URL,
         quality: Double = defaultFileQuality
     ) throws {
-        try renderFile(adjustments, source: source, destination: destination, quality: quality, expectedOrientation: nil)
+        try renderFile(
+            adjustments, orientation: orientation, source: source, destination: destination, quality: quality,
+            expectedOrientation: nil
+        )
     }
 
     /// `expectedOrientation` replaces the orientation the read-back requires, so a test can force a mismatch.
     func renderFile(
         _ adjustments: ImageAdjustmentDescription,
+        orientation: ImageOrientationEdit = .up,
         source: URL,
         destination: URL,
         quality: Double,
@@ -37,7 +42,7 @@ extension ImageAdjustmentRenderer {
 
         do {
             let written = try autoreleasepool {
-                try write(adjustments, source: source, destination: destination, quality: quality)
+                try write(adjustments, orientation: orientation, source: source, destination: destination, quality: quality)
             }
 
             try Self.verify(
@@ -60,6 +65,7 @@ extension ImageAdjustmentRenderer {
 
     private func write(
         _ adjustments: ImageAdjustmentDescription,
+        orientation: ImageOrientationEdit,
         source url: URL,
         destination: URL,
         quality: Double
@@ -81,7 +87,7 @@ extension ImageAdjustmentRenderer {
         else { throw ImageAdjustmentRenderError.unsupportedColorModel }
 
         let geometry = Geometry(
-            orientation: properties[kCGImagePropertyOrientation as String] as? Int ?? 1,
+            orientation: orientation.applied(toFileOrientation: properties[kCGImagePropertyOrientation as String] as? Int ?? 1),
             width: width,
             height: height
         )
@@ -129,7 +135,7 @@ extension ImageAdjustmentRenderer {
         return geometry
     }
 
-    private static func verify(_ url: URL, orientation: Int, width: Int, height: Int) throws {
+    static func verify(_ url: URL, orientation: Int, width: Int, height: Int) throws {
         guard let source = CGImageSourceCreateWithURL(url as CFURL, nil),
               let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [String: Any],
               properties[kCGImagePropertyOrientation as String] as? Int ?? 1 == orientation,
