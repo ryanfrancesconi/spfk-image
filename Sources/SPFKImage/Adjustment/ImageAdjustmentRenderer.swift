@@ -65,6 +65,10 @@ public struct ImageAdjustmentRenderer: Sendable {
             output = filter.outputImage ?? output
         }
 
+        if adjustments.brightness != 0 {
+            output = toneCurve(output, brightnessCurve(adjustments.brightness))
+        }
+
         if adjustments.contrast != 0 || adjustments.saturation != 0 {
             let filter = CIFilter.colorControls()
             filter.inputImage = output
@@ -102,6 +106,25 @@ public struct ImageAdjustmentRenderer: Sendable {
         }
 
         return output.cropped(to: image.extent)
+    }
+
+    /// `CIToneCurve` works on sRGB-encoded values and clamps its output to 0…1.
+    private static func toneCurve(_ image: CIImage, _ points: [CGPoint]) -> CIImage {
+        let filter = CIFilter.toneCurve()
+        filter.inputImage = image
+        filter.point0 = points[0]
+        filter.point1 = points[1]
+        filter.point2 = points[2]
+        filter.point3 = points[3]
+        filter.point4 = points[4]
+        return filter.outputImage ?? image
+    }
+
+    /// Lifts or lowers the mid-tones along `4x(1 − x)`, so black and white stay fixed.
+    static func brightnessCurve(_ value: Double) -> [CGPoint] {
+        curvePositions.map { x in
+            CGPoint(x: x, y: x + value * maximumBrightnessLift * 4 * x * (1 - x))
+        }
     }
 
     /// Renders `source` with `adjustments`, then `orientation`, into a bitmap in the source's color space
@@ -158,6 +181,10 @@ public struct ImageAdjustmentRenderer: Sendable {
     /// Where the vignette begins at a neutral radius, as a fraction of the shorter side. Each unit of
     /// radius doubles or halves it.
     static let neutralVignetteRadius: CGFloat = 0.75
+    /// How far full brightness moves mid-gray, in sRGB-encoded values.
+    static let maximumBrightnessLift: Double = 0.2
+    /// The x positions of `CIToneCurve`'s five points at identity.
+    static let curvePositions: [Double] = [0, 0.25, 0.5, 0.75, 1]
     /// `CIVignetteEffect`'s falloff at neutral softness; the slider spans its 0…1.
     static let neutralVignetteFalloff: Double = 0.5
 }

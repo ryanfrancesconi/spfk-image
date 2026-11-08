@@ -82,7 +82,7 @@ final class ImageAdjustmentDescriptionTests {
         #expect(decoded == original)
     }
 
-    @Test func dataWrittenBeforeVibranceAndVignetteDecodesThemNeutral() throws {
+    @Test func dataWrittenBeforeLaterParametersDecodesThemNeutral() throws {
         let json = #"{"exposure": 0.5, "contrast": 0, "highlights": 0, "shadows": 0, "saturation": 0.2, "temperature": 0, "tint": 0, "sepia": 0, "sharpness": 0}"#
         let decoded = try JSONDecoder().decode(ImageAdjustmentDescription.self, from: Data(json.utf8))
 
@@ -91,6 +91,7 @@ final class ImageAdjustmentDescriptionTests {
         #expect(decoded.vignette == 0)
         #expect(decoded.vignetteRadius == 0)
         #expect(decoded.vignetteSoftness == 0)
+        #expect(decoded.brightness == 0)
     }
 
     @Test func vibranceAndVignetteClampOnInitAndDecode() throws {
