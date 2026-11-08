@@ -61,11 +61,12 @@ public struct ImageAdjustmentDescription: Hashable, Sendable {
 // MARK: - Parameter
 
 extension ImageAdjustmentDescription {
+    /// Case order is display order; the renderer's order is fixed separately.
     public enum Parameter: String, CaseIterable, Sendable {
         case exposure
-        case contrast
         case highlights
         case shadows
+        case contrast
         case saturation
         case vibrance
         case temperature
