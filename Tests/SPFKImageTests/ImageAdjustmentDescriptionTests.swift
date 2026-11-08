@@ -81,4 +81,25 @@ final class ImageAdjustmentDescriptionTests {
 
         #expect(decoded == original)
     }
+
+    @Test func dataWrittenBeforeVibranceAndVignetteDecodesThemNeutral() throws {
+        let json = #"{"exposure": 0.5, "contrast": 0, "highlights": 0, "shadows": 0, "saturation": 0.2, "temperature": 0, "tint": 0, "sepia": 0, "sharpness": 0}"#
+        let decoded = try JSONDecoder().decode(ImageAdjustmentDescription.self, from: Data(json.utf8))
+
+        #expect(decoded == ImageAdjustmentDescription(exposure: 0.5, saturation: 0.2))
+        #expect(decoded.vibrance == 0)
+        #expect(decoded.vignette == 0)
+        #expect(decoded.vignetteRadius == 0)
+        #expect(decoded.vignetteSoftness == 0)
+    }
+
+    @Test func vibranceAndVignetteClampOnInitAndDecode() throws {
+        let initialized = ImageAdjustmentDescription(vibrance: 4, vignette: -4)
+        #expect(initialized.vibrance == 1)
+        #expect(initialized.vignette == -1)
+
+        let decoded = try JSONDecoder().decode(ImageAdjustmentDescription.self, from: Data(#"{"vibrance": -9, "vignette": 9}"#.utf8))
+        #expect(decoded.vibrance == -1)
+        #expect(decoded.vignette == 1)
+    }
 }

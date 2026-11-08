@@ -8,7 +8,7 @@ import Foundation
 /// never changes stored data. Each is clamped to its ``Parameter/range`` on construction and on
 /// assignment, a non-finite value becomes neutral, and neutral is 0 for every parameter. The renderer
 /// applies them in a fixed order: exposure, temperature and tint, vibrance, highlights and shadows,
-/// contrast and saturation, sepia, sharpness.
+/// contrast and saturation, sepia, sharpness, vignette.
 public struct ImageAdjustmentDescription: Hashable, Sendable {
     /// Stops (EV).
     public var exposure: Double { didSet { exposure = Parameter.exposure.sanitize(exposure) } }
@@ -21,6 +21,12 @@ public struct ImageAdjustmentDescription: Hashable, Sendable {
     public var tint: Double { didSet { tint = Parameter.tint.sanitize(tint) } }
     public var sepia: Double { didSet { sepia = Parameter.sepia.sanitize(sepia) } }
     public var sharpness: Double { didSet { sharpness = Parameter.sharpness.sanitize(sharpness) } }
+    /// Negative lightens the edges.
+    public var vignette: Double { didSet { vignette = Parameter.vignette.sanitize(vignette) } }
+    /// How far from the center the vignette begins. Has no effect while ``vignette`` is 0.
+    public var vignetteRadius: Double { didSet { vignetteRadius = Parameter.vignetteRadius.sanitize(vignetteRadius) } }
+    /// How gradual the vignette's edge is. Has no effect while ``vignette`` is 0.
+    public var vignetteSoftness: Double { didSet { vignetteSoftness = Parameter.vignetteSoftness.sanitize(vignetteSoftness) } }
 
     public init(
         exposure: Double = 0,
@@ -32,7 +38,10 @@ public struct ImageAdjustmentDescription: Hashable, Sendable {
         temperature: Double = 0,
         tint: Double = 0,
         sepia: Double = 0,
-        sharpness: Double = 0
+        sharpness: Double = 0,
+        vignette: Double = 0,
+        vignetteRadius: Double = 0,
+        vignetteSoftness: Double = 0
     ) {
         // Property observers do not run during initialization.
         self.exposure = Parameter.exposure.sanitize(exposure)
@@ -45,6 +54,9 @@ public struct ImageAdjustmentDescription: Hashable, Sendable {
         self.tint = Parameter.tint.sanitize(tint)
         self.sepia = Parameter.sepia.sanitize(sepia)
         self.sharpness = Parameter.sharpness.sanitize(sharpness)
+        self.vignette = Parameter.vignette.sanitize(vignette)
+        self.vignetteRadius = Parameter.vignetteRadius.sanitize(vignetteRadius)
+        self.vignetteSoftness = Parameter.vignetteSoftness.sanitize(vignetteSoftness)
     }
 
     /// True when every parameter is neutral. A stored adjustment in this state is represented as `nil`.
@@ -73,6 +85,9 @@ extension ImageAdjustmentDescription {
         case tint
         case sepia
         case sharpness
+        case vignette
+        case vignetteRadius
+        case vignetteSoftness
 
         /// Exposure is in stops; the rest are unitless positions. Highlights only go down: Core Image's
         /// highlight adjustment is at its maximum when neutral.
@@ -81,7 +96,8 @@ extension ImageAdjustmentDescription {
             case .exposure: -3 ... 3
             case .highlights: -1 ... 0
             case .sepia, .sharpness: 0 ... 1
-            case .contrast, .shadows, .saturation, .vibrance, .temperature, .tint: -1 ... 1
+            case .contrast, .shadows, .saturation, .vibrance, .temperature, .tint, .vignette, .vignetteRadius,
+                 .vignetteSoftness: -1 ... 1
             }
         }
 
@@ -97,6 +113,9 @@ extension ImageAdjustmentDescription {
             case .tint: \.tint
             case .sepia: \.sepia
             case .sharpness: \.sharpness
+            case .vignette: \.vignette
+            case .vignetteRadius: \.vignetteRadius
+            case .vignetteSoftness: \.vignetteSoftness
             }
         }
 
@@ -112,7 +131,8 @@ extension ImageAdjustmentDescription {
 
 extension ImageAdjustmentDescription: Codable {
     private enum CodingKeys: String, CodingKey {
-        case exposure, contrast, highlights, shadows, saturation, vibrance, temperature, tint, sepia, sharpness
+        case exposure, contrast, highlights, shadows, saturation, vibrance, temperature, tint, sepia, sharpness, vignette,
+            vignetteRadius, vignetteSoftness
     }
 
     /// A missing key decodes as neutral, so data written before a parameter existed still reads.
@@ -129,7 +149,10 @@ extension ImageAdjustmentDescription: Codable {
             temperature: try c.decodeIfPresent(Double.self, forKey: .temperature) ?? 0,
             tint: try c.decodeIfPresent(Double.self, forKey: .tint) ?? 0,
             sepia: try c.decodeIfPresent(Double.self, forKey: .sepia) ?? 0,
-            sharpness: try c.decodeIfPresent(Double.self, forKey: .sharpness) ?? 0
+            sharpness: try c.decodeIfPresent(Double.self, forKey: .sharpness) ?? 0,
+            vignette: try c.decodeIfPresent(Double.self, forKey: .vignette) ?? 0,
+            vignetteRadius: try c.decodeIfPresent(Double.self, forKey: .vignetteRadius) ?? 0,
+            vignetteSoftness: try c.decodeIfPresent(Double.self, forKey: .vignetteSoftness) ?? 0
         )
     }
 }

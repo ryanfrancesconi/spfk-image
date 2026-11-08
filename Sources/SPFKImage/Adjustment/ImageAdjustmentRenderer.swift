@@ -88,6 +88,18 @@ public struct ImageAdjustmentRenderer: Sendable {
             output = filter.outputImage ?? output
         }
 
+        if adjustments.vignette != 0 {
+            let extent = image.extent
+            let filter = CIFilter.vignetteEffect()
+            filter.inputImage = output
+            filter.center = CGPoint(x: extent.midX, y: extent.midY)
+            filter.radius = Float(min(extent.width, extent.height) * neutralVignetteRadius
+                * pow(2, adjustments.vignetteRadius))
+            filter.falloff = Float(neutralVignetteFalloff * (1 + adjustments.vignetteSoftness))
+            filter.intensity = Float(adjustments.vignette)
+            output = filter.outputImage ?? output
+        }
+
         return output.cropped(to: image.extent)
     }
 
@@ -142,4 +154,9 @@ public struct ImageAdjustmentRenderer: Sendable {
     static let maximumSharpness: Double = 2
     /// `CISharpenLuminance`'s default radius, in full-resolution pixels.
     static let sharpnessRadius: Double = 1.69
+    /// Where the vignette begins at a neutral radius, as a fraction of the shorter side. Each unit of
+    /// radius doubles or halves it.
+    static let neutralVignetteRadius: CGFloat = 0.75
+    /// `CIVignetteEffect`'s falloff at neutral softness; the slider spans its 0…1.
+    static let neutralVignetteFalloff: Double = 0.5
 }
