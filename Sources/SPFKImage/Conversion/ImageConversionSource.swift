@@ -35,7 +35,7 @@ public struct ImageConversionSource: Sendable {
     }
 
     var hasAdjustments: Bool {
-        adjustments.map { !$0.isEmpty } ?? false
+        adjustments.map { !$0.effective.isEmpty } ?? false
     }
 
     /// Whether the output needs a decode: neither a transcode nor a rewrap can take a pending edit.

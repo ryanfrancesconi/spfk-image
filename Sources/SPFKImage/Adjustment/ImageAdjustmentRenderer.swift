@@ -27,6 +27,7 @@ public struct ImageAdjustmentRenderer: Sendable {
         to image: CIImage,
         sourceScale: Double = 1
     ) -> CIImage {
+        let adjustments = adjustments.effective
         guard !adjustments.isEmpty else { return image }
 
         var output = image

@@ -9,6 +9,8 @@ import Foundation
 /// assignment, a non-finite value becomes neutral, and neutral is 0 for every parameter. The renderer
 /// applies them in a fixed order: exposure, temperature and tint, vibrance, highlights and shadows,
 /// contrast and saturation, sepia, sharpness, vignette.
+///
+/// A ``bypassed`` parameter keeps its value but renders as neutral (see ``effective``).
 public struct ImageAdjustmentDescription: Hashable, Sendable {
     /// Stops (EV).
     public var exposure: Double { didSet { exposure = Parameter.exposure.sanitize(exposure) } }
@@ -28,6 +30,9 @@ public struct ImageAdjustmentDescription: Hashable, Sendable {
     /// How gradual the vignette's edge is. Has no effect while ``vignette`` is 0.
     public var vignetteSoftness: Double { didSet { vignetteSoftness = Parameter.vignetteSoftness.sanitize(vignetteSoftness) } }
 
+    /// Parameters switched off: each keeps its value and renders as neutral.
+    public var bypassed: Set<Parameter>
+
     public init(
         exposure: Double = 0,
         contrast: Double = 0,
@@ -41,7 +46,8 @@ public struct ImageAdjustmentDescription: Hashable, Sendable {
         sharpness: Double = 0,
         vignette: Double = 0,
         vignetteRadius: Double = 0,
-        vignetteSoftness: Double = 0
+        vignetteSoftness: Double = 0,
+        bypassed: Set<Parameter> = []
     ) {
         // Property observers do not run during initialization.
         self.exposure = Parameter.exposure.sanitize(exposure)
@@ -57,11 +63,34 @@ public struct ImageAdjustmentDescription: Hashable, Sendable {
         self.vignette = Parameter.vignette.sanitize(vignette)
         self.vignetteRadius = Parameter.vignetteRadius.sanitize(vignetteRadius)
         self.vignetteSoftness = Parameter.vignetteSoftness.sanitize(vignetteSoftness)
+        self.bypassed = bypassed
     }
 
-    /// True when every parameter is neutral. A stored adjustment in this state is represented as `nil`.
+    /// True when every parameter is neutral and none is bypassed: nothing to store. A stored
+    /// adjustment in this state is represented as `nil`.
     public var isEmpty: Bool {
-        Parameter.allCases.allSatisfy { self[$0] == 0 }
+        bypassed.isEmpty && Parameter.allCases.allSatisfy { self[$0] == 0 }
+    }
+
+    /// What renders: every ``bypassed`` parameter at neutral, and nothing bypassed. Empty when the
+    /// adjustment would leave the image unchanged.
+    public var effective: ImageAdjustmentDescription {
+        var result = self
+        for parameter in bypassed {
+            result[parameter] = 0
+        }
+        result.bypassed = []
+        return result
+    }
+
+    /// The bypassed parameters alone, still bypassed: what stays pending once ``effective`` is
+    /// rendered.
+    public var bypassedPart: ImageAdjustmentDescription {
+        var result = ImageAdjustmentDescription(bypassed: bypassed)
+        for parameter in bypassed {
+            result[parameter] = self[parameter]
+        }
+        return result
     }
 
     public subscript(parameter: Parameter) -> Double {
@@ -74,7 +103,7 @@ public struct ImageAdjustmentDescription: Hashable, Sendable {
 
 extension ImageAdjustmentDescription {
     /// Case order is display order; the renderer's order is fixed separately.
-    public enum Parameter: String, CaseIterable, Sendable {
+    public enum Parameter: String, CaseIterable, Codable, Sendable {
         case exposure
         case highlights
         case shadows
@@ -132,10 +161,11 @@ extension ImageAdjustmentDescription {
 extension ImageAdjustmentDescription: Codable {
     private enum CodingKeys: String, CodingKey {
         case exposure, contrast, highlights, shadows, saturation, vibrance, temperature, tint, sepia, sharpness, vignette,
-            vignetteRadius, vignetteSoftness
+            vignetteRadius, vignetteSoftness, bypassed
     }
 
-    /// A missing key decodes as neutral, so data written before a parameter existed still reads.
+    /// A missing key decodes as neutral, so data written before a parameter existed still reads. A
+    /// bypassed parameter this build does not know is dropped.
     public init(from decoder: any Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
 
@@ -152,7 +182,8 @@ extension ImageAdjustmentDescription: Codable {
             sharpness: try c.decodeIfPresent(Double.self, forKey: .sharpness) ?? 0,
             vignette: try c.decodeIfPresent(Double.self, forKey: .vignette) ?? 0,
             vignetteRadius: try c.decodeIfPresent(Double.self, forKey: .vignetteRadius) ?? 0,
-            vignetteSoftness: try c.decodeIfPresent(Double.self, forKey: .vignetteSoftness) ?? 0
+            vignetteSoftness: try c.decodeIfPresent(Double.self, forKey: .vignetteSoftness) ?? 0,
+            bypassed: Set((try c.decodeIfPresent([String].self, forKey: .bypassed) ?? []).compactMap(Parameter.init(rawValue:)))
         )
     }
 }
