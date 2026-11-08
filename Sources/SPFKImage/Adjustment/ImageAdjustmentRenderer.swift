@@ -18,7 +18,15 @@ public struct ImageAdjustmentRenderer: Sendable {
 
     /// `image` with `adjustments` applied in the order the description documents, cropped to the input's
     /// extent. Lazy: nothing renders until the result is drawn.
-    public static func apply(_ adjustments: ImageAdjustmentDescription, to image: CIImage) -> CIImage {
+    ///
+    /// `sourceScale` is `image`'s size relative to the full-resolution source (see
+    /// ``sourceScale(of:fullWidth:fullHeight:)``), so a filter sized in pixels looks the same on a
+    /// downsampled preview as in the saved file.
+    public static func apply(
+        _ adjustments: ImageAdjustmentDescription,
+        to image: CIImage,
+        sourceScale: Double = 1
+    ) -> CIImage {
         guard !adjustments.isEmpty else { return image }
 
         var output = image
@@ -76,6 +84,7 @@ public struct ImageAdjustmentRenderer: Sendable {
             let filter = CIFilter.sharpenLuminance()
             filter.inputImage = output
             filter.sharpness = Float(adjustments.sharpness * maximumSharpness)
+            filter.radius = Float(sharpnessRadius * sourceScale)
             output = filter.outputImage ?? output
         }
 
@@ -89,10 +98,12 @@ public struct ImageAdjustmentRenderer: Sendable {
     public func render(
         _ adjustments: ImageAdjustmentDescription,
         orientation: ImageOrientationEdit = .up,
-        source: CGImage
+        source: CGImage,
+        sourceScale: Double = 1
     ) -> CGImage? {
         autoreleasepool {
-            let output = orientation.apply(to: Self.apply(adjustments, to: CIImage(cgImage: source)))
+            let adjusted = Self.apply(adjustments, to: CIImage(cgImage: source), sourceScale: sourceScale)
+            let output = orientation.apply(to: adjusted)
 
             return context.createCGImage(
                 output,
@@ -102,6 +113,14 @@ public struct ImageAdjustmentRenderer: Sendable {
                 deferred: false
             )
         }
+    }
+
+    /// The scale of an image `extent` decoded from a source of `fullWidth` × `fullHeight` pixels, or 1
+    /// when either is unknown. Compares the longer sides, so an upright decode of a rotated file still
+    /// matches its unoriented pixel dimensions.
+    public static func sourceScale(of extent: CGRect, fullWidth: Int?, fullHeight: Int?) -> Double {
+        guard let fullWidth, let fullHeight, max(fullWidth, fullHeight) > 0 else { return 1 }
+        return Double(max(extent.width, extent.height)) / Double(max(fullWidth, fullHeight))
     }
 
     /// The source's color space when it is RGB, which `createCGImage` requires; sRGB otherwise.
@@ -121,4 +140,6 @@ public struct ImageAdjustmentRenderer: Sendable {
     static let tintPerUnit: CGFloat = 100
     /// Top of `CISharpenLuminance`'s slider range.
     static let maximumSharpness: Double = 2
+    /// `CISharpenLuminance`'s default radius, in full-resolution pixels.
+    static let sharpnessRadius: Double = 1.69
 }
