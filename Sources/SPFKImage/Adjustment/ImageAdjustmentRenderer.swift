@@ -41,6 +41,13 @@ public struct ImageAdjustmentRenderer: Sendable {
             output = filter.outputImage ?? output
         }
 
+        if adjustments.vibrance != 0 {
+            let filter = CIFilter.vibrance()
+            filter.inputImage = output
+            filter.amount = Float(adjustments.vibrance)
+            output = filter.outputImage ?? output
+        }
+
         if adjustments.highlights != 0 || adjustments.shadows != 0 {
             let filter = CIFilter.highlightShadowAdjust()
             filter.inputImage = output
