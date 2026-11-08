@@ -7,7 +7,7 @@ import Testing
 
 @testable import SPFKImage
 
-/// Brilliance.
+/// Brilliance and Definition.
 @Suite(.tags(.file))
 final class ImageAdjustmentLocalToneTests {
     let renderer = ImageAdjustmentRenderer()
@@ -40,9 +40,15 @@ final class ImageAdjustmentLocalToneTests {
         #expect(neutral.brightLuminance - lowered.brightLuminance < midDrop)
     }
 
+    @Test func definitionRaisesLocalContrast() throws {
+        let neutral = try statistics(ImageAdjustmentDescription())
+        let defined = try statistics(ImageAdjustmentDescription(definition: 1))
+        #expect(defined.edgeEnergy > neutral.edgeEnergy * 1.5)
+    }
+
     @Test func localToneKeepsTheHue() throws {
         let neutral = try statistics(ImageAdjustmentDescription())
-        for adjustments in [ImageAdjustmentDescription(brilliance: 1), ImageAdjustmentDescription(brilliance: -1)] {
+        for adjustments in [ImageAdjustmentDescription(brilliance: 1), ImageAdjustmentDescription(definition: 1)] {
             let adjusted = try statistics(adjustments)
             // Red against green: the songbird is a yellow bird on green.
             let neutralRatio = neutral.meanRed / neutral.meanGreen
@@ -52,9 +58,10 @@ final class ImageAdjustmentLocalToneTests {
     }
 
     /// Core Image's blend modes clamp each channel to 0…1, which would clip a color outside sRGB; a
-    /// fractional base size leaves an artifact in the last column. Every channel scales by the same
+    /// fractional base size leaves an artifact in the last column. The flat image has no detail, so
+    /// only Definition's slight darkening of the base remains, and every channel scales by the same
     /// ratio.
-    @Test func brillianceKeepsAFlatWideGamutColorsChannelRatios() throws {
+    @Test func definitionKeepsAFlatWideGamutColorsChannelRatios() throws {
         let space = try #require(CGColorSpace(name: CGColorSpace.extendedLinearSRGB))
         let color = try #require(CIColor(red: -0.1, green: 0.8, blue: 0.05, alpha: 1, colorSpace: space))
         let flat = CIImage(color: color).cropped(to: CGRect(x: 0, y: 0, width: 640, height: 480))
@@ -62,12 +69,14 @@ final class ImageAdjustmentLocalToneTests {
         let context = CIContext()
         let before = try ImageAdjustmentChainPinTests.floatPixels(flat, context: context)
         let after = try ImageAdjustmentChainPinTests.floatPixels(
-            ImageAdjustmentRenderer.apply(ImageAdjustmentDescription(brilliance: 1), to: flat), context: context
+            ImageAdjustmentRenderer.apply(ImageAdjustmentDescription(definition: 1), to: flat), context: context
         )
         // Channel ratios survive: the negative red channel stays negative and proportional to green.
         let ratios = stride(from: 0, to: after.count, by: 4).map { after[$0] / after[$0 + 1] }
         let expected = before[0] / before[1]
         #expect(ratios.allSatisfy { abs($0 - expected) < 0.01 }, "\(ratios.min() ?? 0)…\(ratios.max() ?? 0)")
+        let greenChange = stride(from: 1, to: after.count, by: 4).map { abs(after[$0] - before[$0]) }.max() ?? 0
+        #expect(greenChange < 0.05, "\(greenChange)")
     }
 
     @Test func brillianceCurveHoldsBlackAndWhiteAndStaysIncreasing() {

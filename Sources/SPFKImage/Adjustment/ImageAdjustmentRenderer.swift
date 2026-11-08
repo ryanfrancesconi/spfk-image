@@ -86,6 +86,10 @@ public struct ImageAdjustmentRenderer: Sendable {
             output = filter.outputImage ?? output
         }
 
+        if adjustments.definition != 0 {
+            output = definition(output, adjustments.definition)
+        }
+
         if adjustments.sepia != 0 {
             let filter = CIFilter.sepiaTone()
             filter.inputImage = output
@@ -211,6 +215,9 @@ public struct ImageAdjustmentRenderer: Sendable {
     /// The detail gain added at full positive and full negative brilliance.
     static let brillianceDetailGain: Double = 0.6
     static let brillianceDarkDetailGain: Double = 0.2
+    /// The detail gain added at full definition, and how far it moves the base.
+    static let maximumDefinitionGain: Double = 1
+    static let definitionLift: [Double] = [0, -0.02, -0.02, 0, 0]
     /// Added to both luminances before the local-tone ratio, so black does not divide by zero.
     static let ratioFloor: Double = 0.004
     /// The local-tone base's shorter side, in pixels, before it is upsampled along the image's edges.

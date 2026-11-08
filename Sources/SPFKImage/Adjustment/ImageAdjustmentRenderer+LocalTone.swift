@@ -4,7 +4,7 @@ import CoreImage
 import CoreImage.CIFilterBuiltins
 import Foundation
 
-/// Brilliance: luminance split into an edge-aware base and the detail above it.
+/// Brilliance and Definition: luminance split into an edge-aware base and the detail above it.
 ///
 /// Every step is relative to the extent, so a preview and the saved file match without `sourceScale`.
 /// Core Image's blend modes clamp each channel to 0…1, so they only ever see luminance, offset to stay
@@ -14,6 +14,12 @@ extension ImageAdjustmentRenderer {
     static func brilliance(_ image: CIImage, _ value: Double) -> CIImage {
         let detail = value > 0 ? brillianceDetailGain : brillianceDarkDetailGain
         return localTone(image, curve: brillianceCurve(value), detailGain: 1 + abs(value) * detail)
+    }
+
+    /// Scales the detail above the base by `1 + value × maximumDefinitionGain`, darkening the base
+    /// slightly.
+    static func definition(_ image: CIImage, _ value: Double) -> CIImage {
+        localTone(image, curve: lifted(by: definitionLift, value), detailGain: 1 + value * maximumDefinitionGain)
     }
 
     /// Mid-tone weighted: positive lifts the base along ``brillianceLift``, negative lowers it along

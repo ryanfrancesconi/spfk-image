@@ -8,7 +8,7 @@ import Foundation
 /// never changes stored data. Each is clamped to its ``Parameter/range`` on construction and on
 /// assignment, a non-finite value becomes neutral, and neutral is 0 for every parameter. The renderer
 /// applies them in a fixed order: exposure, temperature and tint, vibrance, black point, highlights and
-/// shadows, brightness, brilliance, contrast and saturation, sepia, sharpness, vignette.
+/// shadows, brightness, brilliance, contrast and saturation, definition, sepia, sharpness, vignette.
 ///
 /// A ``bypassed`` parameter keeps its value but renders as neutral (see ``effective``).
 public struct ImageAdjustmentDescription: Hashable, Sendable {
@@ -29,6 +29,8 @@ public struct ImageAdjustmentDescription: Hashable, Sendable {
     public var tint: Double { didSet { tint = Parameter.tint.sanitize(tint) } }
     public var sepia: Double { didSet { sepia = Parameter.sepia.sanitize(sepia) } }
     public var sharpness: Double { didSet { sharpness = Parameter.sharpness.sanitize(sharpness) } }
+    /// Local contrast: strengthens detail against its surroundings without halos at strong edges.
+    public var definition: Double { didSet { definition = Parameter.definition.sanitize(definition) } }
     /// Negative lightens the edges.
     public var vignette: Double { didSet { vignette = Parameter.vignette.sanitize(vignette) } }
     /// How far from the center the vignette begins. Has no effect while ``vignette`` is 0.
@@ -53,6 +55,7 @@ public struct ImageAdjustmentDescription: Hashable, Sendable {
         tint: Double = 0,
         sepia: Double = 0,
         sharpness: Double = 0,
+        definition: Double = 0,
         vignette: Double = 0,
         vignetteRadius: Double = 0,
         vignetteSoftness: Double = 0,
@@ -72,6 +75,7 @@ public struct ImageAdjustmentDescription: Hashable, Sendable {
         self.tint = Parameter.tint.sanitize(tint)
         self.sepia = Parameter.sepia.sanitize(sepia)
         self.sharpness = Parameter.sharpness.sanitize(sharpness)
+        self.definition = Parameter.definition.sanitize(definition)
         self.vignette = Parameter.vignette.sanitize(vignette)
         self.vignetteRadius = Parameter.vignetteRadius.sanitize(vignetteRadius)
         self.vignetteSoftness = Parameter.vignetteSoftness.sanitize(vignetteSoftness)
@@ -129,6 +133,7 @@ extension ImageAdjustmentDescription {
         case tint
         case sepia
         case sharpness
+        case definition
         case vignette
         case vignetteRadius
         case vignetteSoftness
@@ -139,7 +144,7 @@ extension ImageAdjustmentDescription {
             switch self {
             case .exposure: -3 ... 3
             case .highlights: -1 ... 0
-            case .sepia, .sharpness: 0 ... 1
+            case .sepia, .sharpness, .definition: 0 ... 1
             case .brilliance, .contrast, .shadows, .brightness, .blackPoint, .saturation, .vibrance, .temperature, .tint,
                  .vignette, .vignetteRadius, .vignetteSoftness: -1 ... 1
             }
@@ -160,6 +165,7 @@ extension ImageAdjustmentDescription {
             case .tint: \.tint
             case .sepia: \.sepia
             case .sharpness: \.sharpness
+            case .definition: \.definition
             case .vignette: \.vignette
             case .vignetteRadius: \.vignetteRadius
             case .vignetteSoftness: \.vignetteSoftness
@@ -179,7 +185,7 @@ extension ImageAdjustmentDescription {
 extension ImageAdjustmentDescription: Codable {
     private enum CodingKeys: String, CodingKey {
         case brilliance, exposure, contrast, highlights, shadows, brightness, blackPoint, saturation, vibrance,
-            temperature, tint, sepia, sharpness, vignette, vignetteRadius, vignetteSoftness, bypassed
+            temperature, tint, sepia, sharpness, definition, vignette, vignetteRadius, vignetteSoftness, bypassed
     }
 
     /// A missing key decodes as neutral, so data written before a parameter existed still reads. A
@@ -201,6 +207,7 @@ extension ImageAdjustmentDescription: Codable {
             tint: try c.decodeIfPresent(Double.self, forKey: .tint) ?? 0,
             sepia: try c.decodeIfPresent(Double.self, forKey: .sepia) ?? 0,
             sharpness: try c.decodeIfPresent(Double.self, forKey: .sharpness) ?? 0,
+            definition: try c.decodeIfPresent(Double.self, forKey: .definition) ?? 0,
             vignette: try c.decodeIfPresent(Double.self, forKey: .vignette) ?? 0,
             vignetteRadius: try c.decodeIfPresent(Double.self, forKey: .vignetteRadius) ?? 0,
             vignetteSoftness: try c.decodeIfPresent(Double.self, forKey: .vignetteSoftness) ?? 0,
