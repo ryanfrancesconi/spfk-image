@@ -57,6 +57,10 @@ public struct ImageAdjustmentRenderer: Sendable {
             output = filter.outputImage ?? output
         }
 
+        if adjustments.blackPoint != 0 {
+            output = toneCurve(output, blackPointCurve(adjustments.blackPoint))
+        }
+
         if adjustments.highlights != 0 || adjustments.shadows != 0 {
             let filter = CIFilter.highlightShadowAdjust()
             filter.inputImage = output
@@ -120,6 +124,17 @@ public struct ImageAdjustmentRenderer: Sendable {
         return filter.outputImage ?? image
     }
 
+    /// A straight line in sRGB-encoded values. Positive maps `value × maximumBlackPoint` to 0 and
+    /// stretches the rest; negative raises 0 to `−value × maximumBlackPoint`. White stays at 1.
+    static func blackPointCurve(_ value: Double) -> [CGPoint] {
+        let shift = abs(value) * maximumBlackPoint
+        return curvePositions.map { x in
+            value > 0
+                ? CGPoint(x: shift + (1 - shift) * x, y: x)
+                : CGPoint(x: x, y: shift + (1 - shift) * x)
+        }
+    }
+
     /// Lifts or lowers the mid-tones along `4x(1 − x)`, so black and white stay fixed.
     static func brightnessCurve(_ value: Double) -> [CGPoint] {
         curvePositions.map { x in
@@ -181,6 +196,8 @@ public struct ImageAdjustmentRenderer: Sendable {
     /// Where the vignette begins at a neutral radius, as a fraction of the shorter side. Each unit of
     /// radius doubles or halves it.
     static let neutralVignetteRadius: CGFloat = 0.75
+    /// How far a full black point moves black, in sRGB-encoded values.
+    static let maximumBlackPoint: Double = 0.25
     /// How far full brightness moves mid-gray, in sRGB-encoded values.
     static let maximumBrightnessLift: Double = 0.2
     /// The x positions of `CIToneCurve`'s five points at identity.

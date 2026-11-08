@@ -7,8 +7,8 @@ import Foundation
 /// Values are slider positions rather than Core Image parameters, so retuning the renderer's mapping
 /// never changes stored data. Each is clamped to its ``Parameter/range`` on construction and on
 /// assignment, a non-finite value becomes neutral, and neutral is 0 for every parameter. The renderer
-/// applies them in a fixed order: exposure, temperature and tint, vibrance, highlights and shadows,
-/// brightness, contrast and saturation, sepia, sharpness, vignette.
+/// applies them in a fixed order: exposure, temperature and tint, vibrance, black point, highlights and
+/// shadows, brightness, contrast and saturation, sepia, sharpness, vignette.
 ///
 /// A ``bypassed`` parameter keeps its value but renders as neutral (see ``effective``).
 public struct ImageAdjustmentDescription: Hashable, Sendable {
@@ -19,6 +19,8 @@ public struct ImageAdjustmentDescription: Hashable, Sendable {
     public var shadows: Double { didSet { shadows = Parameter.shadows.sanitize(shadows) } }
     /// Moves the mid-tones and holds black and white.
     public var brightness: Double { didSet { brightness = Parameter.brightness.sanitize(brightness) } }
+    /// Positive crushes the darkest tones to black; negative lifts black to a gray floor.
+    public var blackPoint: Double { didSet { blackPoint = Parameter.blackPoint.sanitize(blackPoint) } }
     public var saturation: Double { didSet { saturation = Parameter.saturation.sanitize(saturation) } }
     public var vibrance: Double { didSet { vibrance = Parameter.vibrance.sanitize(vibrance) } }
     public var temperature: Double { didSet { temperature = Parameter.temperature.sanitize(temperature) } }
@@ -41,6 +43,7 @@ public struct ImageAdjustmentDescription: Hashable, Sendable {
         highlights: Double = 0,
         shadows: Double = 0,
         brightness: Double = 0,
+        blackPoint: Double = 0,
         saturation: Double = 0,
         vibrance: Double = 0,
         temperature: Double = 0,
@@ -58,6 +61,7 @@ public struct ImageAdjustmentDescription: Hashable, Sendable {
         self.highlights = Parameter.highlights.sanitize(highlights)
         self.shadows = Parameter.shadows.sanitize(shadows)
         self.brightness = Parameter.brightness.sanitize(brightness)
+        self.blackPoint = Parameter.blackPoint.sanitize(blackPoint)
         self.saturation = Parameter.saturation.sanitize(saturation)
         self.vibrance = Parameter.vibrance.sanitize(vibrance)
         self.temperature = Parameter.temperature.sanitize(temperature)
@@ -113,6 +117,7 @@ extension ImageAdjustmentDescription {
         case shadows
         case brightness
         case contrast
+        case blackPoint
         case saturation
         case vibrance
         case temperature
@@ -130,7 +135,7 @@ extension ImageAdjustmentDescription {
             case .exposure: -3 ... 3
             case .highlights: -1 ... 0
             case .sepia, .sharpness: 0 ... 1
-            case .contrast, .shadows, .brightness, .saturation, .vibrance, .temperature, .tint,
+            case .contrast, .shadows, .brightness, .blackPoint, .saturation, .vibrance, .temperature, .tint,
                  .vignette, .vignetteRadius, .vignetteSoftness: -1 ... 1
             }
         }
@@ -142,6 +147,7 @@ extension ImageAdjustmentDescription {
             case .highlights: \.highlights
             case .shadows: \.shadows
             case .brightness: \.brightness
+            case .blackPoint: \.blackPoint
             case .saturation: \.saturation
             case .vibrance: \.vibrance
             case .temperature: \.temperature
@@ -166,7 +172,7 @@ extension ImageAdjustmentDescription {
 
 extension ImageAdjustmentDescription: Codable {
     private enum CodingKeys: String, CodingKey {
-        case exposure, contrast, highlights, shadows, brightness, saturation, vibrance, temperature, tint,
+        case exposure, contrast, highlights, shadows, brightness, blackPoint, saturation, vibrance, temperature, tint,
             sepia, sharpness, vignette, vignetteRadius, vignetteSoftness, bypassed
     }
 
@@ -181,6 +187,7 @@ extension ImageAdjustmentDescription: Codable {
             highlights: try c.decodeIfPresent(Double.self, forKey: .highlights) ?? 0,
             shadows: try c.decodeIfPresent(Double.self, forKey: .shadows) ?? 0,
             brightness: try c.decodeIfPresent(Double.self, forKey: .brightness) ?? 0,
+            blackPoint: try c.decodeIfPresent(Double.self, forKey: .blackPoint) ?? 0,
             saturation: try c.decodeIfPresent(Double.self, forKey: .saturation) ?? 0,
             vibrance: try c.decodeIfPresent(Double.self, forKey: .vibrance) ?? 0,
             temperature: try c.decodeIfPresent(Double.self, forKey: .temperature) ?? 0,
