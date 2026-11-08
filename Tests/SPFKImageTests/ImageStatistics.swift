@@ -12,8 +12,9 @@ struct ImageStatistics {
     let meanBlue: Double
     let meanLuminance: Double
     let luminanceStandardDeviation: Double
-    /// 10th and 90th percentile luminance.
+    /// 10th, 50th and 90th percentile luminance.
     let darkLuminance: Double
+    let medianLuminance: Double
     let brightLuminance: Double
     /// Mean of max(r, g, b) - min(r, g, b) per pixel; 0 for a grayscale image.
     let meanChannelSpread: Double
@@ -58,6 +59,7 @@ struct ImageStatistics {
         luminanceStandardDeviation = sqrt(max(0, sumL2 / n - meanLuminance * meanLuminance))
         meanChannelSpread = sumSpread / n
         darkLuminance = Self.percentile(0.1, of: histogram, count: pixelCount)
+        medianLuminance = Self.percentile(0.5, of: histogram, count: pixelCount)
         brightLuminance = Self.percentile(0.9, of: histogram, count: pixelCount)
 
         var energy = 0.0

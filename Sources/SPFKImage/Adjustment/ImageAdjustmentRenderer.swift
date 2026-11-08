@@ -73,6 +73,10 @@ public struct ImageAdjustmentRenderer: Sendable {
             output = toneCurve(output, brightnessCurve(adjustments.brightness))
         }
 
+        if adjustments.brilliance != 0 {
+            output = brilliance(output, adjustments.brilliance)
+        }
+
         if adjustments.contrast != 0 || adjustments.saturation != 0 {
             let filter = CIFilter.colorControls()
             filter.inputImage = output
@@ -113,7 +117,7 @@ public struct ImageAdjustmentRenderer: Sendable {
     }
 
     /// `CIToneCurve` works on sRGB-encoded values and clamps its output to 0…1.
-    private static func toneCurve(_ image: CIImage, _ points: [CGPoint]) -> CIImage {
+    static func toneCurve(_ image: CIImage, _ points: [CGPoint]) -> CIImage {
         let filter = CIFilter.toneCurve()
         filter.inputImage = image
         filter.point0 = points[0]
@@ -200,6 +204,21 @@ public struct ImageAdjustmentRenderer: Sendable {
     static let maximumBlackPoint: Double = 0.25
     /// How far full brightness moves mid-gray, in sRGB-encoded values.
     static let maximumBrightnessLift: Double = 0.2
+    /// How far full positive and full negative brilliance move the base at each of
+    /// ``curvePositions``, in sRGB-encoded values.
+    static let brillianceLift: [Double] = [0, 0.10, 0.14, 0.04, 0]
+    static let brillianceDrop: [Double] = [0, 0.10, 0.21, 0.04, 0]
+    /// The detail gain added at full positive and full negative brilliance.
+    static let brillianceDetailGain: Double = 0.6
+    static let brillianceDarkDetailGain: Double = 0.2
+    /// Added to both luminances before the local-tone ratio, so black does not divide by zero.
+    static let ratioFloor: Double = 0.004
+    /// The local-tone base's shorter side, in pixels, before it is upsampled along the image's edges.
+    static let localToneBaseSize: Double = 128
+    /// `CIGuidedFilter`'s radius and epsilon for the local-tone base; epsilon is in sRGB-encoded
+    /// luminance squared.
+    static let localToneGuideRadius: Double = 3
+    static let localToneEpsilon: Double = 0.01
     /// The x positions of `CIToneCurve`'s five points at identity.
     static let curvePositions: [Double] = [0, 0.25, 0.5, 0.75, 1]
     /// `CIVignetteEffect`'s falloff at neutral softness; the slider spans its 0…1.

@@ -8,10 +8,12 @@ import Foundation
 /// never changes stored data. Each is clamped to its ``Parameter/range`` on construction and on
 /// assignment, a non-finite value becomes neutral, and neutral is 0 for every parameter. The renderer
 /// applies them in a fixed order: exposure, temperature and tint, vibrance, black point, highlights and
-/// shadows, brightness, contrast and saturation, sepia, sharpness, vignette.
+/// shadows, brightness, brilliance, contrast and saturation, sepia, sharpness, vignette.
 ///
 /// A ``bypassed`` parameter keeps its value but renders as neutral (see ``effective``).
 public struct ImageAdjustmentDescription: Hashable, Sendable {
+    /// Positive lifts shadows and holds highlights, region by region; negative deepens both.
+    public var brilliance: Double { didSet { brilliance = Parameter.brilliance.sanitize(brilliance) } }
     /// Stops (EV).
     public var exposure: Double { didSet { exposure = Parameter.exposure.sanitize(exposure) } }
     public var contrast: Double { didSet { contrast = Parameter.contrast.sanitize(contrast) } }
@@ -38,6 +40,7 @@ public struct ImageAdjustmentDescription: Hashable, Sendable {
     public var bypassed: Set<Parameter>
 
     public init(
+        brilliance: Double = 0,
         exposure: Double = 0,
         contrast: Double = 0,
         highlights: Double = 0,
@@ -56,6 +59,7 @@ public struct ImageAdjustmentDescription: Hashable, Sendable {
         bypassed: Set<Parameter> = []
     ) {
         // Property observers do not run during initialization.
+        self.brilliance = Parameter.brilliance.sanitize(brilliance)
         self.exposure = Parameter.exposure.sanitize(exposure)
         self.contrast = Parameter.contrast.sanitize(contrast)
         self.highlights = Parameter.highlights.sanitize(highlights)
@@ -112,6 +116,7 @@ public struct ImageAdjustmentDescription: Hashable, Sendable {
 extension ImageAdjustmentDescription {
     /// Case order is display order; the renderer's order is fixed separately.
     public enum Parameter: String, CaseIterable, Codable, Sendable {
+        case brilliance
         case exposure
         case highlights
         case shadows
@@ -135,13 +140,14 @@ extension ImageAdjustmentDescription {
             case .exposure: -3 ... 3
             case .highlights: -1 ... 0
             case .sepia, .sharpness: 0 ... 1
-            case .contrast, .shadows, .brightness, .blackPoint, .saturation, .vibrance, .temperature, .tint,
+            case .brilliance, .contrast, .shadows, .brightness, .blackPoint, .saturation, .vibrance, .temperature, .tint,
                  .vignette, .vignetteRadius, .vignetteSoftness: -1 ... 1
             }
         }
 
         public var keyPath: WritableKeyPath<ImageAdjustmentDescription, Double> {
             switch self {
+            case .brilliance: \.brilliance
             case .exposure: \.exposure
             case .contrast: \.contrast
             case .highlights: \.highlights
@@ -172,8 +178,8 @@ extension ImageAdjustmentDescription {
 
 extension ImageAdjustmentDescription: Codable {
     private enum CodingKeys: String, CodingKey {
-        case exposure, contrast, highlights, shadows, brightness, blackPoint, saturation, vibrance, temperature, tint,
-            sepia, sharpness, vignette, vignetteRadius, vignetteSoftness, bypassed
+        case brilliance, exposure, contrast, highlights, shadows, brightness, blackPoint, saturation, vibrance,
+            temperature, tint, sepia, sharpness, vignette, vignetteRadius, vignetteSoftness, bypassed
     }
 
     /// A missing key decodes as neutral, so data written before a parameter existed still reads. A
@@ -182,6 +188,7 @@ extension ImageAdjustmentDescription: Codable {
         let c = try decoder.container(keyedBy: CodingKeys.self)
 
         self.init(
+            brilliance: try c.decodeIfPresent(Double.self, forKey: .brilliance) ?? 0,
             exposure: try c.decodeIfPresent(Double.self, forKey: .exposure) ?? 0,
             contrast: try c.decodeIfPresent(Double.self, forKey: .contrast) ?? 0,
             highlights: try c.decodeIfPresent(Double.self, forKey: .highlights) ?? 0,
