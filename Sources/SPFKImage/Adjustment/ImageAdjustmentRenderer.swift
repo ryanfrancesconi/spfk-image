@@ -61,6 +61,10 @@ public struct ImageAdjustmentRenderer: Sendable {
             output = toneCurve(output, blackPointCurve(adjustments.blackPoint))
         }
 
+        if adjustments.hasLevels {
+            output = toneCurve(output, levelsCurve(adjustments))
+        }
+
         if adjustments.highlights != 0 || adjustments.shadows != 0 {
             let filter = CIFilter.highlightShadowAdjust()
             filter.inputImage = output

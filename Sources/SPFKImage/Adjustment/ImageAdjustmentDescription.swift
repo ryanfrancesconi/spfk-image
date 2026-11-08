@@ -7,8 +7,9 @@ import Foundation
 /// Values are slider positions rather than Core Image parameters, so retuning the renderer's mapping
 /// never changes stored data. Each is clamped to its ``Parameter/range`` on construction and on
 /// assignment, a non-finite value becomes neutral, and neutral is 0 for every parameter. The renderer
-/// applies them in a fixed order: exposure, temperature and tint, vibrance, black point, highlights and
-/// shadows, brightness, brilliance, contrast and saturation, definition, sepia, sharpness, vignette.
+/// applies them in a fixed order: exposure, temperature and tint, vibrance, black point, levels,
+/// highlights and shadows, brightness, brilliance, contrast and saturation, definition, sepia,
+/// sharpness, vignette.
 ///
 /// A ``bypassed`` parameter keeps its value but renders as neutral (see ``effective``).
 public struct ImageAdjustmentDescription: Hashable, Sendable {
@@ -28,6 +29,13 @@ public struct ImageAdjustmentDescription: Hashable, Sendable {
     public var temperature: Double { didSet { temperature = Parameter.temperature.sanitize(temperature) } }
     public var tint: Double { didSet { tint = Parameter.tint.sanitize(tint) } }
     public var sepia: Double { didSet { sepia = Parameter.sepia.sanitize(sepia) } }
+    /// Levels: how far each curve point's input sits from its identity position (see
+    /// ``levelsPositions``).
+    public var levelsBlack: Double { didSet { levelsBlack = Parameter.levelsBlack.sanitize(levelsBlack) } }
+    public var levelsShadow: Double { didSet { levelsShadow = Parameter.levelsShadow.sanitize(levelsShadow) } }
+    public var levelsMid: Double { didSet { levelsMid = Parameter.levelsMid.sanitize(levelsMid) } }
+    public var levelsHighlight: Double { didSet { levelsHighlight = Parameter.levelsHighlight.sanitize(levelsHighlight) } }
+    public var levelsWhite: Double { didSet { levelsWhite = Parameter.levelsWhite.sanitize(levelsWhite) } }
     public var sharpness: Double { didSet { sharpness = Parameter.sharpness.sanitize(sharpness) } }
     /// Local contrast: strengthens detail against its surroundings without halos at strong edges.
     public var definition: Double { didSet { definition = Parameter.definition.sanitize(definition) } }
@@ -54,6 +62,11 @@ public struct ImageAdjustmentDescription: Hashable, Sendable {
         temperature: Double = 0,
         tint: Double = 0,
         sepia: Double = 0,
+        levelsBlack: Double = 0,
+        levelsShadow: Double = 0,
+        levelsMid: Double = 0,
+        levelsHighlight: Double = 0,
+        levelsWhite: Double = 0,
         sharpness: Double = 0,
         definition: Double = 0,
         vignette: Double = 0,
@@ -74,6 +87,11 @@ public struct ImageAdjustmentDescription: Hashable, Sendable {
         self.temperature = Parameter.temperature.sanitize(temperature)
         self.tint = Parameter.tint.sanitize(tint)
         self.sepia = Parameter.sepia.sanitize(sepia)
+        self.levelsBlack = Parameter.levelsBlack.sanitize(levelsBlack)
+        self.levelsShadow = Parameter.levelsShadow.sanitize(levelsShadow)
+        self.levelsMid = Parameter.levelsMid.sanitize(levelsMid)
+        self.levelsHighlight = Parameter.levelsHighlight.sanitize(levelsHighlight)
+        self.levelsWhite = Parameter.levelsWhite.sanitize(levelsWhite)
         self.sharpness = Parameter.sharpness.sanitize(sharpness)
         self.definition = Parameter.definition.sanitize(definition)
         self.vignette = Parameter.vignette.sanitize(vignette)
@@ -132,6 +150,11 @@ extension ImageAdjustmentDescription {
         case temperature
         case tint
         case sepia
+        case levelsBlack
+        case levelsShadow
+        case levelsMid
+        case levelsHighlight
+        case levelsWhite
         case sharpness
         case definition
         case vignette
@@ -139,12 +162,17 @@ extension ImageAdjustmentDescription {
         case vignetteSoftness
 
         /// Exposure is in stops; the rest are unitless positions. Highlights only go down: Core Image's
-        /// highlight adjustment is at its maximum when neutral.
+        /// highlight adjustment is at its maximum when neutral. Each levels offset keeps its point
+        /// inside 0…1.
         public var range: ClosedRange<Double> {
             switch self {
             case .exposure: -3 ... 3
             case .highlights: -1 ... 0
-            case .sepia, .sharpness, .definition: 0 ... 1
+            case .sepia, .sharpness, .definition, .levelsBlack: 0 ... 1
+            case .levelsShadow: -0.25 ... 0.75
+            case .levelsMid: -0.5 ... 0.5
+            case .levelsHighlight: -0.75 ... 0.25
+            case .levelsWhite: -1 ... 0
             case .brilliance, .contrast, .shadows, .brightness, .blackPoint, .saturation, .vibrance, .temperature, .tint,
                  .vignette, .vignetteRadius, .vignetteSoftness: -1 ... 1
             }
@@ -164,6 +192,11 @@ extension ImageAdjustmentDescription {
             case .temperature: \.temperature
             case .tint: \.tint
             case .sepia: \.sepia
+            case .levelsBlack: \.levelsBlack
+            case .levelsShadow: \.levelsShadow
+            case .levelsMid: \.levelsMid
+            case .levelsHighlight: \.levelsHighlight
+            case .levelsWhite: \.levelsWhite
             case .sharpness: \.sharpness
             case .definition: \.definition
             case .vignette: \.vignette
@@ -185,7 +218,8 @@ extension ImageAdjustmentDescription {
 extension ImageAdjustmentDescription: Codable {
     private enum CodingKeys: String, CodingKey {
         case brilliance, exposure, contrast, highlights, shadows, brightness, blackPoint, saturation, vibrance,
-            temperature, tint, sepia, sharpness, definition, vignette, vignetteRadius, vignetteSoftness, bypassed
+            temperature, tint, sepia, levelsBlack, levelsShadow, levelsMid, levelsHighlight, levelsWhite, sharpness,
+            definition, vignette, vignetteRadius, vignetteSoftness, bypassed
     }
 
     /// A missing key decodes as neutral, so data written before a parameter existed still reads. A
@@ -206,6 +240,11 @@ extension ImageAdjustmentDescription: Codable {
             temperature: try c.decodeIfPresent(Double.self, forKey: .temperature) ?? 0,
             tint: try c.decodeIfPresent(Double.self, forKey: .tint) ?? 0,
             sepia: try c.decodeIfPresent(Double.self, forKey: .sepia) ?? 0,
+            levelsBlack: try c.decodeIfPresent(Double.self, forKey: .levelsBlack) ?? 0,
+            levelsShadow: try c.decodeIfPresent(Double.self, forKey: .levelsShadow) ?? 0,
+            levelsMid: try c.decodeIfPresent(Double.self, forKey: .levelsMid) ?? 0,
+            levelsHighlight: try c.decodeIfPresent(Double.self, forKey: .levelsHighlight) ?? 0,
+            levelsWhite: try c.decodeIfPresent(Double.self, forKey: .levelsWhite) ?? 0,
             sharpness: try c.decodeIfPresent(Double.self, forKey: .sharpness) ?? 0,
             definition: try c.decodeIfPresent(Double.self, forKey: .definition) ?? 0,
             vignette: try c.decodeIfPresent(Double.self, forKey: .vignette) ?? 0,
