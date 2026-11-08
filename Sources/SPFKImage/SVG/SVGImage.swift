@@ -21,8 +21,8 @@
             return type.conforms(to: .svg)
         }
 
-        /// The document's size in SVG user units, or `nil` when it cannot be read or has no
-        /// extent.
+        /// The document's size in its own units -- SVG user units, PDF points -- or `nil` when it
+        /// cannot be read or has no extent.
         public static func intrinsicSize(of url: URL) -> CGSize? {
             autoreleasepool {
                 guard let image = NSImage(contentsOf: url) else { return nil }
@@ -30,8 +30,8 @@
             }
         }
 
-        /// Renders `url` aspect-fit so its long edge is `maxPixelSize`, on a transparent sRGB
-        /// background. Safe to call concurrently.
+        /// Renders `url`, or any other file `NSImage` reads, aspect-fit so its long edge is
+        /// `maxPixelSize`, on a transparent sRGB background. Safe to call concurrently.
         public static func render(url: URL, maxPixelSize: Int) -> CGImage? {
             guard maxPixelSize > 0 else { return nil }
 

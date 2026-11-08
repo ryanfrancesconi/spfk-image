@@ -4,7 +4,8 @@ import CoreGraphics
 import Foundation
 import ImageIO
 
-/// Downscaled decodes of still images: ImageIO for raster formats, `SVGImage` for SVG.
+/// Downscaled decodes of still images: ImageIO for raster formats, `SVGImage` for SVG and
+/// PDF-compatible Illustrator files.
 ///
 /// Security-scoped access is the caller's.
 public enum StillImageThumbnail {
@@ -14,7 +15,7 @@ public enum StillImageThumbnail {
     ///   file, which it returns at its own size whatever `maxPixelSize` asks for.
     public static func make(url: URL, maxPixelSize: Int, allowsEmbeddedThumbnail: Bool) -> CGImage? {
         #if os(macOS)
-            if SVGImage.isSVG(url) {
+            if rendersThroughNSImage(url) {
                 return SVGImage.render(url: url, maxPixelSize: maxPixelSize)
             }
         #endif
@@ -34,11 +35,11 @@ public enum StillImageThumbnail {
         return CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary)
     }
 
-    /// The stored pixel dimensions, before orientation; for SVG, the document's size in user
-    /// units. `nil` when they cannot be read.
+    /// The stored pixel dimensions, before orientation; for a vector file, the document's size in
+    /// its own units. `nil` when they cannot be read.
     public static func sourceSize(of url: URL) -> CGSize? {
         #if os(macOS)
-            if SVGImage.isSVG(url) {
+            if rendersThroughNSImage(url) {
                 return SVGImage.intrinsicSize(of: url)
             }
         #endif
@@ -55,9 +56,15 @@ public enum StillImageThumbnail {
     /// Whether `url` renders sharply at any size, so a decode need not stop at its source size.
     public static func isResolutionIndependent(_ url: URL) -> Bool {
         #if os(macOS)
-            SVGImage.isSVG(url)
+            rendersThroughNSImage(url)
         #else
             false
         #endif
     }
+
+    #if os(macOS)
+        private static func rendersThroughNSImage(_ url: URL) -> Bool {
+            SVGImage.isSVG(url) || IllustratorImage.isPDFCompatible(url)
+        }
+    #endif
 }
