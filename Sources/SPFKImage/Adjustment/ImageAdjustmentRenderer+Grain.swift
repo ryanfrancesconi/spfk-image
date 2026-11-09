@@ -31,24 +31,27 @@ extension ImageAdjustmentRenderer {
         centered.bVector = gain
         centered.aVector = CIVector(x: 0, y: 0, z: 0, w: 1)
         centered.biasVector = CIVector(x: offset, y: offset, z: offset, w: 0)
+        let noise = centered.outputImage
 
-        let encode = CIFilter.linearToSRGBToneCurve()
-        encode.inputImage = image
+        return preservingRange(image) { image in
+            let encode = CIFilter.linearToSRGBToneCurve()
+            encode.inputImage = image
 
-        let overlay = CIFilter.overlayBlendMode()
-        overlay.inputImage = centered.outputImage
-        overlay.backgroundImage = encode.outputImage
+            let overlay = CIFilter.overlayBlendMode()
+            overlay.inputImage = noise
+            overlay.backgroundImage = encode.outputImage
 
-        let decode = CIFilter.sRGBToneCurveToLinear()
-        decode.inputImage = overlay.outputImage
+            let decode = CIFilter.sRGBToneCurveToLinear()
+            decode.inputImage = overlay.outputImage
 
-        // The overlay of opaque noise is opaque; the source's own alpha is put back.
-        let alpha = CIFilter.blendWithAlphaMask()
-        alpha.inputImage = decode.outputImage
-        alpha.backgroundImage = CIImage.empty()
-        alpha.maskImage = image
+            // The overlay of opaque noise is opaque; the source's own alpha is put back.
+            let alpha = CIFilter.blendWithAlphaMask()
+            alpha.inputImage = decode.outputImage
+            alpha.backgroundImage = CIImage.empty()
+            alpha.maskImage = image
 
-        return alpha.outputImage ?? image
+            return alpha.outputImage ?? image
+        }
     }
 
     /// Uniform noise in 0…1, the same in every channel, with alpha 1. `CIRandomGenerator` repeats every

@@ -16,19 +16,24 @@ extension ImageAdjustmentRenderer {
     private static let colorCubeCache = OSAllocatedUnfairLock<[String: (values: [Double], data: Data)]>(initialState: [:])
 
     /// `image` through a color cube sampling `transform`. The cube is rebuilt only when `values`, the
-    /// inputs `transform` depends on, differ from the last build for `step`. Inputs outside 0…1 clamp.
+    /// inputs `transform` depends on, differ from the last build for `step`. A value outside 0…1 takes
+    /// the change its clamped value would.
     static func colorCube(
         _ image: CIImage,
         step: String,
         values: [Double],
         transform: ColorTransform
     ) -> CIImage {
-        let filter = CIFilter.colorCubeWithColorSpace()
-        filter.inputImage = image
-        filter.cubeDimension = Float(colorCubeDimension)
-        filter.cubeData = colorCubeData(step: step, values: values, transform: transform)
-        filter.colorSpace = CGColorSpace(name: CGColorSpace.sRGB)
-        return filter.outputImage ?? image
+        let data = colorCubeData(step: step, values: values, transform: transform)
+
+        return preservingRange(image) { image in
+            let filter = CIFilter.colorCubeWithColorSpace()
+            filter.inputImage = image
+            filter.cubeDimension = Float(colorCubeDimension)
+            filter.cubeData = data
+            filter.colorSpace = CGColorSpace(name: CGColorSpace.sRGB)
+            return filter.outputImage ?? image
+        }
     }
 
     static func colorCubeData(step: String, values: [Double], transform: ColorTransform) -> Data {
