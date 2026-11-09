@@ -160,7 +160,7 @@ struct ImageAdjustmentSelectiveColorTests {
     @Test func aBypassedBandRendersUnchangedAndKeepsItsValue() throws {
         var adjustments = ImageAdjustmentDescription()
         adjustments.selectiveColor.red.saturation = -1
-        adjustments.bypassed = Set(ImageAdjustmentDescription.Group.selectiveColor.parameters)
+        adjustments.bypassed = [.selectiveColor]
 
         let output = try render(adjustments, [Self.red])
 

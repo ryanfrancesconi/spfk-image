@@ -125,7 +125,7 @@ final class ImageAdjustmentLevelsTests {
         let brighter = try histogram(gray: 0.5, exposed)
         #expect(peak(brighter.luminance) > peak(plain.luminance) + 20)
 
-        exposed.bypassed = [.exposure]
+        exposed.bypassed = [.light]
         #expect(try histogram(gray: 0.5, exposed) == plain)
     }
 

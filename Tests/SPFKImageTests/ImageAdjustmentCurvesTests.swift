@@ -32,7 +32,7 @@ struct ImageAdjustmentCurvesTests {
     /// The ramp rendered with `curves`, as RGBA bytes per level.
     private func render(_ curves: ImageToneCurves, bypassed: Bool = false) throws -> [[Int]] {
         let output = try #require(ImageAdjustmentRenderer().render(
-            ImageAdjustmentDescription(curves: curves, curvesBypassed: bypassed),
+            ImageAdjustmentDescription(curves: curves, bypassed: bypassed ? [.curves] : []),
             source: try ramp()
         ))
 
@@ -96,14 +96,14 @@ struct ImageAdjustmentCurvesTests {
 
         #expect(abs(pixels[128][0] - 128) <= 1)
 
-        let adjustments = ImageAdjustmentDescription(curves: curves, curvesBypassed: true)
+        let adjustments = ImageAdjustmentDescription(curves: curves, bypassed: [.curves])
         #expect(adjustments.effective.isEmpty)
         #expect(!adjustments.isEmpty)
         #expect(adjustments.unrenderedPart == adjustments)
     }
 
     @Test func aSwitchedOffIdentityCurveIsStillStored() {
-        let adjustments = ImageAdjustmentDescription(curvesBypassed: true)
+        let adjustments = ImageAdjustmentDescription(bypassed: [.curves])
 
         #expect(!adjustments.isEmpty)
         #expect(adjustments.effective.isEmpty)
@@ -220,7 +220,7 @@ struct ImageAdjustmentCurvesTests {
         let adjustments = ImageAdjustmentDescription(
             light: .init(exposure: 0.5),
             curves: ImageToneCurves(blue: [Point(x: 0, y: 0.1), Point(x: 0.4, y: 0.6), Point(x: 1, y: 0.9)]),
-            curvesBypassed: true
+            bypassed: [.curves]
         )
 
         let data = try JSONEncoder().encode(adjustments)

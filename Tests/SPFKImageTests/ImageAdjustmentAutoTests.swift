@@ -129,7 +129,7 @@ final class ImageAdjustmentAutoTests {
             light: .init(exposure: 0.5, shadows: -0.4),
             color: .init(vibrance: 0.9, sepia: 0.3),
             levels: .init(mid: 0.2),
-            bypassed: [.exposure, .shadows]
+            bypassed: [.light]
         )
         let auto = ImageAdjustmentDescription(
             light: .init(highlights: -0.1, shadows: 0.3),

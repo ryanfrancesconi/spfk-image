@@ -7,10 +7,10 @@ import Testing
 
 @testable import SPFKImage
 
-/// A bypassed parameter keeps its value and renders as neutral.
+/// A bypassed section keeps its values and renders as neutral.
 @Suite(.tags(.file))
 final class ImageAdjustmentBypassTests {
-    typealias Parameter = ImageAdjustmentDescription.Parameter
+    typealias Group = ImageAdjustmentDescription.Group
 
     let context = CIContext()
     let input: CIImage
@@ -25,11 +25,11 @@ final class ImageAdjustmentBypassTests {
 
     @Test func aBypassedParameterRendersAsNeutralAndKeepsItsValue() throws {
         var bypassed = ImageAdjustmentChainPinTests.pinned
-        bypassed.bypassed = [.exposure, .saturation]
+        bypassed.bypassed = [.light, .color]
 
         var neutralized = ImageAdjustmentChainPinTests.pinned
-        neutralized.light.exposure = 0
-        neutralized.color.saturation = 0
+        neutralized.light = .init()
+        neutralized.color = .init()
 
         #expect(try pixels(bypassed) == pixels(neutralized))
         #expect(bypassed.light.exposure == ImageAdjustmentChainPinTests.pinned.light.exposure)
@@ -38,7 +38,7 @@ final class ImageAdjustmentBypassTests {
 
     @Test func everythingBypassedIsAnIdentityRenderButNotEmpty() throws {
         var adjustments = ImageAdjustmentChainPinTests.pinned
-        adjustments.bypassed = Set(Parameter.allCases)
+        adjustments.bypassed = Set(Group.allCases)
 
         #expect(!adjustments.isEmpty)
         #expect(adjustments.effective.isEmpty)
@@ -54,9 +54,9 @@ final class ImageAdjustmentBypassTests {
         let adjustments = ImageAdjustmentDescription(
             light: .init(exposure: 1),
             color: .init(saturation: 0.5),
-            bypassed: [.saturation, .vignette]
+            bypassed: [.color, .vignette]
         )
-        #expect(adjustments.unrenderedPart == ImageAdjustmentDescription(color: .init(saturation: 0.5), bypassed: [.saturation, .vignette]))
+        #expect(adjustments.unrenderedPart == ImageAdjustmentDescription(color: .init(saturation: 0.5), bypassed: [.color, .vignette]))
     }
 
     @Test func codableRoundTripKeepsTheBypassedSet() throws {

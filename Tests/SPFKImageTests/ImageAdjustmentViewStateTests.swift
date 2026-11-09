@@ -37,11 +37,11 @@ final class ImageAdjustmentViewStateTests {
 
     @Test func whatStaysPendingAfterARenderKeepsTheZoom() {
         let adjustments = ImageAdjustmentDescription(
-            light: .init(exposure: 1), color: .init(saturation: 0.5), zoom: .init(level: 0.6, centerX: 0.2), bypassed: [.saturation]
+            light: .init(exposure: 1), color: .init(saturation: 0.5), zoom: .init(level: 0.6, centerX: 0.2), bypassed: [.color]
         )
 
         #expect(adjustments.unrenderedPart == ImageAdjustmentDescription(
-            color: .init(saturation: 0.5), zoom: .init(level: 0.6, centerX: 0.2), bypassed: [.saturation]
+            color: .init(saturation: 0.5), zoom: .init(level: 0.6, centerX: 0.2), bypassed: [.color]
         ))
     }
 

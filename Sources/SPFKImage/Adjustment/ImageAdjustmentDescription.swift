@@ -11,7 +11,7 @@ import Foundation
 /// white point, levels, curves, highlights and shadows, brightness, brilliance, contrast and saturation,
 /// definition, selective color, black and white, color grading, sepia, sharpness, vignette, grain.
 ///
-/// A ``bypassed`` parameter keeps its value but renders as neutral (see ``effective``). The
+/// A ``bypassed`` section keeps its values but renders as neutral (see ``effective``). The
 /// ``Parameter/isViewState`` parameters describe how the preview shows the image, not an edit, and
 /// never render.
 public struct ImageAdjustmentDescription: Hashable, Sendable, Codable {
@@ -29,11 +29,8 @@ public struct ImageAdjustmentDescription: Hashable, Sendable, Codable {
     /// View state.
     public var zoom: Zoom { didSet { sanitize(.zoom) } }
 
-    /// Parameters switched off: each keeps its value and renders as neutral.
-    public var bypassed: Set<Parameter>
-
-    /// Whether ``curves`` is switched off: it keeps its points and renders as identity.
-    public var curvesBypassed: Bool
+    /// Sections switched off: each keeps its values and renders as neutral.
+    public var bypassed: Set<Group>
 
     public init(
         light: Light = Light(),
@@ -47,8 +44,7 @@ public struct ImageAdjustmentDescription: Hashable, Sendable, Codable {
         vignette: Vignette = Vignette(),
         grain: Grain = Grain(),
         zoom: Zoom = Zoom(),
-        bypassed: Set<Parameter> = [],
-        curvesBypassed: Bool = false
+        bypassed: Set<Group> = []
     ) {
         self.light = light
         self.color = color
@@ -62,14 +58,13 @@ public struct ImageAdjustmentDescription: Hashable, Sendable, Codable {
         self.grain = grain
         self.zoom = zoom
         self.bypassed = bypassed
-        self.curvesBypassed = curvesBypassed
 
         for group in Group.allCases {
             sanitize(group)
         }
     }
 
-    /// Decodes through ``init(light:color:blackAndWhite:curves:levels:selectiveColor:colorGrading:detail:vignette:grain:zoom:bypassed:curvesBypassed:)``,
+    /// Decodes through ``init(light:color:blackAndWhite:curves:levels:selectiveColor:colorGrading:detail:vignette:grain:zoom:bypassed:)``,
     /// so a decoded value is clamped as an assigned one is.
     public init(from decoder: any Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
@@ -86,8 +81,7 @@ public struct ImageAdjustmentDescription: Hashable, Sendable, Codable {
             vignette: c.decode(Vignette.self, forKey: .vignette),
             grain: c.decode(Grain.self, forKey: .grain),
             zoom: c.decode(Zoom.self, forKey: .zoom),
-            bypassed: c.decode(Set<Parameter>.self, forKey: .bypassed),
-            curvesBypassed: c.decode(Bool.self, forKey: .curvesBypassed)
+            bypassed: c.decode(Set<Group>.self, forKey: .bypassed)
         )
     }
 
@@ -126,39 +120,48 @@ public struct ImageAdjustmentDescription: Hashable, Sendable, Codable {
         }
     }
 
-    /// What renders: every ``bypassed`` and view-state parameter at neutral, bypassed curves at
-    /// identity, and nothing bypassed.
+    /// What renders: every ``bypassed`` section and the view state at neutral, and nothing bypassed.
     /// Empty when the adjustment would leave the image unchanged.
     public var effective: ImageAdjustmentDescription {
         var result = withoutViewState
-        for parameter in bypassed {
-            result[parameter] = 0
+        for group in bypassed {
+            result.reset(group)
         }
         result.bypassed = []
-
-        if curvesBypassed {
-            result.curves = .identity
-            result.curvesBypassed = false
-        }
-
         return result
     }
 
-    /// The bypassed parameters and curves, still bypassed, and the view state: what stays pending once
+    /// The bypassed sections, still bypassed, and the view state: what stays pending once
     /// ``effective`` is rendered.
     public var unrenderedPart: ImageAdjustmentDescription {
         var result = viewState
+        for group in bypassed {
+            result.take(group, from: self)
+        }
         result.bypassed = bypassed
-        for parameter in bypassed {
-            result[parameter] = self[parameter]
-        }
-
-        if curvesBypassed {
-            result.curves = curves
-            result.curvesBypassed = true
-        }
-
         return result
+    }
+
+    /// Returns `group` to neutral. Whether it is bypassed is unchanged.
+    public mutating func reset(_ group: Group) {
+        take(group, from: ImageAdjustmentDescription())
+    }
+
+    /// Replaces `group`'s values with `other`'s. Whether it is bypassed is unchanged.
+    public mutating func take(_ group: Group, from other: ImageAdjustmentDescription) {
+        switch group {
+        case .light: light = other.light
+        case .color: color = other.color
+        case .blackAndWhite: blackAndWhite = other.blackAndWhite
+        case .curves: curves = other.curves
+        case .levels: levels = other.levels
+        case .selectiveColor: selectiveColor = other.selectiveColor
+        case .colorGrading: colorGrading = other.colorGrading
+        case .detail: detail = other.detail
+        case .vignette: vignette = other.vignette
+        case .grain: grain = other.grain
+        case .zoom: zoom = other.zoom
+        }
     }
 
     /// The edit alone, with the view state at neutral.

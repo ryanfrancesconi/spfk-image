@@ -147,7 +147,7 @@ struct ImageAdjustmentColorGradingTests {
 
     @Test func aBypassedRangeRendersUnchangedAndKeepsItsValue() throws {
         var adjustments = grading(shadows: (0.6, 0.8))
-        adjustments.bypassed = [.colorGradingShadowSaturation]
+        adjustments.bypassed = [.colorGrading]
 
         #expect(try render(adjustments, Self.colors) == render(ImageAdjustmentDescription(), Self.colors))
         #expect(adjustments.colorGrading.shadows.saturation == 0.8)
