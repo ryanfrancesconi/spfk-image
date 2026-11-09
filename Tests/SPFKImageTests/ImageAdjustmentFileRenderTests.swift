@@ -14,7 +14,7 @@ import UniformTypeIdentifiers
 final class ImageAdjustmentFileRenderTests {
     private let directory: URL
     private let renderer = ImageAdjustmentRenderer()
-    private let brighter = ImageAdjustmentDescription(exposure: 1)
+    private let brighter = ImageAdjustmentDescription(light: .init(exposure: 1))
 
     init() throws {
         directory = FileManager.default.temporaryDirectory

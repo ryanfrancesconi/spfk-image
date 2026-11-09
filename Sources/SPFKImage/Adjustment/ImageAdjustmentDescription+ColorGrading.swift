@@ -27,14 +27,54 @@ extension ImageAdjustmentDescription {
         }
     }
 
-    /// Whether any range carries a tint. Hue and balance alone render nothing.
-    public var hasColorGrading: Bool {
-        ColorGradingRange.allCases.contains { self[$0.saturation] != 0 }
-    }
-}
+    /// A tint for each ``ColorGradingRange``, and where the ranges meet.
+    public struct ColorGrading: Hashable, Sendable, Codable {
+        /// A hue has no effect while its saturation is 0.
+        public struct Tint: Hashable, Sendable, Codable {
+            public var hue: Double
+            public var saturation: Double
 
-extension ImageAdjustmentDescription.Parameter {
-    /// Every Color Grading parameter: each range's hue and saturation, then balance.
-    public static let colorGrading: [Self] = ImageAdjustmentDescription.ColorGradingRange.allCases
-        .flatMap { [$0.hue, $0.saturation] } + [.colorGradingBalance]
+            public init(hue: Double = 0, saturation: Double = 0) {
+                self.hue = hue
+                self.saturation = saturation
+            }
+        }
+
+        public var shadows: Tint
+        public var midtones: Tint
+        public var highlights: Tint
+        /// Positive extends the highlights' tint into darker tones; negative extends the shadows'.
+        public var balance: Double
+
+        public init(shadows: Tint = Tint(), midtones: Tint = Tint(), highlights: Tint = Tint(), balance: Double = 0) {
+            self.shadows = shadows
+            self.midtones = midtones
+            self.highlights = highlights
+            self.balance = balance
+        }
+
+        public var isNeutral: Bool { self == Self() }
+
+        /// Whether any range carries a tint. Hue and balance alone render nothing.
+        public var hasTint: Bool {
+            ColorGradingRange.allCases.contains { self[$0].saturation != 0 }
+        }
+
+        public subscript(range: ColorGradingRange) -> Tint {
+            get {
+                switch range {
+                case .shadows: shadows
+                case .midtones: midtones
+                case .highlights: highlights
+                }
+            }
+            set {
+                switch range {
+                case .shadows: shadows = newValue
+                case .midtones: midtones = newValue
+                case .highlights: highlights = newValue
+                }
+            }
+        }
+    }
 }

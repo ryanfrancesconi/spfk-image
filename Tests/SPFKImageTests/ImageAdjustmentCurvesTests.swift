@@ -111,7 +111,7 @@ struct ImageAdjustmentCurvesTests {
 
     @Test func theCurvesHistogramIncludesLevels() throws {
         let renderer = ImageAdjustmentRenderer()
-        let adjustments = ImageAdjustmentDescription(levelsBlack: 0.3)
+        let adjustments = ImageAdjustmentDescription(levels: .init(black: 0.3))
 
         let levels = try #require(renderer.levelsHistogram(adjustments, source: try ramp()))
         let curves = try #require(renderer.curvesHistogram(adjustments, source: try ramp()))
@@ -218,20 +218,13 @@ struct ImageAdjustmentCurvesTests {
 
     @Test func curvesRoundTripThroughCodable() throws {
         let adjustments = ImageAdjustmentDescription(
-            exposure: 0.5,
+            light: .init(exposure: 0.5),
             curves: ImageToneCurves(blue: [Point(x: 0, y: 0.1), Point(x: 0.4, y: 0.6), Point(x: 1, y: 0.9)]),
             curvesBypassed: true
         )
 
         let data = try JSONEncoder().encode(adjustments)
         #expect(try JSONDecoder().decode(ImageAdjustmentDescription.self, from: data) == adjustments)
-    }
-
-    @Test func dataWrittenBeforeCurvesDecodesAsIdentity() throws {
-        let decoded = try JSONDecoder().decode(ImageAdjustmentDescription.self, from: Data(#"{"exposure":1}"#.utf8))
-
-        #expect(decoded.curves.isIdentity)
-        #expect(!decoded.curvesBypassed)
     }
 
     @Test func storedPointsAreSanitizedOnDecode() throws {

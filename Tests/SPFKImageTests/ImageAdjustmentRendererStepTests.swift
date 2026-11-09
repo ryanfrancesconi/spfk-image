@@ -53,8 +53,8 @@ final class ImageAdjustmentRendererStepTests {
         }
 
         let neutral = try stats(.init())
-        #expect(try stats(.init(vibrance: 1)).meanChannelSpread > neutral.meanChannelSpread)
-        #expect(try stats(.init(vibrance: -1)).meanChannelSpread < neutral.meanChannelSpread)
+        #expect(try stats(.init(color: .init(vibrance: 1))).meanChannelSpread > neutral.meanChannelSpread)
+        #expect(try stats(.init(color: .init(vibrance: -1))).meanChannelSpread < neutral.meanChannelSpread)
     }
 
     // MARK: - Vignette
@@ -81,7 +81,7 @@ final class ImageAdjustmentRendererStepTests {
 
     @Test func positiveVignetteDarkensTheCornersAndKeepsTheCenter() throws {
         let neutral = try cornerAndCenter(.init())
-        let vignetted = try cornerAndCenter(.init(vignette: 1))
+        let vignetted = try cornerAndCenter(.init(vignette: .init(amount: 1)))
 
         #expect(vignetted.corner < neutral.corner * 0.8)
         #expect(abs(vignetted.center - neutral.center) < neutral.center * 0.01)
@@ -89,16 +89,16 @@ final class ImageAdjustmentRendererStepTests {
 
     @Test func negativeVignetteLightensTheCorners() throws {
         let neutral = try cornerAndCenter(.init())
-        let lightened = try cornerAndCenter(.init(vignette: -1))
+        let lightened = try cornerAndCenter(.init(vignette: .init(amount: -1)))
 
         #expect(lightened.corner > neutral.corner * 1.2)
         #expect(abs(lightened.center - neutral.center) < neutral.center * 0.01)
     }
 
     @Test func aWiderRadiusLeavesTheCornersBrighter() throws {
-        let neutral = try cornerAndCenter(.init(vignette: 1))
-        let wide = try cornerAndCenter(.init(vignette: 1, vignetteRadius: 1))
-        let narrow = try cornerAndCenter(.init(vignette: 1, vignetteRadius: -1))
+        let neutral = try cornerAndCenter(.init(vignette: .init(amount: 1)))
+        let wide = try cornerAndCenter(.init(vignette: .init(amount: 1, radius: 1)))
+        let narrow = try cornerAndCenter(.init(vignette: .init(amount: 1, radius: -1)))
 
         #expect(wide.corner > neutral.corner)
         #expect(narrow.corner < neutral.corner)
@@ -111,7 +111,7 @@ final class ImageAdjustmentRendererStepTests {
         adjusted[parameter] = 0.6
         #expect(Self.maximumDifference(base, try pixels(adjusted)) == 0)
 
-        adjusted.vignette = 0.8
+        adjusted.vignette.amount = 0.8
         let vignetted = try pixels(adjusted)
         adjusted[parameter] = 0
         #expect(Self.maximumDifference(vignetted, try pixels(adjusted)) > 0.01)
@@ -121,21 +121,21 @@ final class ImageAdjustmentRendererStepTests {
 
     @Test func sharpnessRadiusActsOnlyWithSharpness() throws {
         var adjusted = ImageAdjustmentChainPinTests.pinned
-        adjusted.sharpness = 0
+        adjusted.detail.sharpness = 0
         let base = try pixels(adjusted)
-        adjusted.sharpnessRadius = 0.6
+        adjusted.detail.sharpnessRadius = 0.6
         #expect(Self.maximumDifference(base, try pixels(adjusted)) == 0)
 
-        adjusted.sharpness = 0.6
+        adjusted.detail.sharpness = 0.6
         let sharpened = try pixels(adjusted)
-        adjusted.sharpnessRadius = 0
+        adjusted.detail.sharpnessRadius = 0
         #expect(Self.maximumDifference(sharpened, try pixels(adjusted)) > 0.01)
     }
 
     @Test func aWiderSharpnessRadiusChangesMoreOfTheImage() throws {
         let plain = try pixels(.init())
         let changed = { (radius: Double) throws -> Double in
-            let sharpened = try self.pixels(.init(sharpness: 1, sharpnessRadius: radius))
+            let sharpened = try self.pixels(.init(detail: .init(sharpness: 1, sharpnessRadius: radius)))
             return zip(plain, sharpened).map { Double(abs($0 - $1)) }.reduce(0, +)
         }
 
@@ -160,7 +160,7 @@ final class ImageAdjustmentRendererStepTests {
     /// A quarter-size render with its radii scaled resembles the full render downsampled, closer than
     /// the same render with full-size radii.
     @Test func aDownsampledRenderMatchesTheFullRenderWhenScaled() throws {
-        let adjustments = ImageAdjustmentDescription(sharpness: 1)
+        let adjustments = ImageAdjustmentDescription(detail: .init(sharpness: 1))
 
         let full = try ImageAdjustmentChainPinTests.floatPixels(
             Self.quarter(ImageAdjustmentRenderer.apply(adjustments, to: input)), context: context

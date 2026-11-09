@@ -14,13 +14,13 @@ extension ImageAdjustmentRenderer {
     /// orientation sensitive.
     public static func autoAdjustments(for image: CIImage) -> ImageAdjustmentDescription {
         let balance = autoWhiteBalance(for: image)
-        let balanced = balance.temperature == 0 && balance.tint == 0
+        let balanced = balance.color.temperature == 0 && balance.color.tint == 0
             ? image
-            : temperatureAndTint(image, temperature: balance.temperature, tint: balance.tint).cropped(to: image.extent)
+            : temperatureAndTint(image, temperature: balance.color.temperature, tint: balance.color.tint).cropped(to: image.extent)
 
         var result = enhancement(for: balanced)
-        result.temperature = balance.temperature
-        result.tint = balance.tint
+        result.color.temperature = balance.color.temperature
+        result.color.tint = balance.color.tint
         return result
     }
 
@@ -32,16 +32,16 @@ extension ImageAdjustmentRenderer {
         for filter in image.autoAdjustmentFilters(options: [.redEye: false]) {
             switch filter.name {
             case "CIVibrance":
-                result.vibrance = number(filter, kCIInputAmountKey)
+                result.color.vibrance = number(filter, kCIInputAmountKey)
 
             case "CIToneCurve":
                 let points = (0 ..< 5).compactMap { (filter.value(forKey: "inputPoint\($0)") as? CIVector)?.cgPointValue }
                 guard points.count == 5 else { continue }
-                result.levelsPositions = ImageAdjustmentDescription.levelsIdentity.map { inputPosition(of: $0, on: points) }
+                result.levels.positions = ImageAdjustmentDescription.Levels.identity.map { inputPosition(of: $0, on: points) }
 
             case "CIHighlightShadowAdjust":
-                result.shadows = number(filter, "inputShadowAmount")
-                result.highlights = number(filter, "inputHighlightAmount") - 1
+                result.light.shadows = number(filter, "inputShadowAmount")
+                result.light.highlights = number(filter, "inputHighlightAmount") - 1
 
             default:
                 Log.debug("Auto drops \(filter.name)")
@@ -112,7 +112,7 @@ public enum ImageAutoAdjustment: Sendable, CaseIterable {
 
 extension ImageAdjustmentDescription.Parameter {
     /// What Auto sets; it leaves the rest as they are.
-    public static let auto: Set<Self> = Set([.temperature, .tint, .vibrance, .highlights, .shadows] + levels)
+    public static let auto: Set<Self> = Set([.temperature, .tint, .vibrance, .highlights, .shadows] + ImageAdjustmentDescription.Group.levels.parameters)
 
     /// What Auto White Balance sets.
     public static let autoWhiteBalance: Set<Self> = [.temperature, .tint]

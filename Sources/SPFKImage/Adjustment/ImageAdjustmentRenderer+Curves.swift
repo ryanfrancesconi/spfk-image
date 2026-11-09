@@ -48,12 +48,7 @@ extension ImageAdjustmentRenderer {
     /// The part of `adjustments` that renders before the curves step: the levels input and levels.
     public static func curvesInput(of adjustments: ImageAdjustmentDescription) -> ImageAdjustmentDescription {
         var input = levelsInput(of: adjustments)
-        let effective = adjustments.effective
-
-        for parameter in ImageAdjustmentDescription.Parameter.levels {
-            input[parameter] = effective[parameter]
-        }
-
+        input.levels = adjustments.effective.levels
         return input
     }
 

@@ -5,7 +5,7 @@ import Foundation
 extension ImageAdjustmentDescription {
     /// One of six color bands, each centered on a hue 60° from its neighbors. Selective Color shifts
     /// each band's color; Black & White lightens or darkens its gray.
-    public enum SelectiveColor: String, CaseIterable, Sendable {
+    public enum ColorBand: String, CaseIterable, Sendable {
         case red
         case yellow
         case green
@@ -70,22 +70,116 @@ extension ImageAdjustmentDescription {
             }
         }
 
-        /// Hue, saturation and luminance, in that order.
+        /// Selective Color's hue, saturation and luminance, in that order.
         public var parameters: [Parameter] {
             [hue, saturation, luminance]
         }
     }
 
-    /// Whether any Selective Color shift is away from neutral.
-    public var hasSelectiveColor: Bool {
-        Parameter.selectiveColor.contains { self[$0] != 0 }
+    /// Hue, saturation and luminance shifts for each ``ColorBand``.
+    public struct SelectiveColor: Hashable, Sendable, Codable {
+        public struct Shift: Hashable, Sendable, Codable {
+            public var hue: Double
+            public var saturation: Double
+            public var luminance: Double
+
+            public init(hue: Double = 0, saturation: Double = 0, luminance: Double = 0) {
+                self.hue = hue
+                self.saturation = saturation
+                self.luminance = luminance
+            }
+        }
+
+        public var red: Shift
+        public var yellow: Shift
+        public var green: Shift
+        public var cyan: Shift
+        public var blue: Shift
+        public var magenta: Shift
+
+        public init(
+            red: Shift = Shift(),
+            yellow: Shift = Shift(),
+            green: Shift = Shift(),
+            cyan: Shift = Shift(),
+            blue: Shift = Shift(),
+            magenta: Shift = Shift()
+        ) {
+            self.red = red
+            self.yellow = yellow
+            self.green = green
+            self.cyan = cyan
+            self.blue = blue
+            self.magenta = magenta
+        }
+
+        public var isNeutral: Bool { self == Self() }
+
+        public subscript(band: ColorBand) -> Shift {
+            get {
+                switch band {
+                case .red: red
+                case .yellow: yellow
+                case .green: green
+                case .cyan: cyan
+                case .blue: blue
+                case .magenta: magenta
+                }
+            }
+            set {
+                switch band {
+                case .red: red = newValue
+                case .yellow: yellow = newValue
+                case .green: green = newValue
+                case .cyan: cyan = newValue
+                case .blue: blue = newValue
+                case .magenta: magenta = newValue
+                }
+            }
+        }
     }
-}
 
-extension ImageAdjustmentDescription.Parameter {
-    /// Every Selective Color parameter, band by band.
-    public static let selectiveColor: [Self] = ImageAdjustmentDescription.SelectiveColor.allCases.flatMap(\.parameters)
+    /// How far the image moves to its monochrome version, and how each ``ColorBand``'s gray is
+    /// lightened or darkened in it.
+    public struct BlackAndWhite: Hashable, Sendable, Codable {
+        public var amount: Double
+        /// No effect while ``amount`` is 0.
+        public var red: Double
+        public var yellow: Double
+        public var green: Double
+        public var cyan: Double
+        public var blue: Double
+        public var magenta: Double
 
-    /// Black & White's band parameters, in band order.
-    public static let blackAndWhiteBands: [Self] = ImageAdjustmentDescription.SelectiveColor.allCases.map(\.blackAndWhite)
+        public init(
+            amount: Double = 0,
+            red: Double = 0,
+            yellow: Double = 0,
+            green: Double = 0,
+            cyan: Double = 0,
+            blue: Double = 0,
+            magenta: Double = 0
+        ) {
+            self.amount = amount
+            self.red = red
+            self.yellow = yellow
+            self.green = green
+            self.cyan = cyan
+            self.blue = blue
+            self.magenta = magenta
+        }
+
+        public var isNeutral: Bool { self == Self() }
+
+        public subscript(band: ColorBand) -> Double {
+            switch band {
+            case .red: red
+            case .yellow: yellow
+            case .green: green
+            case .cyan: cyan
+            case .blue: blue
+            case .magenta: magenta
+            }
+        }
+    }
 }

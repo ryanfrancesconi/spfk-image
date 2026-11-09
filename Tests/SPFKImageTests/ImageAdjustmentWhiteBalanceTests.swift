@@ -110,14 +110,14 @@ final class ImageAdjustmentWhiteBalanceTests {
 
         let warm = ImageAdjustmentRenderer.temperatureAndTint(image, temperature: 0.3, tint: 0.3).cropped(to: image.extent)
         let warmResult = ImageAdjustmentRenderer.autoWhiteBalance(for: warm)
-        #expect(warmResult.temperature < base.temperature - 0.02, "\(base.temperature) → \(warmResult.temperature)")
-        #expect(warmResult.tint < base.tint - 0.02, "\(base.tint) → \(warmResult.tint)")
+        #expect(warmResult.color.temperature < base.color.temperature - 0.02, "\(base.color.temperature) → \(warmResult.color.temperature)")
+        #expect(warmResult.color.tint < base.color.tint - 0.02, "\(base.color.tint) → \(warmResult.color.tint)")
 
         let cool = ImageAdjustmentRenderer.temperatureAndTint(image, temperature: -0.3, tint: -0.3).cropped(to: image.extent)
         let coolResult = ImageAdjustmentRenderer.autoWhiteBalance(for: cool)
-        #expect(coolResult.temperature > base.temperature + 0.02, "\(base.temperature) → \(coolResult.temperature)")
-        #expect(coolResult.tint > base.tint + 0.02, "\(base.tint) → \(coolResult.tint)")
-        print("Auto white balance on sharksandwich: base \(base.temperature), \(base.tint); +0.3/+0.3 cast \(warmResult.temperature), \(warmResult.tint); −0.3/−0.3 cast \(coolResult.temperature), \(coolResult.tint)")
+        #expect(coolResult.color.temperature > base.color.temperature + 0.02, "\(base.color.temperature) → \(coolResult.color.temperature)")
+        #expect(coolResult.color.tint > base.color.tint + 0.02, "\(base.color.tint) → \(coolResult.color.tint)")
+        print("Auto white balance on sharksandwich: base \(base.color.temperature), \(base.color.tint); +0.3/+0.3 cast \(warmResult.color.temperature), \(warmResult.color.tint); −0.3/−0.3 cast \(coolResult.color.temperature), \(coolResult.color.tint)")
     }
 
     @Test func autoWhiteBalanceSetsOnlyTemperatureAndTint() throws {
@@ -149,18 +149,18 @@ final class ImageAdjustmentWhiteBalanceTests {
 
     @Test func applyingAutoWhiteBalanceReplacesOnlyTemperatureAndTint() {
         var current = ImageAdjustmentDescription()
-        current.temperature = 0.4
-        current.vibrance = 0.2
+        current.color.temperature = 0.4
+        current.color.vibrance = 0.2
         var auto = ImageAdjustmentDescription()
-        auto.temperature = -0.1
-        auto.tint = 0.05
-        auto.vibrance = 0.7
+        auto.color.temperature = -0.1
+        auto.color.tint = 0.05
+        auto.color.vibrance = 0.7
 
         let result = current.applyingAuto(auto, kind: .whiteBalance)
 
-        #expect(result.temperature == -0.1)
-        #expect(result.tint == 0.05)
-        #expect(result.vibrance == 0.2)
+        #expect(result.color.temperature == -0.1)
+        #expect(result.color.tint == 0.05)
+        #expect(result.color.vibrance == 0.2)
     }
 
     // MARK: - Eyedropper

@@ -54,13 +54,12 @@ struct ImageAdjustmentColorGradingTests {
         balance: Double = 0
     ) -> ImageAdjustmentDescription {
         ImageAdjustmentDescription(
-            colorGradingShadowHue: shadows.hue,
-            colorGradingShadowSaturation: shadows.saturation,
-            colorGradingMidtoneHue: midtones.hue,
-            colorGradingMidtoneSaturation: midtones.saturation,
-            colorGradingHighlightHue: highlights.hue,
-            colorGradingHighlightSaturation: highlights.saturation,
-            colorGradingBalance: balance
+            colorGrading: .init(
+                shadows: .init(hue: shadows.hue, saturation: shadows.saturation),
+                midtones: .init(hue: midtones.hue, saturation: midtones.saturation),
+                highlights: .init(hue: highlights.hue, saturation: highlights.saturation),
+                balance: balance
+            )
         )
     }
 
@@ -73,7 +72,7 @@ struct ImageAdjustmentColorGradingTests {
     func zeroSaturationIsIdentityWhateverTheHueAndBalance(balance: Double) throws {
         let adjustments = grading(shadows: (0.3, 0), midtones: (0.6, 0), highlights: (0.9, 0), balance: balance)
 
-        #expect(!adjustments.hasColorGrading)
+        #expect(!adjustments.colorGrading.hasTint)
         #expect(try render(adjustments, Self.colors) == render(ImageAdjustmentDescription(), Self.colors))
     }
 
@@ -151,18 +150,10 @@ struct ImageAdjustmentColorGradingTests {
         adjustments.bypassed = [.colorGradingShadowSaturation]
 
         #expect(try render(adjustments, Self.colors) == render(ImageAdjustmentDescription(), Self.colors))
-        #expect(adjustments.colorGradingShadowSaturation == 0.8)
+        #expect(adjustments.colorGrading.shadows.saturation == 0.8)
     }
 
     // MARK: - Storage
-
-    @Test func dataWrittenBeforeColorGradingDecodesAsNeutral() throws {
-        let decoded = try JSONDecoder().decode(ImageAdjustmentDescription.self, from: Data(#"{"exposure":0.5}"#.utf8))
-
-        for parameter in ImageAdjustmentDescription.Parameter.colorGrading {
-            #expect(decoded[parameter] == 0)
-        }
-    }
 
     @Test func colorGradingRoundTripsThroughCodable() throws {
         let adjustments = grading(shadows: (0.6, 0.4), midtones: (0.1, 0.2), highlights: (0.08, 0.9), balance: -0.3)

@@ -30,125 +30,125 @@ public struct ImageAdjustmentRenderer: Sendable {
         let adjustments = adjustments.effective
         guard !adjustments.isEmpty else { return image }
 
+        let light = adjustments.light
+        let color = adjustments.color
+        let detail = adjustments.detail
         var output = image
 
-        if adjustments.noiseReduction != 0 {
-            output = noiseReduction(output, adjustments.noiseReduction * min(1, sourceScale))
+        if detail.noiseReduction != 0 {
+            output = noiseReduction(output, detail.noiseReduction * min(1, sourceScale))
         }
 
-        if adjustments.exposure != 0 {
+        if light.exposure != 0 {
             let filter = CIFilter.exposureAdjust()
             filter.inputImage = output
-            filter.ev = Float(adjustments.exposure)
+            filter.ev = Float(light.exposure)
             output = filter.outputImage ?? output
         }
 
-        if adjustments.temperature != 0 || adjustments.tint != 0 {
-            output = temperatureAndTint(output, temperature: adjustments.temperature, tint: adjustments.tint)
+        if color.temperature != 0 || color.tint != 0 {
+            output = temperatureAndTint(output, temperature: color.temperature, tint: color.tint)
         }
 
-        if adjustments.vibrance != 0 {
+        if color.vibrance != 0 {
             let filter = CIFilter.vibrance()
             filter.inputImage = output
-            filter.amount = Float(adjustments.vibrance)
+            filter.amount = Float(color.vibrance)
             output = filter.outputImage ?? output
         }
 
-        if adjustments.blackPoint != 0 {
-            output = toneCurve(output, blackPointCurve(adjustments.blackPoint))
+        if light.blackPoint != 0 {
+            output = toneCurve(output, blackPointCurve(light.blackPoint))
         }
 
-        if adjustments.whitePoint != 0 {
-            output = toneCurve(output, whitePointCurve(adjustments.whitePoint))
+        if light.whitePoint != 0 {
+            output = toneCurve(output, whitePointCurve(light.whitePoint))
         }
 
-        if adjustments.hasLevels {
-            output = toneCurve(output, levelsCurve(adjustments))
+        if !adjustments.levels.isNeutral {
+            output = toneCurve(output, levelsCurve(adjustments.levels))
         }
 
         if !adjustments.curves.isIdentity {
             output = curves(output, adjustments.curves)
         }
 
-        if adjustments.highlights != 0 || adjustments.shadows != 0 {
+        if light.highlights != 0 || light.shadows != 0 {
             let filter = CIFilter.highlightShadowAdjust()
             filter.inputImage = output
-            filter.highlightAmount = Float(1 + adjustments.highlights)
-            filter.shadowAmount = Float(adjustments.shadows)
+            filter.highlightAmount = Float(1 + light.highlights)
+            filter.shadowAmount = Float(light.shadows)
             output = filter.outputImage ?? output
         }
 
-        if adjustments.brightness != 0 {
-            output = toneCurve(output, brightnessCurve(adjustments.brightness))
+        if light.brightness != 0 {
+            output = toneCurve(output, brightnessCurve(light.brightness))
         }
 
-        if adjustments.brilliance != 0 {
-            output = brilliance(output, adjustments.brilliance)
+        if light.brilliance != 0 {
+            output = brilliance(output, light.brilliance)
         }
 
-        if adjustments.contrast != 0 || adjustments.saturation != 0 {
+        if light.contrast != 0 || color.saturation != 0 {
             let filter = CIFilter.colorControls()
             filter.inputImage = output
-            filter.contrast = Float(pow(2, adjustments.contrast))
-            filter.saturation = Float(1 + adjustments.saturation)
+            filter.contrast = Float(pow(2, light.contrast))
+            filter.saturation = Float(1 + color.saturation)
             filter.brightness = 0
             output = filter.outputImage ?? output
         }
 
-        if adjustments.definition != 0 {
-            output = definition(output, adjustments.definition)
+        if detail.definition != 0 {
+            output = definition(output, detail.definition)
         }
 
-        if adjustments.hasSelectiveColor {
-            output = selectiveColor(output, adjustments)
+        if !adjustments.selectiveColor.isNeutral {
+            output = selectiveColor(output, adjustments.selectiveColor)
         }
 
-        if adjustments.blackAndWhite != 0 {
-            output = blackAndWhite(output, adjustments)
+        if adjustments.blackAndWhite.amount != 0 {
+            output = blackAndWhite(output, adjustments.blackAndWhite)
         }
 
-        if adjustments.hasColorGrading {
-            output = colorGrading(output, adjustments)
+        if adjustments.colorGrading.hasTint {
+            output = colorGrading(output, adjustments.colorGrading)
         }
 
-        if adjustments.sepia != 0 {
+        if color.sepia != 0 {
             let filter = CIFilter.sepiaTone()
             filter.inputImage = output
-            filter.intensity = Float(adjustments.sepia)
+            filter.intensity = Float(color.sepia)
             output = filter.outputImage ?? output
         }
 
-        if adjustments.sharpness != 0 {
+        if detail.sharpness != 0 {
             let filter = CIFilter.sharpenLuminance()
             filter.inputImage = output
-            filter.sharpness = Float(adjustments.sharpness * maximumSharpness)
-            filter.radius = Float(neutralSharpnessRadius * pow(2, adjustments.sharpnessRadius) * sourceScale)
+            filter.sharpness = Float(detail.sharpness * maximumSharpness)
+            filter.radius = Float(neutralSharpnessRadius * pow(2, detail.sharpnessRadius) * sourceScale)
             output = filter.outputImage ?? output
         }
 
-        if adjustments.vignette != 0 {
-            let extent = image.extent
-            let filter = CIFilter.vignetteEffect()
-            filter.inputImage = output
-            filter.center = CGPoint(x: extent.midX, y: extent.midY)
-            filter.radius = Float(min(extent.width, extent.height) * neutralVignetteRadius
-                * pow(2, adjustments.vignetteRadius))
-            filter.falloff = Float(neutralVignetteFalloff * (1 + adjustments.vignetteSoftness))
-            filter.intensity = Float(adjustments.vignette)
-            output = filter.outputImage ?? output
+        if adjustments.vignette.amount != 0 {
+            output = vignette(output, adjustments.vignette, extent: image.extent)
         }
 
-        if adjustments.grain != 0 {
-            output = grain(
-                output,
-                amount: adjustments.grain,
-                size: adjustments.grainSize,
-                origin: image.extent.origin,
-                sourceScale: sourceScale
-            )
+        if adjustments.grain.amount != 0 {
+            output = grain(output, adjustments.grain, origin: image.extent.origin, sourceScale: sourceScale)
         }
 
         return output.cropped(to: image.extent)
+    }
+
+    /// Darkens or, when negative, lightens the edges of `extent`.
+    static func vignette(_ image: CIImage, _ vignette: ImageAdjustmentDescription.Vignette, extent: CGRect) -> CIImage {
+        let filter = CIFilter.vignetteEffect()
+        filter.inputImage = image
+        filter.center = CGPoint(x: extent.midX, y: extent.midY)
+        filter.radius = Float(min(extent.width, extent.height) * neutralVignetteRadius * pow(2, vignette.radius))
+        filter.falloff = Float(neutralVignetteFalloff * (1 + vignette.softness))
+        filter.intensity = Float(vignette.amount)
+        return filter.outputImage ?? image
     }
 
     /// The Temperature and Tint step. Within a few kelvin of neutral `CITemperatureAndTint` renders

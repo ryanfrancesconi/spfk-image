@@ -5,26 +5,26 @@ import CoreImage.CIFilterBuiltins
 import Foundation
 
 extension ImageAdjustmentRenderer {
-    /// `image` mixed ``ImageAdjustmentDescription/blackAndWhite`` of the way to its monochrome version,
+    /// `image` mixed ``ImageAdjustmentDescription/BlackAndWhite/amount`` of the way to its monochrome version,
     /// in Core Image's linear working space.
     ///
     /// The cube passes values outside 0…1 through per channel, so its output is reduced to luminance
     /// once more: a gray is unchanged, and a wide-gamut or HDR remainder becomes gray too.
-    static func blackAndWhite(_ image: CIImage, _ adjustments: ImageAdjustmentDescription) -> CIImage {
-        let shifts = ImageAdjustmentDescription.Parameter.blackAndWhiteBands.map { adjustments[$0] }
-        let cube = colorCube(image, step: "blackAndWhite", values: shifts) { blackAndWhite($0, shifts: shifts) }
+    static func blackAndWhite(_ image: CIImage, _ blackAndWhite: ImageAdjustmentDescription.BlackAndWhite) -> CIImage {
+        let shifts = ColorBand.allCases.map { blackAndWhite[$0] }
+        let cube = colorCube(image, step: "blackAndWhite", values: shifts) { Self.blackAndWhite($0, shifts: shifts) }
         let row = CIVector(x: luminanceWeights.x, y: luminanceWeights.y, z: luminanceWeights.z, w: 0)
         let mono = matrix(cube, r: row, g: row, b: row)
 
         let mix = CIFilter.mix()
         mix.inputImage = mono
         mix.backgroundImage = image
-        mix.amount = Float(adjustments.blackAndWhite)
+        mix.amount = Float(blackAndWhite.amount)
         return mix.outputImage ?? image
     }
 
     /// The gray for sRGB-encoded `rgb`: its Rec. 709 luminance, moved toward white or black by each
-    /// band's shift in ``SelectiveColor`` order, weighed by how close the pixel's hue is to the band and
+    /// band's shift in ``ColorBand`` order, weighed by how close the pixel's hue is to the band and
     /// by how colorful it is. Grays and near-grays take their luminance alone.
     static func blackAndWhite(_ rgb: SIMD3<Double>, shifts: [Double]) -> SIMD3<Double> {
         let linear = SIMD3(sRGBDecoded(rgb.x), sRGBDecoded(rgb.y), sRGBDecoded(rgb.z))
@@ -34,7 +34,7 @@ extension ImageAdjustmentRenderer {
         if chroma > selectiveColorMinimumChroma {
             let hue = hsl(rgb).hue
             var shift = 0.0
-            for (band, value) in zip(SelectiveColor.allCases, shifts) {
+            for (band, value) in zip(ColorBand.allCases, shifts) {
                 shift += bandWeight(hue: hue, band) * value
             }
             shift *= chromaGate(chroma, full: blackAndWhiteFullChroma) * maximumBlackAndWhiteShift

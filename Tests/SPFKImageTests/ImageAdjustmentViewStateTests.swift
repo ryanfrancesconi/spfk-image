@@ -19,7 +19,7 @@ final class ImageAdjustmentViewStateTests {
         source = try CGImage.contentsOf(url: TestBundleResources.shared.songbird)
     }
 
-    let zoomed = ImageAdjustmentDescription(zoom: 0.6, zoomCenterX: 0.2, zoomCenterY: -0.1)
+    let zoomed = ImageAdjustmentDescription(zoom: .init(level: 0.6, centerX: 0.2, centerY: -0.1))
 
     @Test func aZoomAloneIsStoredButIsNoEdit() throws {
         #expect(!zoomed.isEmpty)
@@ -29,35 +29,27 @@ final class ImageAdjustmentViewStateTests {
     }
 
     @Test func theZoomRoundTripsThroughCodable() throws {
-        let adjustments = ImageAdjustmentDescription(exposure: 1, zoom: 0.6, zoomCenterX: 0.2, zoomCenterY: -0.1)
+        let adjustments = ImageAdjustmentDescription(light: .init(exposure: 1), zoom: .init(level: 0.6, centerX: 0.2, centerY: -0.1))
         let decoded = try JSONDecoder().decode(ImageAdjustmentDescription.self, from: JSONEncoder().encode(adjustments))
 
         #expect(decoded == adjustments)
     }
 
-    @Test func dataWrittenBeforeZoomExistedDecodesAsFit() throws {
-        let decoded = try JSONDecoder().decode(ImageAdjustmentDescription.self, from: Data(#"{"exposure": 1}"#.utf8))
-
-        #expect(decoded.zoom == 0)
-        #expect(decoded.zoomCenterX == 0)
-        #expect(decoded.zoomCenterY == 0)
-    }
-
     @Test func whatStaysPendingAfterARenderKeepsTheZoom() {
         let adjustments = ImageAdjustmentDescription(
-            exposure: 1, saturation: 0.5, zoom: 0.6, zoomCenterX: 0.2, bypassed: [.saturation]
+            light: .init(exposure: 1), color: .init(saturation: 0.5), zoom: .init(level: 0.6, centerX: 0.2), bypassed: [.saturation]
         )
 
         #expect(adjustments.unrenderedPart == ImageAdjustmentDescription(
-            saturation: 0.5, zoom: 0.6, zoomCenterX: 0.2, bypassed: [.saturation]
+            color: .init(saturation: 0.5), zoom: .init(level: 0.6, centerX: 0.2), bypassed: [.saturation]
         ))
     }
 
     @Test func keepingViewStateReplacesOnlyTheViewState() {
-        let preset = ImageAdjustmentDescription(exposure: 1, zoom: 1)
+        let preset = ImageAdjustmentDescription(light: .init(exposure: 1), zoom: .init(level: 1))
         let kept = preset.keepingViewState(of: zoomed)
 
-        #expect(kept == ImageAdjustmentDescription(exposure: 1, zoom: 0.6, zoomCenterX: 0.2, zoomCenterY: -0.1))
+        #expect(kept == ImageAdjustmentDescription(light: .init(exposure: 1), zoom: .init(level: 0.6, centerX: 0.2, centerY: -0.1)))
     }
 
     // MARK: - Crop
@@ -65,7 +57,7 @@ final class ImageAdjustmentViewStateTests {
     @Test(arguments: [ImageOrientationEdit.up, .right])
     func aCropMatchesTheSameRegionOfTheFullRender(orientation: ImageOrientationEdit) throws {
         // Vignette and brilliance read the whole image's extent, so a crop must not shift them.
-        let adjustments = ImageAdjustmentDescription(brilliance: 0.6, exposure: 0.3, vignette: 0.8)
+        let adjustments = ImageAdjustmentDescription(light: .init(brilliance: 0.6, exposure: 0.3), vignette: .init(amount: 0.8))
         let full = try #require(renderer.render(adjustments, orientation: orientation, source: source))
 
         // Fractional, so the crop expands to whole pixels.
@@ -83,12 +75,12 @@ final class ImageAdjustmentViewStateTests {
     @Test func aCropOutsideTheImageRendersNothing() {
         let crop = CGRect(x: CGFloat(source.width) + 10, y: 0, width: 50, height: 50)
 
-        #expect(renderer.render(ImageAdjustmentDescription(exposure: 1), source: source, crop: crop) == nil)
+        #expect(renderer.render(ImageAdjustmentDescription(light: .init(exposure: 1)), source: source, crop: crop) == nil)
     }
 
     @Test func aCropPastAnEdgeIsLimitedToTheImage() throws {
         let crop = CGRect(x: CGFloat(source.width) - 40, y: -20, width: 100, height: 60)
-        let cropped = try #require(renderer.render(ImageAdjustmentDescription(exposure: 1), source: source, crop: crop))
+        let cropped = try #require(renderer.render(ImageAdjustmentDescription(light: .init(exposure: 1)), source: source, crop: crop))
 
         #expect(cropped.width == 40)
         #expect(cropped.height == 40)

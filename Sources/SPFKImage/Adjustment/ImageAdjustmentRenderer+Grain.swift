@@ -14,13 +14,12 @@ extension ImageAdjustmentRenderer {
     /// which is what averaging the full-resolution grain into that pixel would do.
     static func grain(
         _ image: CIImage,
-        amount: Double,
-        size: Double,
+        _ grain: ImageAdjustmentDescription.Grain,
         origin: CGPoint,
         sourceScale: Double
     ) -> CIImage {
-        let cell = neutralGrainSize * pow(2, size) * sourceScale
-        let strength = amount * maximumGrain * min(1, cell)
+        let cell = neutralGrainSize * pow(2, grain.size) * sourceScale
+        let strength = grain.amount * maximumGrain * min(1, cell)
         let gain = CIVector(x: strength, y: 0, z: 0, w: 0)
         let offset = 0.5 - 0.5 * strength
 

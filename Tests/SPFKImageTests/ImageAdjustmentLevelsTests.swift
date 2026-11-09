@@ -28,13 +28,13 @@ final class ImageAdjustmentLevelsTests {
 
     private func levels(_ positions: [Double]) -> ImageAdjustmentDescription {
         var adjustments = ImageAdjustmentDescription()
-        adjustments.levelsPositions = positions
+        adjustments.levels.positions = positions
         return adjustments
     }
 
     @Test func neutralLevelsLeaveGraysUnchanged() throws {
-        let neutral = levels(ImageAdjustmentDescription.levelsIdentity)
-        #expect(!neutral.hasLevels)
+        let neutral = levels(ImageAdjustmentDescription.Levels.identity)
+        #expect(neutral.levels.isNeutral)
 
         for gray in [0.0, 0.2, 0.5, 0.8, 1] {
             #expect(abs(try render(gray: gray, neutral) - gray) < 0.005)
@@ -59,16 +59,16 @@ final class ImageAdjustmentLevelsTests {
 
     @Test func crossedStoredPointsStillReadIncreasing() {
         var shadowPastMid = ImageAdjustmentDescription()
-        shadowPastMid.levelsShadow = 0.6
+        shadowPastMid.levels.shadow = 0.6
 
         var blackPastWhite = ImageAdjustmentDescription()
-        blackPastWhite.levelsBlack = 1
-        blackPastWhite.levelsWhite = -1
-        blackPastWhite.levelsMid = 0.5
+        blackPastWhite.levels.black = 1
+        blackPastWhite.levels.white = -1
+        blackPastWhite.levels.mid = 0.5
 
         for adjustments in [shadowPastMid, blackPastWhite] {
-            let positions = adjustments.levelsPositions
-            let gap = ImageAdjustmentDescription.levelsMinimumGap
+            let positions = adjustments.levels.positions
+            let gap = ImageAdjustmentDescription.Levels.minimumGap
 
             for (lower, upper) in zip(positions, positions.dropFirst()) {
                 #expect(upper - lower >= gap - 1e-12)
@@ -76,13 +76,13 @@ final class ImageAdjustmentLevelsTests {
             #expect(positions.allSatisfy { (0 ... 1).contains($0) })
         }
 
-        #expect(shadowPastMid.levelsPositions[2] == 0.5)
+        #expect(shadowPastMid.levels.positions[2] == 0.5)
     }
 
     @Test func levelsRenderAfterBlackPoint() throws {
         let gray = 0.4
         var adjustments = levels([0.2, 0.4, 0.6, 0.8, 1])
-        adjustments.blackPoint = -1
+        adjustments.light.blackPoint = -1
 
         // Black point first raises 0.4 to 0.55; levels then maps that, not 0.4.
         let raised = ImageAdjustmentRenderer.maximumBlackPoint + (1 - ImageAdjustmentRenderer.maximumBlackPoint) * gray
@@ -120,7 +120,7 @@ final class ImageAdjustmentLevelsTests {
         let withLevels = try histogram(gray: 0.5, levels([0.3, 0.4, 0.5, 0.6, 0.7]))
         #expect(withLevels == plain)
 
-        var exposed = ImageAdjustmentDescription(exposure: 1)
+        var exposed = ImageAdjustmentDescription(light: .init(exposure: 1))
         exposed.bypassed = []
         let brighter = try histogram(gray: 0.5, exposed)
         #expect(peak(brighter.luminance) > peak(plain.luminance) + 20)
@@ -131,14 +131,14 @@ final class ImageAdjustmentLevelsTests {
 
     @Test func histogramIncludesTheWhitePoint() throws {
         let plain = try histogram(gray: 0.5, ImageAdjustmentDescription())
-        let lowered = try histogram(gray: 0.5, ImageAdjustmentDescription(whitePoint: -1))
+        let lowered = try histogram(gray: 0.5, ImageAdjustmentDescription(light: .init(whitePoint: -1)))
         #expect(peak(lowered.luminance) < peak(plain.luminance) - 20)
     }
 
     /// Every combination of each offset at either end of its range still reads strictly increasing.
     @Test func everyRangeCornerReadsIncreasing() {
-        let levels = ImageAdjustmentDescription.Parameter.levels
-        let gap = ImageAdjustmentDescription.levelsMinimumGap
+        let levels = ImageAdjustmentDescription.Group.levels.parameters
+        let gap = ImageAdjustmentDescription.Levels.minimumGap
 
         for corner in 0 ..< (1 << levels.count) {
             var adjustments = ImageAdjustmentDescription()
@@ -146,7 +146,7 @@ final class ImageAdjustmentLevelsTests {
                 adjustments[parameter] = corner & (1 << bit) == 0 ? parameter.range.lowerBound : parameter.range.upperBound
             }
 
-            let positions = adjustments.levelsPositions
+            let positions = adjustments.levels.positions
             #expect(zip(positions, positions.dropFirst()).allSatisfy { $1 - $0 >= gap - 1e-12 }, "corner \(corner)")
             #expect(positions.allSatisfy { (0 ... 1).contains($0) }, "corner \(corner)")
         }

@@ -46,15 +46,15 @@ struct ImageAdjustmentGrainTests {
 
     @Test func noAmountRendersNothingWhateverTheSize() throws {
         let source = try flat(128)
-        let plain = try bytes(try render(ImageAdjustmentDescription(exposure: 0.3), source))
-        let sized = try bytes(try render(ImageAdjustmentDescription(exposure: 0.3, grainSize: 1), source))
+        let plain = try bytes(try render(ImageAdjustmentDescription(light: .init(exposure: 0.3)), source))
+        let sized = try bytes(try render(ImageAdjustmentDescription(light: .init(exposure: 0.3), grain: .init(size: 1)), source))
 
         #expect(plain == sized)
     }
 
     @Test func theSameInputRendersTheSameGrainTwice() throws {
         let source = try flat(128)
-        let adjustments = ImageAdjustmentDescription(grain: 1)
+        let adjustments = ImageAdjustmentDescription(grain: .init(amount: 1))
 
         #expect(try bytes(try render(adjustments, source)) == bytes(try render(adjustments, source)))
     }
@@ -62,7 +62,7 @@ struct ImageAdjustmentGrainTests {
     /// The zoomed preview renders a crop, which must show the full render's grain at that spot.
     @Test func aCropShowsTheFullRendersGrain() throws {
         let source = try flat(128)
-        let adjustments = ImageAdjustmentDescription(grain: 1, grainSize: 0.5)
+        let adjustments = ImageAdjustmentDescription(grain: .init(amount: 1, size: 0.5))
         let full = try bytes(try render(adjustments, source))
         let crop = CGRect(x: 37, y: 101, width: 64, height: 48)
         let cropped = try bytes(try render(adjustments, source, crop: crop))
@@ -81,7 +81,7 @@ struct ImageAdjustmentGrainTests {
 
     @Test(arguments: [UInt8(26), 64, 128, 192, 230])
     func grainKeepsEachGraysMeanAndAddsNoColor(level: UInt8) throws {
-        let stats = try #require(ImageStatistics(try render(ImageAdjustmentDescription(grain: 1), try flat(level))))
+        let stats = try #require(ImageStatistics(try render(ImageAdjustmentDescription(grain: .init(amount: 1)), try flat(level))))
 
         #expect(abs(stats.meanLuminance - Double(level)) < 1)
         #expect(stats.luminanceStandardDeviation > 1)
@@ -90,14 +90,14 @@ struct ImageAdjustmentGrainTests {
 
     @Test(arguments: [UInt8(0), 255])
     func blackAndWhiteStayPure(level: UInt8) throws {
-        let output = try bytes(try render(ImageAdjustmentDescription(grain: 1), try flat(level)))
+        let output = try bytes(try render(ImageAdjustmentDescription(grain: .init(amount: 1)), try flat(level)))
 
         #expect(output.enumerated().allSatisfy { $0.offset % 4 == 3 || $0.element == level })
     }
 
     @Test func midtonesTakeMoreGrainThanShadowsAndHighlights() throws {
         func deviation(_ level: UInt8) throws -> Double {
-            try #require(ImageStatistics(try render(ImageAdjustmentDescription(grain: 1), try flat(level))))
+            try #require(ImageStatistics(try render(ImageAdjustmentDescription(grain: .init(amount: 1)), try flat(level))))
                 .luminanceStandardDeviation
         }
 
@@ -108,8 +108,8 @@ struct ImageAdjustmentGrainTests {
 
     @Test func moreAmountIsStrongerGrain() throws {
         let source = try flat(128)
-        let half = try #require(ImageStatistics(try render(ImageAdjustmentDescription(grain: 0.5), source)))
-        let full = try #require(ImageStatistics(try render(ImageAdjustmentDescription(grain: 1), source)))
+        let half = try #require(ImageStatistics(try render(ImageAdjustmentDescription(grain: .init(amount: 0.5)), source)))
+        let full = try #require(ImageStatistics(try render(ImageAdjustmentDescription(grain: .init(amount: 1)), source)))
 
         #expect(full.luminanceStandardDeviation > half.luminanceStandardDeviation * 1.5)
     }
@@ -117,7 +117,7 @@ struct ImageAdjustmentGrainTests {
     /// Grain finer than a preview pixel averages out in the full render once downsampled.
     @Test func grainFinerThanAPreviewPixelIsWeaker() throws {
         let source = try flat(128)
-        let adjustments = ImageAdjustmentDescription(grain: 1)
+        let adjustments = ImageAdjustmentDescription(grain: .init(amount: 1))
         let full = try #require(ImageStatistics(try render(adjustments, source)))
         let preview = try #require(ImageStatistics(try render(adjustments, source, sourceScale: 0.25)))
 
@@ -125,7 +125,7 @@ struct ImageAdjustmentGrainTests {
     }
 
     @Test func grainRoundTripsThroughCodable() throws {
-        let adjustments = ImageAdjustmentDescription(grain: 0.4, grainSize: -0.5)
+        let adjustments = ImageAdjustmentDescription(grain: .init(amount: 0.4, size: -0.5))
         let decoded = try JSONDecoder().decode(
             ImageAdjustmentDescription.self, from: try JSONEncoder().encode(adjustments)
         )

@@ -4,18 +4,18 @@ import CoreImage
 import Foundation
 
 extension ImageAdjustmentRenderer {
-    typealias SelectiveColor = ImageAdjustmentDescription.SelectiveColor
+    typealias ColorBand = ImageAdjustmentDescription.ColorBand
 
-    static func selectiveColor(_ image: CIImage, _ adjustments: ImageAdjustmentDescription) -> CIImage {
-        let values = ImageAdjustmentDescription.Parameter.selectiveColor.map { adjustments[$0] }
-        let shifts = SelectiveColor.allCases.map { band in
-            SIMD3(adjustments[band.hue], adjustments[band.saturation], adjustments[band.luminance])
+    static func selectiveColor(_ image: CIImage, _ selectiveColor: ImageAdjustmentDescription.SelectiveColor) -> CIImage {
+        let shifts = ColorBand.allCases.map { band in
+            SIMD3(selectiveColor[band].hue, selectiveColor[band].saturation, selectiveColor[band].luminance)
         }
+        let values = shifts.flatMap { [$0.x, $0.y, $0.z] }
 
-        return colorCube(image, step: "selectiveColor", values: values) { selectiveColor($0, shifts: shifts) }
+        return colorCube(image, step: "selectiveColor", values: values) { Self.selectiveColor($0, shifts: shifts) }
     }
 
-    /// `rgb` with each band's hue, saturation and luminance shift, in ``SelectiveColor`` order, weighed by
+    /// `rgb` with each band's hue, saturation and luminance shift, in ``ColorBand`` order, weighed by
     /// how close the pixel's hue is to the band's center: fully at the center, falling linearly to
     /// nothing at the neighboring band's. The shift also scales with chroma, from none at
     /// ``selectiveColorMinimumChroma`` to all of it at ``selectiveColorFullChroma``, so grays and
@@ -27,7 +27,7 @@ extension ImageAdjustmentRenderer {
         var (hue, saturation, lightness) = hsl(rgb)
         var shift = SIMD3<Double>.zero
 
-        for (band, bandShift) in zip(SelectiveColor.allCases, shifts) {
+        for (band, bandShift) in zip(ColorBand.allCases, shifts) {
             shift += bandWeight(hue: hue, band) * bandShift
         }
 
@@ -42,7 +42,7 @@ extension ImageAdjustmentRenderer {
 
     /// How much a pixel of `hue` belongs to `band`: 1 at the band's center, falling linearly to 0 at
     /// the neighboring band's.
-    static func bandWeight(hue: Double, _ band: SelectiveColor) -> Double {
+    static func bandWeight(hue: Double, _ band: ColorBand) -> Double {
         max(0, 1 - abs(remainder(hue - band.centerHue, 360)) / 60)
     }
 

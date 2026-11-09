@@ -156,7 +156,7 @@ final class ImageOrientationFileTests {
         let source = try AdjustmentFileFixtures.tagged(type, orientation: start, in: directory)
         let output = output(for: source)
 
-        try renderer.renderFile(ImageAdjustmentDescription(exposure: 1), orientation: .flippedRight, source: source, destination: output)
+        try renderer.renderFile(ImageAdjustmentDescription(light: .init(exposure: 1)), orientation: .flippedRight, source: source, destination: output)
 
         #expect(try orientation(output) == ImageOrientationEdit.flippedRight.applied(toFileOrientation: start))
         #expect(try captureDate(output) == AdjustmentFileFixtures.captureDate)
@@ -167,7 +167,7 @@ final class ImageOrientationFileTests {
         let source = try AdjustmentFileFixtures.gainMapped(type, in: directory)
         let output = output(for: source)
 
-        try renderer.renderFile(ImageAdjustmentDescription(exposure: 1), orientation: .right, source: source, destination: output)
+        try renderer.renderFile(ImageAdjustmentDescription(light: .init(exposure: 1)), orientation: .right, source: source, destination: output)
 
         #expect(try orientation(output) == ImageOrientationEdit.right.rawValue)
         #expect(try gainMapDisplaysAlignedWithTheImage(output))

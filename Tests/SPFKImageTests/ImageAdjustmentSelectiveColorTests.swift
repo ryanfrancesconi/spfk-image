@@ -10,7 +10,7 @@ import Testing
 @Suite("Selective Color")
 struct ImageAdjustmentSelectiveColorTests {
     typealias Parameter = ImageAdjustmentDescription.Parameter
-    typealias Band = ImageAdjustmentDescription.SelectiveColor
+    typealias Band = ImageAdjustmentDescription.ColorBand
 
     // MARK: - Rendering helpers
 
@@ -64,7 +64,7 @@ struct ImageAdjustmentSelectiveColorTests {
 
     private func everyShift(_ value: Double) -> ImageAdjustmentDescription {
         var adjustments = ImageAdjustmentDescription()
-        for parameter in Parameter.selectiveColor {
+        for parameter in ImageAdjustmentDescription.Group.selectiveColor.parameters {
             adjustments[parameter] = value
         }
         return adjustments
@@ -123,7 +123,7 @@ struct ImageAdjustmentSelectiveColorTests {
 
     @Test func redSaturationDownDesaturatesRedAndLeavesBlue() throws {
         var adjustments = ImageAdjustmentDescription()
-        adjustments.selectiveRedSaturation = -1
+        adjustments.selectiveColor.red.saturation = -1
 
         let output = try render(adjustments, [Self.red, Self.blue])
         let red = output[0]
@@ -134,7 +134,7 @@ struct ImageAdjustmentSelectiveColorTests {
 
     @Test func redHueUpTurnsRedTowardYellow() throws {
         var adjustments = ImageAdjustmentDescription()
-        adjustments.selectiveRedHue = 1
+        adjustments.selectiveColor.red.hue = 1
 
         let red = try render(adjustments, [Self.red])[0]
 
@@ -146,7 +146,7 @@ struct ImageAdjustmentSelectiveColorTests {
     @Test(arguments: [(1.0, true), (-1.0, false)])
     func blueLuminanceMovesBlueLightnessOnly(value: Double, brightens: Bool) throws {
         var adjustments = ImageAdjustmentDescription()
-        adjustments.selectiveBlueLuminance = value
+        adjustments.selectiveColor.blue.luminance = value
 
         let output = try render(adjustments, [Self.blue, Self.red])
         let before = ImageAdjustmentRenderer.hsl(SIMD3(0, 0, 1)).lightness
@@ -159,13 +159,13 @@ struct ImageAdjustmentSelectiveColorTests {
 
     @Test func aBypassedBandRendersUnchangedAndKeepsItsValue() throws {
         var adjustments = ImageAdjustmentDescription()
-        adjustments.selectiveRedSaturation = -1
-        adjustments.bypassed = Set(Parameter.selectiveColor)
+        adjustments.selectiveColor.red.saturation = -1
+        adjustments.bypassed = Set(ImageAdjustmentDescription.Group.selectiveColor.parameters)
 
         let output = try render(adjustments, [Self.red])
 
         #expect(output == [levels(Self.red)])
-        #expect(adjustments.selectiveRedSaturation == -1)
+        #expect(adjustments.selectiveColor.red.saturation == -1)
     }
 
     /// The cube's trilinear lookup against the transform evaluated directly, on a 256-step ramp of each
@@ -253,18 +253,10 @@ struct ImageAdjustmentSelectiveColorTests {
 
     // MARK: - Storage
 
-    @Test func dataWrittenBeforeSelectiveColorDecodesAsNeutral() throws {
-        let json = Data(#"{"exposure": 0.5}"#.utf8)
-        let decoded = try JSONDecoder().decode(ImageAdjustmentDescription.self, from: json)
-
-        #expect(!decoded.hasSelectiveColor)
-        #expect(decoded.exposure == 0.5)
-    }
-
     @Test func selectiveColorRoundTripsThroughCodable() throws {
         var adjustments = ImageAdjustmentDescription()
-        adjustments.selectiveGreenHue = 0.3
-        adjustments.selectiveMagentaLuminance = -0.7
+        adjustments.selectiveColor.green.hue = 0.3
+        adjustments.selectiveColor.magenta.luminance = -0.7
 
         let data = try JSONEncoder().encode(adjustments)
         let decoded = try JSONDecoder().decode(ImageAdjustmentDescription.self, from: data)
@@ -275,6 +267,6 @@ struct ImageAdjustmentSelectiveColorTests {
     @Test func eachBandOwnsThreeDistinctParameters() {
         let parameters = Band.allCases.flatMap(\.parameters)
         #expect(Set(parameters).count == parameters.count)
-        #expect(Set(parameters) == Set(Parameter.selectiveColor))
+        #expect(Set(parameters) == Set(ImageAdjustmentDescription.Group.selectiveColor.parameters))
     }
 }

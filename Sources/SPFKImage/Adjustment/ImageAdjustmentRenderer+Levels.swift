@@ -6,8 +6,8 @@ import Foundation
 
 extension ImageAdjustmentRenderer {
     /// The levels points as `CIToneCurve` points: each ordered input position to its fixed output.
-    static func levelsCurve(_ adjustments: ImageAdjustmentDescription) -> [CGPoint] {
-        zip(adjustments.levelsPositions, ImageAdjustmentDescription.levelsIdentity).map { CGPoint(x: $0, y: $1) }
+    static func levelsCurve(_ levels: ImageAdjustmentDescription.Levels) -> [CGPoint] {
+        zip(levels.positions, ImageAdjustmentDescription.Levels.identity).map { CGPoint(x: $0, y: $1) }
     }
 
     /// The part of `adjustments` that renders before the levels step, so its output is what the
@@ -17,12 +17,8 @@ extension ImageAdjustmentRenderer {
         let effective = adjustments.effective
 
         return ImageAdjustmentDescription(
-            exposure: effective.exposure,
-            blackPoint: effective.blackPoint,
-            whitePoint: effective.whitePoint,
-            vibrance: effective.vibrance,
-            temperature: effective.temperature,
-            tint: effective.tint
+            light: .init(exposure: effective.light.exposure, blackPoint: effective.light.blackPoint, whitePoint: effective.light.whitePoint),
+            color: .init(vibrance: effective.color.vibrance, temperature: effective.color.temperature, tint: effective.color.tint)
         )
     }
 

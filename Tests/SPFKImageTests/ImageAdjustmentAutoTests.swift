@@ -51,7 +51,7 @@ final class ImageAdjustmentAutoTests {
     /// `image` white balanced by `balance`, then through Apple's own enhancement filters for the
     /// balanced image.
     private func appleReference(_ image: CIImage, balance: ImageAdjustmentDescription) throws -> CIImage {
-        let balanced = ImageAdjustmentRenderer.temperatureAndTint(image, temperature: balance.temperature, tint: balance.tint)
+        let balanced = ImageAdjustmentRenderer.temperatureAndTint(image, temperature: balance.color.temperature, tint: balance.color.tint)
             .cropped(to: image.extent)
 
         var apple = balanced
@@ -71,7 +71,7 @@ final class ImageAdjustmentAutoTests {
         let ours = ImageAdjustmentRenderer.apply(auto, to: image)
         let measured = try psnr(pixels(apple), pixels(ours))
 
-        print("Auto PSNR \(url.lastPathComponent): \(String(format: "%.1f", measured)) dB, temperature \(auto.temperature), tint \(auto.tint)")
+        print("Auto PSNR \(url.lastPathComponent): \(String(format: "%.1f", measured)) dB, temperature \(auto.color.temperature), tint \(auto.color.tint)")
         #expect(measured > 28, "\(url.lastPathComponent): \(measured) dB")
         #expect(!auto.isEmpty)
         #expect(Set(Parameter.allCases.filter { auto[$0] != 0 }).isSubset(of: Parameter.auto))
@@ -86,8 +86,8 @@ final class ImageAdjustmentAutoTests {
         let apple = try pixels(appleReference(image, balance: auto))
 
         var unbalanced = ImageAdjustmentRenderer.enhancement(for: image)
-        unbalanced.temperature = auto.temperature
-        unbalanced.tint = auto.tint
+        unbalanced.color.temperature = auto.color.temperature
+        unbalanced.color.tint = auto.color.tint
 
         let balancedPSNR = try psnr(apple, pixels(ImageAdjustmentRenderer.apply(auto, to: image)))
         let unbalancedPSNR = try psnr(apple, pixels(ImageAdjustmentRenderer.apply(unbalanced, to: image)))
@@ -115,20 +115,27 @@ final class ImageAdjustmentAutoTests {
     }
 
     @Test func identityCurveGivesNeutralLevels() {
-        let identity = ImageAdjustmentDescription.levelsIdentity.map { CGPoint(x: $0, y: $0) }
+        let identity = ImageAdjustmentDescription.Levels.identity.map { CGPoint(x: $0, y: $0) }
         var adjustments = ImageAdjustmentDescription()
-        adjustments.levelsPositions = ImageAdjustmentDescription.levelsIdentity.map {
+        adjustments.levels.positions = ImageAdjustmentDescription.Levels.identity.map {
             ImageAdjustmentRenderer.inputPosition(of: $0, on: identity)
         }
 
-        #expect(!adjustments.hasLevels)
+        #expect(adjustments.levels.isNeutral)
     }
 
     @Test func applyingAutoReplacesOnlyTheFieldsAutoOwns() {
         let current = ImageAdjustmentDescription(
-            exposure: 0.5, shadows: -0.4, vibrance: 0.9, sepia: 0.3, levelsMid: 0.2, bypassed: [.exposure, .shadows]
+            light: .init(exposure: 0.5, shadows: -0.4),
+            color: .init(vibrance: 0.9, sepia: 0.3),
+            levels: .init(mid: 0.2),
+            bypassed: [.exposure, .shadows]
         )
-        let auto = ImageAdjustmentDescription(highlights: -0.1, shadows: 0.3, vibrance: 0.05, levelsBlack: 0.01)
+        let auto = ImageAdjustmentDescription(
+            light: .init(highlights: -0.1, shadows: 0.3),
+            color: .init(vibrance: 0.05),
+            levels: .init(black: 0.01)
+        )
 
         let result = current.applyingAuto(auto)
 

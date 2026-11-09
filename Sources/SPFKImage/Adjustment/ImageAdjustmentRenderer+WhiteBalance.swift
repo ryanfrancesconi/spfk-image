@@ -131,8 +131,8 @@ extension ImageAdjustmentRenderer {
         guard let color = neutralEstimate(of: image) else { return result }
 
         let balance = whiteBalance(neutralizing: color)
-        result.temperature = balance.temperature
-        result.tint = balance.tint
+        result.color.temperature = balance.temperature
+        result.color.tint = balance.tint
         return result
     }
 

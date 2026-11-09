@@ -13,7 +13,7 @@ import UniformTypeIdentifiers
 /// Pending adjustments rendered into a converted file, through ImageIO and through an ``ImageFileEncoder``.
 @Suite(.tags(.file))
 final class ImageFormatConverterAdjustmentTests: BinTestCase {
-    private let brighter = ImageAdjustmentDescription(exposure: 1)
+    private let brighter = ImageAdjustmentDescription(light: .init(exposure: 1))
 
     // MARK: - Helpers
 

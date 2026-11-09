@@ -6,12 +6,12 @@ import Foundation
 extension ImageAdjustmentRenderer {
     typealias ColorGradingRange = ImageAdjustmentDescription.ColorGradingRange
 
-    static func colorGrading(_ image: CIImage, _ adjustments: ImageAdjustmentDescription) -> CIImage {
-        let values = ImageAdjustmentDescription.Parameter.colorGrading.map { adjustments[$0] }
+    static func colorGrading(_ image: CIImage, _ grading: ImageAdjustmentDescription.ColorGrading) -> CIImage {
+        let values = ColorGradingRange.allCases.flatMap { [grading[$0].hue, grading[$0].saturation] } + [grading.balance]
         let tints = ColorGradingRange.allCases.map { range in
-            colorGradingTint(hue: adjustments[range.hue], saturation: adjustments[range.saturation])
+            colorGradingTint(hue: grading[range].hue, saturation: grading[range].saturation)
         }
-        let balance = adjustments.colorGradingBalance
+        let balance = grading.balance
 
         return colorCube(image, step: "colorGrading", values: values) { colorGrading($0, tints: tints, balance: balance) }
     }

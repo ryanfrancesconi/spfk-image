@@ -3,47 +3,66 @@
 import Foundation
 
 extension ImageAdjustmentDescription {
-    /// The input positions of the levels curve's five points, which map to outputs 0, ¼, ½, ¾ and 1,
-    /// in sRGB-encoded values.
-    ///
-    /// Read in increasing order whatever is stored: black and white first, then the midpoint between
-    /// them, then each quarter point between its neighbors, each at least ``levelsMinimumGap`` from the
-    /// next. Assigning stores each position's offset from identity.
-    public var levelsPositions: [Double] {
-        get {
-            let x = zip(Parameter.levels, Self.levelsIdentity).map { self[$0] + $1 }
-            let gap = Self.levelsMinimumGap
+    /// How far each of the levels curve's five points sits from its identity input position (see
+    /// ``positions``).
+    public struct Levels: Hashable, Sendable, Codable {
+        public var black: Double
+        public var shadow: Double
+        public var mid: Double
+        public var highlight: Double
+        public var white: Double
 
-            func clamp(_ value: Double, _ low: Double, _ high: Double) -> Double { min(max(value, low), high) }
-
-            let black = clamp(x[0], 0, 1 - 4 * gap)
-            let white = clamp(x[4], black + 4 * gap, 1)
-            let mid = clamp(x[2], black + 2 * gap, white - 2 * gap)
-            let shadow = clamp(x[1], black + gap, mid - gap)
-            let highlight = clamp(x[3], mid + gap, white - gap)
-
-            return [black, shadow, mid, highlight, white]
+        public init(black: Double = 0, shadow: Double = 0, mid: Double = 0, highlight: Double = 0, white: Double = 0) {
+            self.black = black
+            self.shadow = shadow
+            self.mid = mid
+            self.highlight = highlight
+            self.white = white
         }
-        set {
-            for (parameter, (position, identity)) in zip(Parameter.levels, zip(newValue, Self.levelsIdentity)) {
-                self[parameter] = position - identity
+
+        public var isNeutral: Bool { self == Self() }
+
+        /// The input positions of the curve's five points, which map to outputs 0, ¼, ½, ¾ and 1, in
+        /// sRGB-encoded values.
+        ///
+        /// Read in increasing order whatever is stored: black and white first, then the midpoint between
+        /// them, then each quarter point between its neighbors, each at least ``minimumGap`` from the
+        /// next. Assigning stores each position's offset from identity.
+        public var positions: [Double] {
+            get {
+                let x = zip(offsets, Self.identity).map { $0 + $1 }
+                let gap = Self.minimumGap
+
+                func clamp(_ value: Double, _ low: Double, _ high: Double) -> Double { min(max(value, low), high) }
+
+                let black = clamp(x[0], 0, 1 - 4 * gap)
+                let white = clamp(x[4], black + 4 * gap, 1)
+                let mid = clamp(x[2], black + 2 * gap, white - 2 * gap)
+                let shadow = clamp(x[1], black + gap, mid - gap)
+                let highlight = clamp(x[3], mid + gap, white - gap)
+
+                return [black, shadow, mid, highlight, white]
+            }
+            set {
+                let offsets = zip(newValue, Self.identity).map { $0 - $1 }
+                guard offsets.count == 5 else { return }
+
+                black = offsets[0]
+                shadow = offsets[1]
+                mid = offsets[2]
+                highlight = offsets[3]
+                white = offsets[4]
             }
         }
+
+        private var offsets: [Double] {
+            [black, shadow, mid, highlight, white]
+        }
+
+        /// The points' input positions at identity, which are also their fixed outputs.
+        public static let identity: [Double] = [0, 0.25, 0.5, 0.75, 1]
+
+        /// The closest two neighboring points can sit.
+        public static let minimumGap: Double = 0.01
     }
-
-    /// Whether any levels point is away from identity.
-    public var hasLevels: Bool {
-        Parameter.levels.contains { self[$0] != 0 }
-    }
-
-    /// The levels points' input positions at identity, which are also their fixed outputs.
-    public static let levelsIdentity: [Double] = [0, 0.25, 0.5, 0.75, 1]
-
-    /// The closest two neighboring levels points can sit.
-    public static let levelsMinimumGap: Double = 0.01
-}
-
-extension ImageAdjustmentDescription.Parameter {
-    /// The levels curve's points, black to white.
-    public static let levels: [Self] = [.levelsBlack, .levelsShadow, .levelsMid, .levelsHighlight, .levelsWhite]
 }

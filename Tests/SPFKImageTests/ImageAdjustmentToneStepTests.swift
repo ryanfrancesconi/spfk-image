@@ -31,44 +31,44 @@ final class ImageAdjustmentToneStepTests {
         let value = 0.6
         let input = value * ImageAdjustmentRenderer.maximumBlackPoint
 
-        #expect(try render(gray: input, .init(blackPoint: value)) < 0.005)
-        #expect(try render(gray: input / 2, .init(blackPoint: value)) < 0.005)
-        #expect(try render(gray: input + 0.2, .init(blackPoint: value)) > 0.1)
-        #expect(abs(try render(gray: 1, .init(blackPoint: value)) - 1) < 0.005)
+        #expect(try render(gray: input, .init(light: .init(blackPoint: value))) < 0.005)
+        #expect(try render(gray: input / 2, .init(light: .init(blackPoint: value))) < 0.005)
+        #expect(try render(gray: input + 0.2, .init(light: .init(blackPoint: value))) > 0.1)
+        #expect(abs(try render(gray: 1, .init(light: .init(blackPoint: value))) - 1) < 0.005)
     }
 
     @Test func negativeBlackPointRaisesBlack() throws {
-        let floor = try render(gray: 0, .init(blackPoint: -1))
+        let floor = try render(gray: 0, .init(light: .init(blackPoint: -1)))
 
         #expect(abs(floor - ImageAdjustmentRenderer.maximumBlackPoint) < 0.01)
-        #expect(abs(try render(gray: 1, .init(blackPoint: -1)) - 1) < 0.005)
+        #expect(abs(try render(gray: 1, .init(light: .init(blackPoint: -1))) - 1) < 0.005)
     }
 
     @Test func positiveWhitePointMapsItsInputToWhite() throws {
         let input = 1 - ImageAdjustmentRenderer.maximumWhitePoint
 
-        #expect(abs(try render(gray: input, .init(whitePoint: 1)) - 1) < 0.005)
-        #expect(abs(try render(gray: (1 + input) / 2, .init(whitePoint: 1)) - 1) < 0.005)
-        #expect(try render(gray: input - 0.2, .init(whitePoint: 1)) < 0.9)
-        #expect(try render(gray: 0, .init(whitePoint: 1)) < 0.005)
+        #expect(abs(try render(gray: input, .init(light: .init(whitePoint: 1))) - 1) < 0.005)
+        #expect(abs(try render(gray: (1 + input) / 2, .init(light: .init(whitePoint: 1))) - 1) < 0.005)
+        #expect(try render(gray: input - 0.2, .init(light: .init(whitePoint: 1))) < 0.9)
+        #expect(try render(gray: 0, .init(light: .init(whitePoint: 1))) < 0.005)
     }
 
     @Test func negativeWhitePointLowersWhite() throws {
-        let ceiling = try render(gray: 1, .init(whitePoint: -1))
+        let ceiling = try render(gray: 1, .init(light: .init(whitePoint: -1)))
 
         #expect(abs(ceiling - (1 - ImageAdjustmentRenderer.maximumWhitePoint)) < 0.01)
-        #expect(try render(gray: 0, .init(whitePoint: -1)) < 0.005)
+        #expect(try render(gray: 0, .init(light: .init(whitePoint: -1))) < 0.005)
     }
 
     @Test func brightnessMovesMidGrayAndHoldsBlackAndWhite() throws {
         let lift = ImageAdjustmentRenderer.maximumBrightnessLift
 
-        #expect(abs(try render(gray: 0.5, .init(brightness: 1)) - (0.5 + lift)) < 0.01)
-        #expect(abs(try render(gray: 0.5, .init(brightness: -1)) - (0.5 - lift)) < 0.01)
+        #expect(abs(try render(gray: 0.5, .init(light: .init(brightness: 1))) - (0.5 + lift)) < 0.01)
+        #expect(abs(try render(gray: 0.5, .init(light: .init(brightness: -1))) - (0.5 - lift)) < 0.01)
 
         for value in [-1.0, 1] {
-            #expect(try render(gray: 0, .init(brightness: value)) < 0.005)
-            #expect(abs(try render(gray: 1, .init(brightness: value)) - 1) < 0.005)
+            #expect(try render(gray: 0, .init(light: .init(brightness: value))) < 0.005)
+            #expect(abs(try render(gray: 1, .init(light: .init(brightness: value))) - 1) < 0.005)
         }
     }
 

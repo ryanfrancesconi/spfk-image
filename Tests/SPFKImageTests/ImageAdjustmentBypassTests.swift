@@ -28,12 +28,12 @@ final class ImageAdjustmentBypassTests {
         bypassed.bypassed = [.exposure, .saturation]
 
         var neutralized = ImageAdjustmentChainPinTests.pinned
-        neutralized.exposure = 0
-        neutralized.saturation = 0
+        neutralized.light.exposure = 0
+        neutralized.color.saturation = 0
 
         #expect(try pixels(bypassed) == pixels(neutralized))
-        #expect(bypassed.exposure == ImageAdjustmentChainPinTests.pinned.exposure)
-        #expect(bypassed.saturation == ImageAdjustmentChainPinTests.pinned.saturation)
+        #expect(bypassed.light.exposure == ImageAdjustmentChainPinTests.pinned.light.exposure)
+        #expect(bypassed.color.saturation == ImageAdjustmentChainPinTests.pinned.color.saturation)
     }
 
     @Test func everythingBypassedIsAnIdentityRenderButNotEmpty() throws {
@@ -51,25 +51,17 @@ final class ImageAdjustmentBypassTests {
     }
 
     @Test func theBypassedPartKeepsOnlyTheBypassedValues() {
-        let adjustments = ImageAdjustmentDescription(exposure: 1, saturation: 0.5, bypassed: [.saturation, .vignette])
-        #expect(adjustments.unrenderedPart == ImageAdjustmentDescription(saturation: 0.5, bypassed: [.saturation, .vignette]))
+        let adjustments = ImageAdjustmentDescription(
+            light: .init(exposure: 1),
+            color: .init(saturation: 0.5),
+            bypassed: [.saturation, .vignette]
+        )
+        #expect(adjustments.unrenderedPart == ImageAdjustmentDescription(color: .init(saturation: 0.5), bypassed: [.saturation, .vignette]))
     }
 
     @Test func codableRoundTripKeepsTheBypassedSet() throws {
-        let adjustments = ImageAdjustmentDescription(exposure: 1, vignette: 0.5, bypassed: [.vignette])
+        let adjustments = ImageAdjustmentDescription(light: .init(exposure: 1), vignette: .init(amount: 0.5), bypassed: [.vignette])
         let decoded = try JSONDecoder().decode(ImageAdjustmentDescription.self, from: JSONEncoder().encode(adjustments))
         #expect(decoded == adjustments)
-    }
-
-    @Test func dataWithoutTheKeyDecodesWithNothingBypassed() throws {
-        let decoded = try JSONDecoder().decode(ImageAdjustmentDescription.self, from: Data(#"{"exposure":1}"#.utf8))
-        #expect(decoded.bypassed.isEmpty)
-        #expect(decoded.exposure == 1)
-    }
-
-    @Test func anUnknownBypassedParameterIsDropped() throws {
-        let json = #"{"exposure":1,"bypassed":["exposure","noSuchParameter"]}"#
-        let decoded = try JSONDecoder().decode(ImageAdjustmentDescription.self, from: Data(json.utf8))
-        #expect(decoded.bypassed == [.exposure])
     }
 }

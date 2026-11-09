@@ -33,28 +33,28 @@ final class ImageAdjustmentRendererTests {
     }
 
     @Test func exposureMovesMeanLuminance() throws {
-        #expect(try statistics(ImageAdjustmentDescription(exposure: 1)).meanLuminance > sourceStatistics.meanLuminance)
-        #expect(try statistics(ImageAdjustmentDescription(exposure: -1)).meanLuminance < sourceStatistics.meanLuminance)
+        #expect(try statistics(ImageAdjustmentDescription(light: .init(exposure: 1))).meanLuminance > sourceStatistics.meanLuminance)
+        #expect(try statistics(ImageAdjustmentDescription(light: .init(exposure: -1))).meanLuminance < sourceStatistics.meanLuminance)
     }
 
     @Test func contrastMovesLuminanceSpread() throws {
-        let raised = try statistics(ImageAdjustmentDescription(contrast: 0.5))
-        let lowered = try statistics(ImageAdjustmentDescription(contrast: -0.5))
+        let raised = try statistics(ImageAdjustmentDescription(light: .init(contrast: 0.5)))
+        let lowered = try statistics(ImageAdjustmentDescription(light: .init(contrast: -0.5)))
 
         #expect(raised.luminanceStandardDeviation > sourceStatistics.luminanceStandardDeviation)
         #expect(lowered.luminanceStandardDeviation < sourceStatistics.luminanceStandardDeviation)
     }
 
     @Test func minimumSaturationRemovesColor() throws {
-        let desaturated = try statistics(ImageAdjustmentDescription(saturation: -1))
+        let desaturated = try statistics(ImageAdjustmentDescription(color: .init(saturation: -1)))
 
         #expect(desaturated.meanChannelSpread < 2)
         #expect(sourceStatistics.meanChannelSpread > 10)
     }
 
     @Test func warmerTemperatureRaisesRedAgainstBlue() throws {
-        let warm = try statistics(ImageAdjustmentDescription(temperature: 0.5))
-        let cool = try statistics(ImageAdjustmentDescription(temperature: -0.5))
+        let warm = try statistics(ImageAdjustmentDescription(color: .init(temperature: 0.5)))
+        let cool = try statistics(ImageAdjustmentDescription(color: .init(temperature: -0.5)))
         let sourceBalance = sourceStatistics.meanRed - sourceStatistics.meanBlue
 
         #expect(warm.meanRed - warm.meanBlue > sourceBalance)
@@ -64,48 +64,48 @@ final class ImageAdjustmentRendererTests {
     @Test func positiveTintMovesAwayFromGreen() throws {
         func greenBalance(_ s: ImageStatistics) -> Double { s.meanGreen - (s.meanRed + s.meanBlue) / 2 }
 
-        let magenta = try statistics(ImageAdjustmentDescription(tint: 0.5))
-        let green = try statistics(ImageAdjustmentDescription(tint: -0.5))
+        let magenta = try statistics(ImageAdjustmentDescription(color: .init(tint: 0.5)))
+        let green = try statistics(ImageAdjustmentDescription(color: .init(tint: -0.5)))
 
         #expect(greenBalance(magenta) < greenBalance(sourceStatistics))
         #expect(greenBalance(green) > greenBalance(sourceStatistics))
     }
 
     @Test func loweredHighlightsDarkenTheBrightestPixels() throws {
-        let recovered = try statistics(ImageAdjustmentDescription(highlights: -1))
+        let recovered = try statistics(ImageAdjustmentDescription(light: .init(highlights: -1)))
 
         #expect(recovered.brightLuminance < sourceStatistics.brightLuminance)
     }
 
     @Test func raisedShadowsLiftTheDarkestPixels() throws {
-        let lifted = try statistics(ImageAdjustmentDescription(shadows: 1))
+        let lifted = try statistics(ImageAdjustmentDescription(light: .init(shadows: 1)))
 
         #expect(lifted.darkLuminance > sourceStatistics.darkLuminance)
     }
 
     @Test func sepiaOrdersChannelsRedGreenBlue() throws {
-        let toned = try statistics(ImageAdjustmentDescription(sepia: 1))
+        let toned = try statistics(ImageAdjustmentDescription(color: .init(sepia: 1)))
 
         #expect(toned.meanRed > toned.meanGreen)
         #expect(toned.meanGreen > toned.meanBlue)
     }
 
     @Test func sharpnessRaisesEdgeEnergy() throws {
-        let sharpened = try statistics(ImageAdjustmentDescription(sharpness: 1))
+        let sharpened = try statistics(ImageAdjustmentDescription(detail: .init(sharpness: 1)))
 
         #expect(sharpened.edgeEnergy > sourceStatistics.edgeEnergy)
     }
 
     @Test func chainAppliesExposureBeforeContrast() throws {
         let input = CIImage(cgImage: source)
-        let combined = ImageAdjustmentRenderer.apply(ImageAdjustmentDescription(exposure: 1, contrast: 0.8), to: input)
+        let combined = ImageAdjustmentRenderer.apply(ImageAdjustmentDescription(light: .init(exposure: 1, contrast: 0.8)), to: input)
         let exposureFirst = ImageAdjustmentRenderer.apply(
-            ImageAdjustmentDescription(contrast: 0.8),
-            to: ImageAdjustmentRenderer.apply(ImageAdjustmentDescription(exposure: 1), to: input)
+            ImageAdjustmentDescription(light: .init(contrast: 0.8)),
+            to: ImageAdjustmentRenderer.apply(ImageAdjustmentDescription(light: .init(exposure: 1)), to: input)
         )
         let contrastFirst = ImageAdjustmentRenderer.apply(
-            ImageAdjustmentDescription(exposure: 1),
-            to: ImageAdjustmentRenderer.apply(ImageAdjustmentDescription(contrast: 0.8), to: input)
+            ImageAdjustmentDescription(light: .init(exposure: 1)),
+            to: ImageAdjustmentRenderer.apply(ImageAdjustmentDescription(light: .init(contrast: 0.8)), to: input)
         )
 
         let combinedLuminance = try meanLuminance(combined)
@@ -119,7 +119,7 @@ final class ImageAdjustmentRendererTests {
             CIImage(cgImage: source), from: CIImage(cgImage: source).extent, format: .RGBA8, colorSpace: p3
         ))
 
-        let rendered = try #require(renderer.render(ImageAdjustmentDescription(exposure: 0.5), source: p3Source))
+        let rendered = try #require(renderer.render(ImageAdjustmentDescription(light: .init(exposure: 0.5)), source: p3Source))
 
         #expect(rendered.colorSpace?.name == CGColorSpace.displayP3)
     }
@@ -131,7 +131,7 @@ final class ImageAdjustmentRendererTests {
         ))
         try #require(graySource.colorSpace?.model == .monochrome)
 
-        let rendered = try #require(renderer.render(ImageAdjustmentDescription(exposure: 0.5), source: graySource))
+        let rendered = try #require(renderer.render(ImageAdjustmentDescription(light: .init(exposure: 0.5)), source: graySource))
 
         #expect(rendered.colorSpace?.model == .rgb)
         #expect(try #require(ImageStatistics(rendered)).meanLuminance > (try #require(ImageStatistics(graySource))).meanLuminance)
@@ -140,10 +140,10 @@ final class ImageAdjustmentRendererTests {
     /// Sepia tones what saturation left, so a fully desaturated file still comes out sepia.
     @Test func chainAppliesSaturationBeforeSepia() throws {
         let input = CIImage(cgImage: source)
-        let combined = ImageAdjustmentRenderer.apply(ImageAdjustmentDescription(saturation: -1, sepia: 1), to: input)
+        let combined = ImageAdjustmentRenderer.apply(ImageAdjustmentDescription(color: .init(saturation: -1, sepia: 1)), to: input)
         let sepiaFirst = ImageAdjustmentRenderer.apply(
-            ImageAdjustmentDescription(saturation: -1),
-            to: ImageAdjustmentRenderer.apply(ImageAdjustmentDescription(sepia: 1), to: input)
+            ImageAdjustmentDescription(color: .init(saturation: -1)),
+            to: ImageAdjustmentRenderer.apply(ImageAdjustmentDescription(color: .init(sepia: 1)), to: input)
         )
 
         #expect(try statistics(of: combined).meanChannelSpread > 10)

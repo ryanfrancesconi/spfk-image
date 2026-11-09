@@ -39,7 +39,7 @@ final class ImageAdjustmentNoiseReductionTests {
     }
 
     private func render(_ amount: Double, sourceScale: Double = 1) -> CIImage {
-        ImageAdjustmentRenderer.apply(.init(noiseReduction: amount), to: noisyGray, sourceScale: sourceScale)
+        ImageAdjustmentRenderer.apply(.init(detail: .init(noiseReduction: amount)), to: noisyGray, sourceScale: sourceScale)
     }
 
     @Test func moreAmountRemovesMoreNoise() throws {
@@ -63,7 +63,7 @@ final class ImageAdjustmentNoiseReductionTests {
         let color = try #require(CIColor(red: -0.1, green: 1.3, blue: 0.05, alpha: 1, colorSpace: space))
         let flat = CIImage(color: color).cropped(to: extent)
 
-        let output = try pixels(ImageAdjustmentRenderer.apply(.init(noiseReduction: 1), to: flat))
+        let output = try pixels(ImageAdjustmentRenderer.apply(.init(detail: .init(noiseReduction: 1)), to: flat))
         let center = (128 * 256 + 128) * 4
 
         #expect(abs(output[center] - -0.1) < 0.001)

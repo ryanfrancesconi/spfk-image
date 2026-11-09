@@ -24,7 +24,7 @@ final class ImageAdjustmentLocalToneTests {
 
     @Test func positiveBrillianceLiftsMidTonesMoreThanHighlights() throws {
         let neutral = try statistics(ImageAdjustmentDescription())
-        let lifted = try statistics(ImageAdjustmentDescription(brilliance: 1))
+        let lifted = try statistics(ImageAdjustmentDescription(light: .init(brilliance: 1)))
 
         let midGain = lifted.medianLuminance - neutral.medianLuminance
         #expect(midGain > 10)
@@ -33,7 +33,7 @@ final class ImageAdjustmentLocalToneTests {
 
     @Test func negativeBrillianceLowersMidTonesMoreThanHighlights() throws {
         let neutral = try statistics(ImageAdjustmentDescription())
-        let lowered = try statistics(ImageAdjustmentDescription(brilliance: -1))
+        let lowered = try statistics(ImageAdjustmentDescription(light: .init(brilliance: -1)))
 
         let midDrop = neutral.medianLuminance - lowered.medianLuminance
         #expect(midDrop > 10)
@@ -42,13 +42,13 @@ final class ImageAdjustmentLocalToneTests {
 
     @Test func definitionRaisesLocalContrast() throws {
         let neutral = try statistics(ImageAdjustmentDescription())
-        let defined = try statistics(ImageAdjustmentDescription(definition: 1))
+        let defined = try statistics(ImageAdjustmentDescription(detail: .init(definition: 1)))
         #expect(defined.edgeEnergy > neutral.edgeEnergy * 1.5)
     }
 
     @Test func localToneKeepsTheHue() throws {
         let neutral = try statistics(ImageAdjustmentDescription())
-        for adjustments in [ImageAdjustmentDescription(brilliance: 1), ImageAdjustmentDescription(definition: 1)] {
+        for adjustments in [ImageAdjustmentDescription(light: .init(brilliance: 1)), ImageAdjustmentDescription(detail: .init(definition: 1))] {
             let adjusted = try statistics(adjustments)
             // Red against green: the songbird is a yellow bird on green.
             let neutralRatio = neutral.meanRed / neutral.meanGreen
@@ -69,7 +69,7 @@ final class ImageAdjustmentLocalToneTests {
         let context = CIContext()
         let before = try ImageAdjustmentChainPinTests.floatPixels(flat, context: context)
         let after = try ImageAdjustmentChainPinTests.floatPixels(
-            ImageAdjustmentRenderer.apply(ImageAdjustmentDescription(definition: 1), to: flat), context: context
+            ImageAdjustmentRenderer.apply(ImageAdjustmentDescription(detail: .init(definition: 1)), to: flat), context: context
         )
         // Channel ratios survive: the negative red channel stays negative and proportional to green.
         let ratios = stride(from: 0, to: after.count, by: 4).map { after[$0] / after[$0 + 1] }

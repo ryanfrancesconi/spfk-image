@@ -24,23 +24,28 @@ final class ImageAdjustmentDescriptionTests {
 
     @Test func initClampsEveryParameterToItsRange() {
         let description = ImageAdjustmentDescription(
-            exposure: 99, contrast: -99, highlights: 99, shadows: -99, saturation: 99,
-            temperature: -99, tint: 99, sepia: -99, sharpness: 99
+            light: .init(exposure: 99, highlights: 99, shadows: -99, contrast: -99),
+            color: .init(saturation: 99, temperature: -99, tint: 99, sepia: -99),
+            detail: .init(sharpness: 99)
         )
 
-        #expect(description.exposure == Parameter.exposure.range.upperBound)
-        #expect(description.contrast == Parameter.contrast.range.lowerBound)
-        #expect(description.highlights == Parameter.highlights.range.upperBound)
-        #expect(description.shadows == Parameter.shadows.range.lowerBound)
-        #expect(description.saturation == Parameter.saturation.range.upperBound)
-        #expect(description.temperature == Parameter.temperature.range.lowerBound)
-        #expect(description.tint == Parameter.tint.range.upperBound)
-        #expect(description.sepia == Parameter.sepia.range.lowerBound)
-        #expect(description.sharpness == Parameter.sharpness.range.upperBound)
+        #expect(description.light.exposure == Parameter.exposure.range.upperBound)
+        #expect(description.light.contrast == Parameter.contrast.range.lowerBound)
+        #expect(description.light.highlights == Parameter.highlights.range.upperBound)
+        #expect(description.light.shadows == Parameter.shadows.range.lowerBound)
+        #expect(description.color.saturation == Parameter.saturation.range.upperBound)
+        #expect(description.color.temperature == Parameter.temperature.range.lowerBound)
+        #expect(description.color.tint == Parameter.tint.range.upperBound)
+        #expect(description.color.sepia == Parameter.sepia.range.lowerBound)
+        #expect(description.detail.sharpness == Parameter.sharpness.range.upperBound)
     }
 
     @Test func initTurnsNonFiniteValuesNeutral() {
-        let description = ImageAdjustmentDescription(exposure: .nan, saturation: .infinity, sharpness: -.infinity)
+        let description = ImageAdjustmentDescription(
+            light: .init(exposure: .nan),
+            color: .init(saturation: .infinity),
+            detail: .init(sharpness: -.infinity)
+        )
 
         #expect(description.isEmpty)
     }
@@ -59,52 +64,52 @@ final class ImageAdjustmentDescriptionTests {
         #expect(description[parameter] == 0)
     }
 
-    @Test func decodingAnEmptyObjectYieldsNeutral() throws {
-        let decoded = try JSONDecoder().decode(ImageAdjustmentDescription.self, from: Data("{}".utf8))
-
-        #expect(decoded.isEmpty)
-    }
-
     @Test func decodingClampsOutOfRangeValues() throws {
-        let json = #"{"exposure": 9, "sepia": -1, "tint": 0.25}"#
-        let decoded = try JSONDecoder().decode(ImageAdjustmentDescription.self, from: Data(json.utf8))
+        let decoded = try decode(patching: [
+            ("light", "exposure", 9),
+            ("color", "sepia", -1),
+            ("color", "tint", 0.25),
+        ])
 
-        #expect(decoded.exposure == Parameter.exposure.range.upperBound)
-        #expect(decoded.sepia == Parameter.sepia.range.lowerBound)
-        #expect(decoded.tint == 0.25)
+        #expect(decoded.light.exposure == Parameter.exposure.range.upperBound)
+        #expect(decoded.color.sepia == Parameter.sepia.range.lowerBound)
+        #expect(decoded.color.tint == 0.25)
     }
 
     @Test func codableRoundTripPreservesValues() throws {
-        let original = ImageAdjustmentDescription(exposure: 0.5, contrast: -0.2, sepia: 0.75, sharpness: 0.1)
+        let original = ImageAdjustmentDescription(
+            light: .init(exposure: 0.5, contrast: -0.2),
+            color: .init(sepia: 0.75),
+            detail: .init(sharpness: 0.1)
+        )
         let data = try JSONEncoder().encode(original)
         let decoded = try JSONDecoder().decode(ImageAdjustmentDescription.self, from: data)
 
         #expect(decoded == original)
     }
 
-    @Test func dataWrittenBeforeLaterParametersDecodesThemNeutral() throws {
-        let json = #"{"exposure": 0.5, "contrast": 0, "highlights": 0, "shadows": 0, "saturation": 0.2, "temperature": 0, "tint": 0, "sepia": 0, "sharpness": 0}"#
-        let decoded = try JSONDecoder().decode(ImageAdjustmentDescription.self, from: Data(json.utf8))
+    @Test func vibranceAndVignetteClampOnInitAndDecode() throws {
+        let initialized = ImageAdjustmentDescription(color: .init(vibrance: 4), vignette: .init(amount: -4))
+        #expect(initialized.color.vibrance == 1)
+        #expect(initialized.vignette.amount == -1)
 
-        #expect(decoded == ImageAdjustmentDescription(exposure: 0.5, saturation: 0.2))
-        #expect(decoded.vibrance == 0)
-        #expect(decoded.vignette == 0)
-        #expect(decoded.vignetteRadius == 0)
-        #expect(decoded.vignetteSoftness == 0)
-        #expect(decoded.brightness == 0)
-        #expect(decoded.blackPoint == 0)
-        #expect(decoded.brilliance == 0)
-        #expect(decoded.definition == 0)
-        #expect(decoded.noiseReduction == 0)
+        let decoded = try decode(patching: [("color", "vibrance", -9), ("vignette", "amount", 9)])
+        #expect(decoded.color.vibrance == -1)
+        #expect(decoded.vignette.amount == 1)
     }
 
-    @Test func vibranceAndVignetteClampOnInitAndDecode() throws {
-        let initialized = ImageAdjustmentDescription(vibrance: 4, vignette: -4)
-        #expect(initialized.vibrance == 1)
-        #expect(initialized.vignette == -1)
+    /// Decodes a neutral description's encoding with each `(section, key)` replaced by its value.
+    private func decode(patching patches: [(section: String, key: String, value: Double)]) throws -> ImageAdjustmentDescription {
+        let encoded = try JSONEncoder().encode(ImageAdjustmentDescription())
+        var json = try #require(try JSONSerialization.jsonObject(with: encoded) as? [String: Any])
 
-        let decoded = try JSONDecoder().decode(ImageAdjustmentDescription.self, from: Data(#"{"vibrance": -9, "vignette": 9}"#.utf8))
-        #expect(decoded.vibrance == -1)
-        #expect(decoded.vignette == 1)
+        for patch in patches {
+            var section = try #require(json[patch.section] as? [String: Any])
+            section[patch.key] = patch.value
+            json[patch.section] = section
+        }
+
+        let data = try JSONSerialization.data(withJSONObject: json)
+        return try JSONDecoder().decode(ImageAdjustmentDescription.self, from: data)
     }
 }
