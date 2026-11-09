@@ -5,9 +5,6 @@ import Foundation
 extension ImageAdjustmentDescription {
     /// Case order is display order; the renderer's order is fixed separately.
     public enum Parameter: String, CaseIterable, Codable, Sendable {
-        case zoom
-        case zoomCenterX
-        case zoomCenterY
         case brilliance
         case exposure
         case highlights
@@ -68,15 +65,6 @@ extension ImageAdjustmentDescription {
         case grain
         case grainSize
 
-        /// The parameters that describe the preview rather than the image.
-        public static let viewState: [Parameter] = [.zoom, .zoomCenterX, .zoomCenterY]
-
-        /// Whether this describes how the preview shows the image: it never renders and never makes a
-        /// file dirty.
-        public var isViewState: Bool {
-            Self.viewState.contains(self)
-        }
-
         /// Exposure is in stops; the rest are unitless positions. Highlights only go down: Core Image's
         /// highlight adjustment is at its maximum when neutral. Each levels offset keeps its point
         /// inside 0…1.
@@ -84,8 +72,7 @@ extension ImageAdjustmentDescription {
             switch self {
             case .exposure: -3 ... 3
             case .highlights: -1 ... 0
-            case .sepia, .blackAndWhite, .sharpness, .definition, .noiseReduction, .levelsBlack, .grain, .zoom: 0 ... 1
-            case .zoomCenterX, .zoomCenterY: -0.5 ... 0.5
+            case .sepia, .blackAndWhite, .sharpness, .definition, .noiseReduction, .levelsBlack, .grain: 0 ... 1
             case .levelsShadow: -0.25 ... 0.75
             case .levelsMid: -0.5 ... 0.5
             case .levelsHighlight: -0.75 ... 0.25
@@ -166,9 +153,6 @@ extension ImageAdjustmentDescription {
             case .vignetteSoftness: \.vignette.softness
             case .grain: \.grain.amount
             case .grainSize: \.grain.size
-            case .zoom: \.zoom.level
-            case .zoomCenterX: \.zoom.centerX
-            case .zoomCenterY: \.zoom.centerY
             }
         }
 

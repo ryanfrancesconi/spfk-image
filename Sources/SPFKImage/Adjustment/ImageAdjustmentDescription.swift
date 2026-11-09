@@ -11,9 +11,7 @@ import Foundation
 /// white point, levels, curves, highlights and shadows, brightness, brilliance, contrast and saturation,
 /// definition, selective color, black and white, color grading, sepia, sharpness, vignette, grain.
 ///
-/// A ``bypassed`` section keeps its values but renders as neutral (see ``effective``). The
-/// ``Parameter/isViewState`` parameters describe how the preview shows the image, not an edit, and
-/// never render.
+/// A ``bypassed`` section keeps its values but renders as neutral (see ``effective``).
 public struct ImageAdjustmentDescription: Hashable, Sendable, Codable {
     public var light: Light { didSet { sanitize(.light) } }
     public var color: Color { didSet { sanitize(.color) } }
@@ -26,8 +24,6 @@ public struct ImageAdjustmentDescription: Hashable, Sendable, Codable {
     public var detail: Detail { didSet { sanitize(.detail) } }
     public var vignette: Vignette { didSet { sanitize(.vignette) } }
     public var grain: Grain { didSet { sanitize(.grain) } }
-    /// View state.
-    public var zoom: Zoom { didSet { sanitize(.zoom) } }
 
     /// Sections switched off: each keeps its values and renders as neutral.
     public var bypassed: Set<Group>
@@ -43,7 +39,6 @@ public struct ImageAdjustmentDescription: Hashable, Sendable, Codable {
         detail: Detail = Detail(),
         vignette: Vignette = Vignette(),
         grain: Grain = Grain(),
-        zoom: Zoom = Zoom(),
         bypassed: Set<Group> = []
     ) {
         self.light = light
@@ -56,7 +51,6 @@ public struct ImageAdjustmentDescription: Hashable, Sendable, Codable {
         self.detail = detail
         self.vignette = vignette
         self.grain = grain
-        self.zoom = zoom
         self.bypassed = bypassed
 
         for group in Group.allCases {
@@ -64,7 +58,7 @@ public struct ImageAdjustmentDescription: Hashable, Sendable, Codable {
         }
     }
 
-    /// Decodes through ``init(light:color:blackAndWhite:curves:levels:selectiveColor:colorGrading:detail:vignette:grain:zoom:bypassed:)``,
+    /// Decodes through ``init(light:color:blackAndWhite:curves:levels:selectiveColor:colorGrading:detail:vignette:grain:bypassed:)``,
     /// so a decoded value is clamped as an assigned one is.
     public init(from decoder: any Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
@@ -80,7 +74,6 @@ public struct ImageAdjustmentDescription: Hashable, Sendable, Codable {
             detail: c.decode(Detail.self, forKey: .detail),
             vignette: c.decode(Vignette.self, forKey: .vignette),
             grain: c.decode(Grain.self, forKey: .grain),
-            zoom: c.decode(Zoom.self, forKey: .zoom),
             bypassed: c.decode(Set<Group>.self, forKey: .bypassed)
         )
     }
@@ -116,14 +109,13 @@ public struct ImageAdjustmentDescription: Hashable, Sendable, Codable {
         case .detail: detail.isNeutral
         case .vignette: vignette.isNeutral
         case .grain: grain.isNeutral
-        case .zoom: zoom.isNeutral
         }
     }
 
-    /// What renders: every ``bypassed`` section and the view state at neutral, and nothing bypassed.
-    /// Empty when the adjustment would leave the image unchanged.
+    /// What renders: every ``bypassed`` section at neutral, and nothing bypassed. Empty when the
+    /// adjustment would leave the image unchanged.
     public var effective: ImageAdjustmentDescription {
-        var result = withoutViewState
+        var result = self
         for group in bypassed {
             result.reset(group)
         }
@@ -131,10 +123,9 @@ public struct ImageAdjustmentDescription: Hashable, Sendable, Codable {
         return result
     }
 
-    /// The bypassed sections, still bypassed, and the view state: what stays pending once
-    /// ``effective`` is rendered.
-    public var unrenderedPart: ImageAdjustmentDescription {
-        var result = viewState
+    /// The bypassed sections, still bypassed: what stays pending once ``effective`` is rendered.
+    public var bypassedPart: ImageAdjustmentDescription {
+        var result = ImageAdjustmentDescription()
         for group in bypassed {
             result.take(group, from: self)
         }
@@ -160,27 +151,7 @@ public struct ImageAdjustmentDescription: Hashable, Sendable, Codable {
         case .detail: detail = other.detail
         case .vignette: vignette = other.vignette
         case .grain: grain = other.grain
-        case .zoom: zoom = other.zoom
         }
-    }
-
-    /// The edit alone, with the view state at neutral.
-    public var withoutViewState: ImageAdjustmentDescription {
-        var result = self
-        result.zoom = Zoom()
-        return result
-    }
-
-    /// The view state alone.
-    public var viewState: ImageAdjustmentDescription {
-        ImageAdjustmentDescription(zoom: zoom)
-    }
-
-    /// This edit with `other`'s view state.
-    public func keepingViewState(of other: ImageAdjustmentDescription) -> ImageAdjustmentDescription {
-        var result = self
-        result.zoom = other.zoom
-        return result
     }
 
     public subscript(parameter: Parameter) -> Double {

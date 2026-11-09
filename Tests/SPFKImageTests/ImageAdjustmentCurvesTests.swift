@@ -99,7 +99,7 @@ struct ImageAdjustmentCurvesTests {
         let adjustments = ImageAdjustmentDescription(curves: curves, bypassed: [.curves])
         #expect(adjustments.effective.isEmpty)
         #expect(!adjustments.isEmpty)
-        #expect(adjustments.unrenderedPart == adjustments)
+        #expect(adjustments.bypassedPart == adjustments)
     }
 
     @Test func aSwitchedOffIdentityCurveIsStillStored() {

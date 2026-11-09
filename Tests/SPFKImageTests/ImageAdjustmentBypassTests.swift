@@ -56,7 +56,7 @@ final class ImageAdjustmentBypassTests {
             color: .init(saturation: 0.5),
             bypassed: [.color, .vignette]
         )
-        #expect(adjustments.unrenderedPart == ImageAdjustmentDescription(color: .init(saturation: 0.5), bypassed: [.color, .vignette]))
+        #expect(adjustments.bypassedPart == ImageAdjustmentDescription(color: .init(saturation: 0.5), bypassed: [.color, .vignette]))
     }
 
     @Test func codableRoundTripKeepsTheBypassedSet() throws {

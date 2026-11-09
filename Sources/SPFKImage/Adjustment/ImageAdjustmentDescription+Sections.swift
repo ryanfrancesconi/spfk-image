@@ -107,22 +107,4 @@ extension ImageAdjustmentDescription {
 
         public var isNeutral: Bool { self == Self() }
     }
-
-    /// How the preview shows the image. View state, never rendered.
-    public struct Zoom: Hashable, Sendable, Codable {
-        /// 0 fits the view, 1 is the largest.
-        public var level: Double
-        /// Where the zoomed preview is centered, as an offset from the image's center in fractions of
-        /// its width and height; right and down are positive. No effect while ``level`` is 0.
-        public var centerX: Double
-        public var centerY: Double
-
-        public init(level: Double = 0, centerX: Double = 0, centerY: Double = 0) {
-            self.level = level
-            self.centerX = centerX
-            self.centerY = centerY
-        }
-
-        public var isNeutral: Bool { self == Self() }
-    }
 }

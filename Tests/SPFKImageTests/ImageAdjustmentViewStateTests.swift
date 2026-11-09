@@ -7,49 +7,14 @@ import Testing
 
 @testable import SPFKImage
 
-/// The preview's zoom is stored with the adjustment, and never renders or counts as an edit.
+/// Rendering only part of the image, as the zoomed preview does.
 @Suite(.tags(.file))
 final class ImageAdjustmentViewStateTests {
-    typealias Parameter = ImageAdjustmentDescription.Parameter
-
     let renderer = ImageAdjustmentRenderer()
     let source: CGImage
 
     init() throws {
         source = try CGImage.contentsOf(url: TestBundleResources.shared.songbird)
-    }
-
-    let zoomed = ImageAdjustmentDescription(zoom: .init(level: 0.6, centerX: 0.2, centerY: -0.1))
-
-    @Test func aZoomAloneIsStoredButIsNoEdit() throws {
-        #expect(!zoomed.isEmpty)
-        #expect(zoomed.effective.isEmpty)
-        #expect(zoomed.withoutViewState.isEmpty)
-        #expect(try bytes(renderer.render(zoomed, source: source)) == bytes(renderer.render(ImageAdjustmentDescription(), source: source)))
-    }
-
-    @Test func theZoomRoundTripsThroughCodable() throws {
-        let adjustments = ImageAdjustmentDescription(light: .init(exposure: 1), zoom: .init(level: 0.6, centerX: 0.2, centerY: -0.1))
-        let decoded = try JSONDecoder().decode(ImageAdjustmentDescription.self, from: JSONEncoder().encode(adjustments))
-
-        #expect(decoded == adjustments)
-    }
-
-    @Test func whatStaysPendingAfterARenderKeepsTheZoom() {
-        let adjustments = ImageAdjustmentDescription(
-            light: .init(exposure: 1), color: .init(saturation: 0.5), zoom: .init(level: 0.6, centerX: 0.2), bypassed: [.color]
-        )
-
-        #expect(adjustments.unrenderedPart == ImageAdjustmentDescription(
-            color: .init(saturation: 0.5), zoom: .init(level: 0.6, centerX: 0.2), bypassed: [.color]
-        ))
-    }
-
-    @Test func keepingViewStateReplacesOnlyTheViewState() {
-        let preset = ImageAdjustmentDescription(light: .init(exposure: 1), zoom: .init(level: 1))
-        let kept = preset.keepingViewState(of: zoomed)
-
-        #expect(kept == ImageAdjustmentDescription(light: .init(exposure: 1), zoom: .init(level: 0.6, centerX: 0.2, centerY: -0.1)))
     }
 
     // MARK: - Crop

@@ -5,7 +5,6 @@ import Foundation
 extension ImageAdjustmentDescription {
     /// One section of the description, in display order. The raw value is stable: it is stored.
     public enum Group: String, CaseIterable, Codable, Sendable {
-        case zoom
         case light
         case color
         case blackAndWhite
@@ -29,7 +28,6 @@ extension ImageAdjustmentDescription {
 extension ImageAdjustmentDescription.Parameter {
     public var group: ImageAdjustmentDescription.Group {
         switch self {
-        case .zoom, .zoomCenterX, .zoomCenterY: .zoom
         case .brilliance, .exposure, .highlights, .shadows, .brightness, .contrast, .blackPoint, .whitePoint: .light
         case .saturation, .vibrance, .temperature, .tint, .sepia: .color
         case .blackAndWhite, .blackAndWhiteRed, .blackAndWhiteYellow, .blackAndWhiteGreen, .blackAndWhiteCyan, .blackAndWhiteBlue,
