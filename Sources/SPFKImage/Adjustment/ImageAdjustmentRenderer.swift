@@ -103,6 +103,10 @@ public struct ImageAdjustmentRenderer: Sendable {
             output = selectiveColor(output, adjustments)
         }
 
+        if adjustments.blackAndWhite != 0 {
+            output = blackAndWhite(output, adjustments)
+        }
+
         if adjustments.sepia != 0 {
             let filter = CIFilter.sepiaTone()
             filter.inputImage = output

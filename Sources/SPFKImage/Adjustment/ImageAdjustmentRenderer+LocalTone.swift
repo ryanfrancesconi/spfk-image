@@ -84,7 +84,7 @@ extension ImageAdjustmentRenderer {
     // MARK: - Arithmetic
 
     private static func rec709Luminance(_ image: CIImage) -> CIImage {
-        let weights = CIVector(x: 0.2126, y: 0.7152, z: 0.0722, w: 0)
+        let weights = CIVector(x: luminanceWeights.x, y: luminanceWeights.y, z: luminanceWeights.z, w: 0)
         return matrix(image, r: weights, g: weights, b: weights)
     }
 
@@ -98,7 +98,7 @@ extension ImageAdjustmentRenderer {
         )
     }
 
-    private static func matrix(_ image: CIImage, r: CIVector, g: CIVector, b: CIVector, bias: Double = 0) -> CIImage {
+    static func matrix(_ image: CIImage, r: CIVector, g: CIVector, b: CIVector, bias: Double = 0) -> CIImage {
         let filter = CIFilter.colorMatrix()
         filter.inputImage = image
         filter.rVector = r
