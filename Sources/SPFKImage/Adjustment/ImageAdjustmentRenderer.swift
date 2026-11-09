@@ -65,6 +65,10 @@ public struct ImageAdjustmentRenderer: Sendable {
             output = toneCurve(output, blackPointCurve(adjustments.blackPoint))
         }
 
+        if adjustments.whitePoint != 0 {
+            output = toneCurve(output, whitePointCurve(adjustments.whitePoint))
+        }
+
         if adjustments.hasLevels {
             output = toneCurve(output, levelsCurve(adjustments))
         }
@@ -151,6 +155,17 @@ public struct ImageAdjustmentRenderer: Sendable {
         }
     }
 
+    /// A straight line in sRGB-encoded values. Positive maps `1 − value × maximumWhitePoint` to 1 and
+    /// stretches the rest; negative lowers 1 to `1 + value × maximumWhitePoint`. Black stays at 0.
+    static func whitePointCurve(_ value: Double) -> [CGPoint] {
+        let scale = 1 - abs(value) * maximumWhitePoint
+        return curvePositions.map { x in
+            value > 0
+                ? CGPoint(x: scale * x, y: x)
+                : CGPoint(x: x, y: scale * x)
+        }
+    }
+
     /// Lifts or lowers the mid-tones along `4x(1 − x)`, so black and white stay fixed.
     static func brightnessCurve(_ value: Double) -> [CGPoint] {
         curvePositions.map { x in
@@ -233,6 +248,8 @@ public struct ImageAdjustmentRenderer: Sendable {
     static let neutralVignetteRadius: CGFloat = 0.75
     /// How far a full black point moves black, in sRGB-encoded values.
     static let maximumBlackPoint: Double = 0.25
+    /// How far a full white point moves white, in sRGB-encoded values.
+    static let maximumWhitePoint: Double = 0.25
     /// How far full brightness moves mid-gray, in sRGB-encoded values.
     static let maximumBrightnessLift: Double = 0.2
     /// How far full positive and full negative brilliance move the base at each of

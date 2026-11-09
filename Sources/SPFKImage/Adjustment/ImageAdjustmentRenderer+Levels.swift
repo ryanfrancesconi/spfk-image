@@ -19,6 +19,7 @@ extension ImageAdjustmentRenderer {
         return ImageAdjustmentDescription(
             exposure: effective.exposure,
             blackPoint: effective.blackPoint,
+            whitePoint: effective.whitePoint,
             vibrance: effective.vibrance,
             temperature: effective.temperature,
             tint: effective.tint

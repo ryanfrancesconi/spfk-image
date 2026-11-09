@@ -7,7 +7,7 @@ import Foundation
 /// Values are slider positions rather than Core Image parameters, so retuning the renderer's mapping
 /// never changes stored data. Each is clamped to its ``Parameter/range`` on construction and on
 /// assignment, a non-finite value becomes neutral, and neutral is 0 for every parameter. The renderer
-/// applies them in a fixed order: noise reduction, exposure, temperature and tint, vibrance, black point, levels,
+/// applies them in a fixed order: noise reduction, exposure, temperature and tint, vibrance, black point, white point, levels,
 /// highlights and shadows, brightness, brilliance, contrast and saturation, definition, sepia,
 /// sharpness, vignette.
 ///
@@ -26,6 +26,8 @@ public struct ImageAdjustmentDescription: Hashable, Sendable, Codable {
     public var brightness: Double { didSet { brightness = Parameter.brightness.sanitize(brightness) } }
     /// Positive crushes the darkest tones to black; negative lifts black to a gray floor.
     public var blackPoint: Double { didSet { blackPoint = Parameter.blackPoint.sanitize(blackPoint) } }
+    /// Positive clips the brightest tones to white; negative lowers white to a gray ceiling.
+    public var whitePoint: Double { didSet { whitePoint = Parameter.whitePoint.sanitize(whitePoint) } }
     public var saturation: Double { didSet { saturation = Parameter.saturation.sanitize(saturation) } }
     public var vibrance: Double { didSet { vibrance = Parameter.vibrance.sanitize(vibrance) } }
     public var temperature: Double { didSet { temperature = Parameter.temperature.sanitize(temperature) } }
@@ -66,6 +68,7 @@ public struct ImageAdjustmentDescription: Hashable, Sendable, Codable {
         shadows: Double = 0,
         brightness: Double = 0,
         blackPoint: Double = 0,
+        whitePoint: Double = 0,
         saturation: Double = 0,
         vibrance: Double = 0,
         temperature: Double = 0,
@@ -95,6 +98,7 @@ public struct ImageAdjustmentDescription: Hashable, Sendable, Codable {
         self.shadows = Parameter.shadows.sanitize(shadows)
         self.brightness = Parameter.brightness.sanitize(brightness)
         self.blackPoint = Parameter.blackPoint.sanitize(blackPoint)
+        self.whitePoint = Parameter.whitePoint.sanitize(whitePoint)
         self.saturation = Parameter.saturation.sanitize(saturation)
         self.vibrance = Parameter.vibrance.sanitize(vibrance)
         self.temperature = Parameter.temperature.sanitize(temperature)

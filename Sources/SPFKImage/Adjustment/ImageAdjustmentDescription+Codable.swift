@@ -4,7 +4,7 @@ import Foundation
 
 extension ImageAdjustmentDescription {
     enum CodingKeys: String, CodingKey {
-        case brilliance, exposure, contrast, highlights, shadows, brightness, blackPoint, saturation, vibrance,
+        case brilliance, exposure, contrast, highlights, shadows, brightness, blackPoint, whitePoint, saturation, vibrance,
             temperature, tint, sepia, levelsBlack, levelsShadow, levelsMid, levelsHighlight, levelsWhite, sharpness,
             definition, noiseReduction, vignette, vignetteRadius, vignetteSoftness, zoom, zoomCenterX, zoomCenterY, bypassed
     }
@@ -22,6 +22,7 @@ extension ImageAdjustmentDescription {
             shadows: try c.decodeIfPresent(Double.self, forKey: .shadows) ?? 0,
             brightness: try c.decodeIfPresent(Double.self, forKey: .brightness) ?? 0,
             blackPoint: try c.decodeIfPresent(Double.self, forKey: .blackPoint) ?? 0,
+            whitePoint: try c.decodeIfPresent(Double.self, forKey: .whitePoint) ?? 0,
             saturation: try c.decodeIfPresent(Double.self, forKey: .saturation) ?? 0,
             vibrance: try c.decodeIfPresent(Double.self, forKey: .vibrance) ?? 0,
             temperature: try c.decodeIfPresent(Double.self, forKey: .temperature) ?? 0,

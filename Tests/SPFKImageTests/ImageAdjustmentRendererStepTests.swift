@@ -33,7 +33,7 @@ final class ImageAdjustmentRendererStepTests {
 
     // MARK: - Skipped at neutral, active otherwise
 
-    @Test(arguments: [ImageAdjustmentDescription.Parameter.vibrance, .blackPoint, .brightness, .brilliance, .definition, .noiseReduction, .vignette])
+    @Test(arguments: [ImageAdjustmentDescription.Parameter.vibrance, .blackPoint, .whitePoint, .brightness, .brilliance, .definition, .noiseReduction, .vignette])
     func aNewStepChangesTheOutputOnlyWhenNonZero(parameter: ImageAdjustmentDescription.Parameter) throws {
         var adjusted = ImageAdjustmentChainPinTests.pinned
         let base = try pixels(adjusted)

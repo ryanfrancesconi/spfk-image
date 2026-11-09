@@ -15,6 +15,7 @@ extension ImageAdjustmentDescription {
         case brightness
         case contrast
         case blackPoint
+        case whitePoint
         case saturation
         case vibrance
         case temperature
@@ -54,7 +55,7 @@ extension ImageAdjustmentDescription {
             case .levelsMid: -0.5 ... 0.5
             case .levelsHighlight: -0.75 ... 0.25
             case .levelsWhite: -1 ... 0
-            case .brilliance, .contrast, .shadows, .brightness, .blackPoint, .saturation, .vibrance, .temperature, .tint,
+            case .brilliance, .contrast, .shadows, .brightness, .blackPoint, .whitePoint, .saturation, .vibrance, .temperature, .tint,
                  .vignette, .vignetteRadius, .vignetteSoftness: -1 ... 1
             }
         }
@@ -68,6 +69,7 @@ extension ImageAdjustmentDescription {
             case .shadows: \.shadows
             case .brightness: \.brightness
             case .blackPoint: \.blackPoint
+            case .whitePoint: \.whitePoint
             case .saturation: \.saturation
             case .vibrance: \.vibrance
             case .temperature: \.temperature

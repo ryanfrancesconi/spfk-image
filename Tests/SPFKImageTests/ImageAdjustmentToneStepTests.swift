@@ -6,7 +6,7 @@ import Testing
 
 @testable import SPFKImage
 
-/// Black point and brightness, measured on flat gray patches.
+/// Black point, white point and brightness, measured on flat gray patches.
 @Suite
 final class ImageAdjustmentToneStepTests {
     let context = CIContext()
@@ -44,6 +44,22 @@ final class ImageAdjustmentToneStepTests {
         #expect(abs(try render(gray: 1, .init(blackPoint: -1)) - 1) < 0.005)
     }
 
+    @Test func positiveWhitePointMapsItsInputToWhite() throws {
+        let input = 1 - ImageAdjustmentRenderer.maximumWhitePoint
+
+        #expect(abs(try render(gray: input, .init(whitePoint: 1)) - 1) < 0.005)
+        #expect(abs(try render(gray: (1 + input) / 2, .init(whitePoint: 1)) - 1) < 0.005)
+        #expect(try render(gray: input - 0.2, .init(whitePoint: 1)) < 0.9)
+        #expect(try render(gray: 0, .init(whitePoint: 1)) < 0.005)
+    }
+
+    @Test func negativeWhitePointLowersWhite() throws {
+        let ceiling = try render(gray: 1, .init(whitePoint: -1))
+
+        #expect(abs(ceiling - (1 - ImageAdjustmentRenderer.maximumWhitePoint)) < 0.01)
+        #expect(try render(gray: 0, .init(whitePoint: -1)) < 0.005)
+    }
+
     @Test func brightnessMovesMidGrayAndHoldsBlackAndWhite() throws {
         let lift = ImageAdjustmentRenderer.maximumBrightnessLift
 
@@ -58,7 +74,11 @@ final class ImageAdjustmentToneStepTests {
 
     @Test func toneCurvesStayIncreasingAtTheEndsOfTheirRanges() {
         for value in [-1.0, -0.5, 0.5, 1] {
-            for curve in [ImageAdjustmentRenderer.blackPointCurve(value), ImageAdjustmentRenderer.brightnessCurve(value)] {
+            for curve in [
+                ImageAdjustmentRenderer.blackPointCurve(value),
+                ImageAdjustmentRenderer.whitePointCurve(value),
+                ImageAdjustmentRenderer.brightnessCurve(value),
+            ] {
                 #expect(zip(curve, curve.dropFirst()).allSatisfy { $0.x < $1.x && $0.y <= $1.y })
             }
         }

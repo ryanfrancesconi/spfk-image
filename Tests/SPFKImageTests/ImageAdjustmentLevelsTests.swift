@@ -128,4 +128,10 @@ final class ImageAdjustmentLevelsTests {
         exposed.bypassed = [.exposure]
         #expect(try histogram(gray: 0.5, exposed) == plain)
     }
+
+    @Test func histogramIncludesTheWhitePoint() throws {
+        let plain = try histogram(gray: 0.5, ImageAdjustmentDescription())
+        let lowered = try histogram(gray: 0.5, ImageAdjustmentDescription(whitePoint: -1))
+        #expect(peak(lowered.luminance) < peak(plain.luminance) - 20)
+    }
 }
