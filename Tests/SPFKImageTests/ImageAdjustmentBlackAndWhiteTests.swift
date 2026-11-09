@@ -8,6 +8,8 @@ import Testing
 
 @Suite("Black & White")
 struct ImageAdjustmentBlackAndWhiteTests {
+    typealias Parameter = ImageAdjustmentDescription.Parameter
+
     // MARK: - Rendering helpers
 
     /// One pixel per color, 8-bit sRGB.
@@ -42,45 +44,77 @@ struct ImageAdjustmentBlackAndWhiteTests {
     }
 
     private static let red = SIMD3<UInt8>(255, 0, 0)
-    private static let green = SIMD3<UInt8>(0, 255, 0)
+    private static let blue = SIMD3<UInt8>(0, 0, 255)
+    private static let sky = SIMD3<UInt8>(90, 150, 220)
     private static let colors: [SIMD3<UInt8>] = [
-        red, green, SIMD3(0, 0, 255), SIMD3(200, 120, 40), SIMD3(30, 90, 160), SIMD3(255, 255, 255), SIMD3(0, 0, 0),
+        red, SIMD3(0, 255, 0), blue, sky, SIMD3(225, 170, 140), SIMD3(70, 120, 50), SIMD3(255, 255, 255), SIMD3(0, 0, 0),
     ]
+    private static let grays: [SIMD3<UInt8>] = [0, 40, 128, 200, 255].map { SIMD3(repeating: $0) }
+
+    private func everyBand(_ value: Double, amount: Double = 1) -> ImageAdjustmentDescription {
+        var adjustments = ImageAdjustmentDescription(blackAndWhite: amount)
+        for parameter in Parameter.blackAndWhiteBands {
+            adjustments[parameter] = value
+        }
+        return adjustments
+    }
 
     // MARK: - Tests
 
     @Test(arguments: [-1.0, 0, 1])
-    func fullAmountRendersEqualChannels(mix: Double) throws {
-        let adjustments = ImageAdjustmentDescription(
-            blackAndWhite: 1, blackAndWhiteRed: mix, blackAndWhiteGreen: -mix, blackAndWhiteBlue: mix / 2
-        )
-
-        for pixel in try render(adjustments, Self.colors) {
+    func fullAmountRendersEqualChannels(value: Double) throws {
+        for pixel in try render(everyBand(value), Self.colors) {
             #expect(max(abs(pixel.x - pixel.y), abs(pixel.y - pixel.z)) <= 1, "\(pixel)")
         }
     }
 
-    @Test func zeroAmountIsIdentityWhateverTheMix() throws {
-        let adjustments = ImageAdjustmentDescription(blackAndWhiteRed: 1, blackAndWhiteGreen: -1, blackAndWhiteBlue: 0.5)
-
-        #expect(try render(adjustments, Self.colors) == render(ImageAdjustmentDescription(), Self.colors))
+    @Test func zeroAmountIsIdentityWhateverTheBands() throws {
+        #expect(try render(everyBand(1, amount: 0), Self.colors) == render(ImageAdjustmentDescription(), Self.colors))
     }
 
     @Test(arguments: [-1.0, 1])
-    func whiteAndBlackStayPutAtAnyMix(mix: Double) throws {
-        let adjustments = ImageAdjustmentDescription(blackAndWhite: 1, blackAndWhiteRed: mix, blackAndWhiteGreen: mix)
-        let pixels = try render(adjustments, [SIMD3(255, 255, 255), SIMD3(0, 0, 0)])
+    func graysTakeNoBandShift(value: Double) throws {
+        let neutral = try render(everyBand(0), Self.grays)
+        let shifted = try render(everyBand(value), Self.grays)
 
-        #expect(pixels[0].x >= 254)
-        #expect(pixels[1].x <= 1)
+        for (a, b) in zip(neutral, shifted) {
+            #expect(abs(a.x - b.x) <= 1, "\(a) \(b)")
+        }
     }
 
-    @Test func raisingRedBrightensRedRelativeToGreen() throws {
-        let neutral = try render(ImageAdjustmentDescription(blackAndWhite: 1), [Self.red, Self.green])
-        let raised = try render(ImageAdjustmentDescription(blackAndWhite: 1, blackAndWhiteRed: 1), [Self.red, Self.green])
+    @Test func neutralBandsKeepEachColorsLuminance() throws {
+        let rendered = try render(everyBand(0), Self.colors)
 
-        #expect(raised[0].x > neutral[0].x)
-        #expect(raised[1].x < neutral[1].x)
+        for (color, pixel) in zip(Self.colors, rendered) {
+            let srgb = SIMD3(Double(color.x), Double(color.y), Double(color.z)) / 255
+            let linear = SIMD3(
+                ImageAdjustmentRenderer.sRGBDecoded(srgb.x),
+                ImageAdjustmentRenderer.sRGBDecoded(srgb.y),
+                ImageAdjustmentRenderer.sRGBDecoded(srgb.z)
+            )
+            let expected = 255 * ImageAdjustmentRenderer.sRGBEncoded((linear * ImageAdjustmentRenderer.luminanceWeights).sum())
+            #expect(abs(Double(pixel.x) - expected) <= 3, "\(color) → \(pixel.x), expected \(expected)")
+        }
+    }
+
+    @Test func blueDownDarkensASkyAndLeavesRed() throws {
+        let neutral = try render(everyBand(0), [Self.sky, Self.red])
+        var adjustments = everyBand(0)
+        adjustments.blackAndWhiteBlue = -1
+        let darkened = try render(adjustments, [Self.sky, Self.red])
+
+        #expect(neutral[0].x - darkened[0].x >= 20, "\(neutral[0]) → \(darkened[0])")
+        #expect(abs(neutral[1].x - darkened[1].x) <= 1)
+    }
+
+    @Test func redUpBrightensRedAndLeavesBlue() throws {
+        let neutral = try render(everyBand(0), [Self.red, Self.blue])
+        var adjustments = everyBand(0)
+        adjustments.blackAndWhiteRed = 1
+        let raised = try render(adjustments, [Self.red, Self.blue])
+
+        #expect(raised[0].x - neutral[0].x >= 40, "\(neutral[0]) → \(raised[0])")
+        #expect(abs(raised[1].x - neutral[1].x) <= 1)
     }
 
     @Test func partialAmountLiesBetweenColorAndMono() throws {
@@ -92,26 +126,21 @@ struct ImageAdjustmentBlackAndWhiteTests {
         #expect(half.y > color.y && half.y < mono.y)
     }
 
-    @Test func weightsSumToOneAndNeutralIsRec709() {
-        let neutral = ImageAdjustmentRenderer.blackAndWhiteWeights(red: 0, green: 0, blue: 0)
-        let skewed = ImageAdjustmentRenderer.blackAndWhiteWeights(red: 1, green: -1, blue: 0.3)
-
-        #expect(abs(neutral.sum() - 1) < 1e-12)
-        #expect(abs(skewed.sum() - 1) < 1e-12)
-        #expect(abs(neutral.x - 0.2126) < 1e-4)
-        #expect(skewed.x > neutral.x && skewed.y < neutral.y)
+    @Test func eachBandOwnsADistinctParameter() {
+        #expect(Set(Parameter.blackAndWhiteBands).count == ImageAdjustmentDescription.SelectiveColor.allCases.count)
+        #expect(Parameter.blackAndWhiteBands.allSatisfy { $0.range == -1 ... 1 })
     }
 
     @Test func dataWrittenBeforeBlackAndWhiteDecodesAsNeutral() throws {
         let decoded = try JSONDecoder().decode(ImageAdjustmentDescription.self, from: Data(#"{"exposure":0.5}"#.utf8))
 
         #expect(decoded.blackAndWhite == 0)
-        #expect(decoded.blackAndWhiteRed == 0)
+        #expect(Parameter.blackAndWhiteBands.allSatisfy { decoded[$0] == 0 })
     }
 
     @Test func blackAndWhiteRoundTripsThroughCodable() throws {
         let adjustments = ImageAdjustmentDescription(
-            blackAndWhite: 0.7, blackAndWhiteRed: 0.4, blackAndWhiteGreen: -0.2, blackAndWhiteBlue: 1
+            blackAndWhite: 0.7, blackAndWhiteRed: 0.4, blackAndWhiteYellow: -0.1, blackAndWhiteCyan: -0.2, blackAndWhiteMagenta: 1
         )
         let data = try JSONEncoder().encode(adjustments)
 

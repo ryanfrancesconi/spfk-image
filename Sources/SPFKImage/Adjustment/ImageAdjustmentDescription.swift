@@ -33,14 +33,16 @@ public struct ImageAdjustmentDescription: Hashable, Sendable, Codable {
     public var temperature: Double { didSet { temperature = Parameter.temperature.sanitize(temperature) } }
     public var tint: Double { didSet { tint = Parameter.tint.sanitize(tint) } }
     public var sepia: Double { didSet { sepia = Parameter.sepia.sanitize(sepia) } }
-    /// How far the image moves to its monochrome mix of ``blackAndWhiteRed``, ``blackAndWhiteGreen``
-    /// and ``blackAndWhiteBlue``.
+    /// How far the image moves to its monochrome version.
     public var blackAndWhite: Double { didSet { blackAndWhite = Parameter.blackAndWhite.sanitize(blackAndWhite) } }
-    /// How much each channel weighs in the monochrome mix, each unit doubling or halving it. No effect
-    /// while ``blackAndWhite`` is 0.
+    /// Lightens or darkens each color band's gray in the monochrome version. No effect while
+    /// ``blackAndWhite`` is 0.
     public var blackAndWhiteRed: Double { didSet { blackAndWhiteRed = Parameter.blackAndWhiteRed.sanitize(blackAndWhiteRed) } }
+    public var blackAndWhiteYellow: Double { didSet { blackAndWhiteYellow = Parameter.blackAndWhiteYellow.sanitize(blackAndWhiteYellow) } }
     public var blackAndWhiteGreen: Double { didSet { blackAndWhiteGreen = Parameter.blackAndWhiteGreen.sanitize(blackAndWhiteGreen) } }
+    public var blackAndWhiteCyan: Double { didSet { blackAndWhiteCyan = Parameter.blackAndWhiteCyan.sanitize(blackAndWhiteCyan) } }
     public var blackAndWhiteBlue: Double { didSet { blackAndWhiteBlue = Parameter.blackAndWhiteBlue.sanitize(blackAndWhiteBlue) } }
+    public var blackAndWhiteMagenta: Double { didSet { blackAndWhiteMagenta = Parameter.blackAndWhiteMagenta.sanitize(blackAndWhiteMagenta) } }
     /// Levels: how far each curve point's input sits from its identity position (see
     /// ``levelsPositions``).
     public var levelsBlack: Double { didSet { levelsBlack = Parameter.levelsBlack.sanitize(levelsBlack) } }
@@ -126,8 +128,11 @@ public struct ImageAdjustmentDescription: Hashable, Sendable, Codable {
         sepia: Double = 0,
         blackAndWhite: Double = 0,
         blackAndWhiteRed: Double = 0,
+        blackAndWhiteYellow: Double = 0,
         blackAndWhiteGreen: Double = 0,
+        blackAndWhiteCyan: Double = 0,
         blackAndWhiteBlue: Double = 0,
+        blackAndWhiteMagenta: Double = 0,
         levelsBlack: Double = 0,
         levelsShadow: Double = 0,
         levelsMid: Double = 0,
@@ -190,8 +195,11 @@ public struct ImageAdjustmentDescription: Hashable, Sendable, Codable {
         self.sepia = Parameter.sepia.sanitize(sepia)
         self.blackAndWhite = Parameter.blackAndWhite.sanitize(blackAndWhite)
         self.blackAndWhiteRed = Parameter.blackAndWhiteRed.sanitize(blackAndWhiteRed)
+        self.blackAndWhiteYellow = Parameter.blackAndWhiteYellow.sanitize(blackAndWhiteYellow)
         self.blackAndWhiteGreen = Parameter.blackAndWhiteGreen.sanitize(blackAndWhiteGreen)
+        self.blackAndWhiteCyan = Parameter.blackAndWhiteCyan.sanitize(blackAndWhiteCyan)
         self.blackAndWhiteBlue = Parameter.blackAndWhiteBlue.sanitize(blackAndWhiteBlue)
+        self.blackAndWhiteMagenta = Parameter.blackAndWhiteMagenta.sanitize(blackAndWhiteMagenta)
         self.levelsBlack = Parameter.levelsBlack.sanitize(levelsBlack)
         self.levelsShadow = Parameter.levelsShadow.sanitize(levelsShadow)
         self.levelsMid = Parameter.levelsMid.sanitize(levelsMid)

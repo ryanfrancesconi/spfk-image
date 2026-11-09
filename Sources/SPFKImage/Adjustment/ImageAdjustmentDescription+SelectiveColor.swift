@@ -3,7 +3,8 @@
 import Foundation
 
 extension ImageAdjustmentDescription {
-    /// One of Selective Color's six bands, each centered on a hue 60° from its neighbors.
+    /// One of six color bands, each centered on a hue 60° from its neighbors. Selective Color shifts
+    /// each band's color; Black & White lightens or darkens its gray.
     public enum SelectiveColor: String, CaseIterable, Sendable {
         case red
         case yellow
@@ -57,6 +58,18 @@ extension ImageAdjustmentDescription {
             }
         }
 
+        /// How far Black & White lightens or darkens the band's gray.
+        public var blackAndWhite: Parameter {
+            switch self {
+            case .red: .blackAndWhiteRed
+            case .yellow: .blackAndWhiteYellow
+            case .green: .blackAndWhiteGreen
+            case .cyan: .blackAndWhiteCyan
+            case .blue: .blackAndWhiteBlue
+            case .magenta: .blackAndWhiteMagenta
+            }
+        }
+
         /// Hue, saturation and luminance, in that order.
         public var parameters: [Parameter] {
             [hue, saturation, luminance]
@@ -72,4 +85,7 @@ extension ImageAdjustmentDescription {
 extension ImageAdjustmentDescription.Parameter {
     /// Every Selective Color parameter, band by band.
     public static let selectiveColor: [Self] = ImageAdjustmentDescription.SelectiveColor.allCases.flatMap(\.parameters)
+
+    /// Black & White's band parameters, in band order.
+    public static let blackAndWhiteBands: [Self] = ImageAdjustmentDescription.SelectiveColor.allCases.map(\.blackAndWhite)
 }

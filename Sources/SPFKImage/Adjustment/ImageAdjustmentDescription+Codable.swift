@@ -5,7 +5,8 @@ import Foundation
 extension ImageAdjustmentDescription {
     enum CodingKeys: String, CodingKey {
         case brilliance, exposure, contrast, highlights, shadows, brightness, blackPoint, whitePoint, saturation, vibrance,
-            temperature, tint, sepia, blackAndWhite, blackAndWhiteRed, blackAndWhiteGreen, blackAndWhiteBlue, levelsBlack, levelsShadow, levelsMid, levelsHighlight, levelsWhite,
+            temperature, tint, sepia, blackAndWhite, blackAndWhiteRed, blackAndWhiteYellow, blackAndWhiteGreen, blackAndWhiteCyan, blackAndWhiteBlue,
+            blackAndWhiteMagenta, levelsBlack, levelsShadow, levelsMid, levelsHighlight, levelsWhite,
             selectiveRedHue, selectiveRedSaturation, selectiveRedLuminance,
             selectiveYellowHue, selectiveYellowSaturation, selectiveYellowLuminance,
             selectiveGreenHue, selectiveGreenSaturation, selectiveGreenLuminance,
@@ -39,8 +40,11 @@ extension ImageAdjustmentDescription {
             sepia: try c.decodeIfPresent(Double.self, forKey: .sepia) ?? 0,
             blackAndWhite: try c.decodeIfPresent(Double.self, forKey: .blackAndWhite) ?? 0,
             blackAndWhiteRed: try c.decodeIfPresent(Double.self, forKey: .blackAndWhiteRed) ?? 0,
+            blackAndWhiteYellow: try c.decodeIfPresent(Double.self, forKey: .blackAndWhiteYellow) ?? 0,
             blackAndWhiteGreen: try c.decodeIfPresent(Double.self, forKey: .blackAndWhiteGreen) ?? 0,
+            blackAndWhiteCyan: try c.decodeIfPresent(Double.self, forKey: .blackAndWhiteCyan) ?? 0,
             blackAndWhiteBlue: try c.decodeIfPresent(Double.self, forKey: .blackAndWhiteBlue) ?? 0,
+            blackAndWhiteMagenta: try c.decodeIfPresent(Double.self, forKey: .blackAndWhiteMagenta) ?? 0,
             levelsBlack: try c.decodeIfPresent(Double.self, forKey: .levelsBlack) ?? 0,
             levelsShadow: try c.decodeIfPresent(Double.self, forKey: .levelsShadow) ?? 0,
             levelsMid: try c.decodeIfPresent(Double.self, forKey: .levelsMid) ?? 0,

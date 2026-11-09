@@ -28,18 +28,28 @@ extension ImageAdjustmentRenderer {
         var shift = SIMD3<Double>.zero
 
         for (band, bandShift) in zip(SelectiveColor.allCases, shifts) {
-            let distance = abs(remainder(hue - band.centerHue, 360))
-            shift += max(0, 1 - distance / 60) * bandShift
+            shift += bandWeight(hue: hue, band) * bandShift
         }
 
-        let ramp = min(1, (chroma - selectiveColorMinimumChroma) / (selectiveColorFullChroma - selectiveColorMinimumChroma))
-        shift *= ramp * ramp * (3 - 2 * ramp)
+        shift *= chromaGate(chroma, full: selectiveColorFullChroma)
 
         hue += shift.x * maximumSelectiveHueShift
         saturation = min(1, saturation * (1 + shift.y))
         lightness += shift.z * maximumSelectiveLuminanceShift * (shift.z > 0 ? 1 - lightness : lightness)
 
         return Self.rgb(hue: hue, saturation: saturation, lightness: lightness)
+    }
+
+    /// How much a pixel of `hue` belongs to `band`: 1 at the band's center, falling linearly to 0 at
+    /// the neighboring band's.
+    static func bandWeight(hue: Double, _ band: SelectiveColor) -> Double {
+        max(0, 1 - abs(remainder(hue - band.centerHue, 360)) / 60)
+    }
+
+    /// 0 at or below ``selectiveColorMinimumChroma``, smoothstepping to 1 at `full`.
+    static func chromaGate(_ chroma: Double, full: Double) -> Double {
+        let ramp = min(1, max(0, (chroma - selectiveColorMinimumChroma) / (full - selectiveColorMinimumChroma)))
+        return ramp * ramp * (3 - 2 * ramp)
     }
 
     /// Hue in degrees, 0…360; saturation and lightness in 0…1.

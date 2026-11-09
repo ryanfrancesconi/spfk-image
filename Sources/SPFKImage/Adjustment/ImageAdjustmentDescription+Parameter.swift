@@ -23,8 +23,11 @@ extension ImageAdjustmentDescription {
         case sepia
         case blackAndWhite
         case blackAndWhiteRed
+        case blackAndWhiteYellow
         case blackAndWhiteGreen
+        case blackAndWhiteCyan
         case blackAndWhiteBlue
+        case blackAndWhiteMagenta
         case levelsBlack
         case levelsShadow
         case levelsMid
@@ -88,7 +91,7 @@ extension ImageAdjustmentDescription {
             case .levelsHighlight: -0.75 ... 0.25
             case .levelsWhite: -1 ... 0
             case .brilliance, .contrast, .shadows, .brightness, .blackPoint, .whitePoint, .saturation, .vibrance, .temperature, .tint,
-                 .blackAndWhiteRed, .blackAndWhiteGreen, .blackAndWhiteBlue,
+                 .blackAndWhiteRed, .blackAndWhiteYellow, .blackAndWhiteGreen, .blackAndWhiteCyan, .blackAndWhiteBlue, .blackAndWhiteMagenta,
                  .sharpnessRadius, .vignette, .vignetteRadius, .vignetteSoftness, .grainSize: -1 ... 1
             case .selectiveRedHue, .selectiveRedSaturation, .selectiveRedLuminance,
                  .selectiveYellowHue, .selectiveYellowSaturation, .selectiveYellowLuminance,
@@ -119,8 +122,11 @@ extension ImageAdjustmentDescription {
             case .sepia: \.sepia
             case .blackAndWhite: \.blackAndWhite
             case .blackAndWhiteRed: \.blackAndWhiteRed
+            case .blackAndWhiteYellow: \.blackAndWhiteYellow
             case .blackAndWhiteGreen: \.blackAndWhiteGreen
+            case .blackAndWhiteCyan: \.blackAndWhiteCyan
             case .blackAndWhiteBlue: \.blackAndWhiteBlue
+            case .blackAndWhiteMagenta: \.blackAndWhiteMagenta
             case .levelsBlack: \.levelsBlack
             case .levelsShadow: \.levelsShadow
             case .levelsMid: \.levelsMid
