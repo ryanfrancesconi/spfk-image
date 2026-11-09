@@ -6,7 +6,8 @@ extension ImageAdjustmentDescription {
     enum CodingKeys: String, CodingKey {
         case brilliance, exposure, contrast, highlights, shadows, brightness, blackPoint, whitePoint, saturation, vibrance,
             temperature, tint, sepia, levelsBlack, levelsShadow, levelsMid, levelsHighlight, levelsWhite, sharpness,
-            sharpnessRadius, definition, noiseReduction, vignette, vignetteRadius, vignetteSoftness, zoom, zoomCenterX, zoomCenterY, bypassed
+            sharpnessRadius, definition, noiseReduction, vignette, vignetteRadius, vignetteSoftness, zoom, zoomCenterX, zoomCenterY, bypassed,
+            curves, curvesBypassed
     }
 
     /// A missing key decodes as neutral, so data written before a parameter existed still reads. A
@@ -43,7 +44,9 @@ extension ImageAdjustmentDescription {
             zoom: try c.decodeIfPresent(Double.self, forKey: .zoom) ?? 0,
             zoomCenterX: try c.decodeIfPresent(Double.self, forKey: .zoomCenterX) ?? 0,
             zoomCenterY: try c.decodeIfPresent(Double.self, forKey: .zoomCenterY) ?? 0,
-            bypassed: Set((try c.decodeIfPresent([String].self, forKey: .bypassed) ?? []).compactMap(Parameter.init(rawValue:)))
+            bypassed: Set((try c.decodeIfPresent([String].self, forKey: .bypassed) ?? []).compactMap(Parameter.init(rawValue:))),
+            curves: try c.decodeIfPresent(ImageToneCurves.self, forKey: .curves) ?? .identity,
+            curvesBypassed: try c.decodeIfPresent(Bool.self, forKey: .curvesBypassed) ?? false
         )
     }
 }

@@ -8,7 +8,7 @@ import Foundation
 /// never changes stored data. Each is clamped to its ``Parameter/range`` on construction and on
 /// assignment, a non-finite value becomes neutral, and neutral is 0 for every parameter. The renderer
 /// applies them in a fixed order: noise reduction, exposure, temperature and tint, vibrance, black point, white point, levels,
-/// highlights and shadows, brightness, brilliance, contrast and saturation, definition, sepia,
+/// curves, highlights and shadows, brightness, brilliance, contrast and saturation, definition, sepia,
 /// sharpness, vignette.
 ///
 /// A ``bypassed`` parameter keeps its value but renders as neutral (see ``effective``). The
@@ -62,6 +62,12 @@ public struct ImageAdjustmentDescription: Hashable, Sendable, Codable {
     /// Parameters switched off: each keeps its value and renders as neutral.
     public var bypassed: Set<Parameter>
 
+    /// Tone curves, applied after levels.
+    public var curves: ImageToneCurves
+
+    /// Whether ``curves`` is switched off: it keeps its points and renders as identity.
+    public var curvesBypassed: Bool
+
     public init(
         brilliance: Double = 0,
         exposure: Double = 0,
@@ -91,7 +97,9 @@ public struct ImageAdjustmentDescription: Hashable, Sendable, Codable {
         zoom: Double = 0,
         zoomCenterX: Double = 0,
         zoomCenterY: Double = 0,
-        bypassed: Set<Parameter> = []
+        bypassed: Set<Parameter> = [],
+        curves: ImageToneCurves = .identity,
+        curvesBypassed: Bool = false
     ) {
         // Property observers do not run during initialization.
         self.brilliance = Parameter.brilliance.sanitize(brilliance)
@@ -123,15 +131,18 @@ public struct ImageAdjustmentDescription: Hashable, Sendable, Codable {
         self.zoomCenterX = Parameter.zoomCenterX.sanitize(zoomCenterX)
         self.zoomCenterY = Parameter.zoomCenterY.sanitize(zoomCenterY)
         self.bypassed = bypassed
+        self.curves = curves
+        self.curvesBypassed = curvesBypassed
     }
 
-    /// True when every parameter is neutral and none is bypassed: nothing to store. A stored
-    /// adjustment in this state is represented as `nil`.
+    /// True when every parameter is neutral, the curves are identity, and nothing is bypassed: nothing
+    /// to store. A stored adjustment in this state is represented as `nil`.
     public var isEmpty: Bool {
-        bypassed.isEmpty && Parameter.allCases.allSatisfy { self[$0] == 0 }
+        bypassed.isEmpty && !curvesBypassed && curves.isIdentity && Parameter.allCases.allSatisfy { self[$0] == 0 }
     }
 
-    /// What renders: every ``bypassed`` and view-state parameter at neutral, and nothing bypassed.
+    /// What renders: every ``bypassed`` and view-state parameter at neutral, bypassed curves at
+    /// identity, and nothing bypassed.
     /// Empty when the adjustment would leave the image unchanged.
     public var effective: ImageAdjustmentDescription {
         var result = withoutViewState
@@ -139,10 +150,16 @@ public struct ImageAdjustmentDescription: Hashable, Sendable, Codable {
             result[parameter] = 0
         }
         result.bypassed = []
+
+        if curvesBypassed {
+            result.curves = .identity
+            result.curvesBypassed = false
+        }
+
         return result
     }
 
-    /// The bypassed parameters, still bypassed, and the view state: what stays pending once
+    /// The bypassed parameters and curves, still bypassed, and the view state: what stays pending once
     /// ``effective`` is rendered.
     public var unrenderedPart: ImageAdjustmentDescription {
         var result = viewState
@@ -150,6 +167,12 @@ public struct ImageAdjustmentDescription: Hashable, Sendable, Codable {
         for parameter in bypassed {
             result[parameter] = self[parameter]
         }
+
+        if curvesBypassed {
+            result.curves = curves
+            result.curvesBypassed = true
+        }
+
         return result
     }
 

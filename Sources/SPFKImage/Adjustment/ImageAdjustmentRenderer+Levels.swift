@@ -29,8 +29,13 @@ extension ImageAdjustmentRenderer {
     /// The histogram of `source` as the levels step receives it, binned on sRGB-encoded values as the
     /// levels curve reads them. Nil when Core Image produces no output.
     public func levelsHistogram(_ adjustments: ImageAdjustmentDescription, source: CGImage) -> ImageHistogram? {
+        histogram(of: source, rendering: Self.levelsInput(of: adjustments))
+    }
+
+    /// The histogram of `source` with `partial` applied, binned on sRGB-encoded values.
+    func histogram(of source: CGImage, rendering partial: ImageAdjustmentDescription) -> ImageHistogram? {
         autoreleasepool {
-            let input = Self.apply(Self.levelsInput(of: adjustments), to: CIImage(cgImage: source))
+            let input = Self.apply(partial, to: CIImage(cgImage: source))
 
             let encode = CIFilter.linearToSRGBToneCurve()
             encode.inputImage = input
