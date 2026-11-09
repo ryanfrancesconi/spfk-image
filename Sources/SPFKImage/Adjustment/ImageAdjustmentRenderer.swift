@@ -161,25 +161,44 @@ public struct ImageAdjustmentRenderer: Sendable {
     /// Renders `source` with `adjustments`, then `orientation`, into a bitmap in the source's color space
     /// and bit depth.
     ///
+    /// With `crop`, only that part of the oriented output renders, in its pixels with the origin at the
+    /// top left, expanded to whole pixels and limited to the output. The adjustments still see the
+    /// whole image, so a crop matches the same region cut from a full render.
+    ///
     /// Eager (`deferred: false`), so the cost lands here rather than wherever the image is first drawn.
     public func render(
         _ adjustments: ImageAdjustmentDescription,
         orientation: ImageOrientationEdit = .up,
         source: CGImage,
-        sourceScale: Double = 1
+        sourceScale: Double = 1,
+        crop: CGRect? = nil
     ) -> CGImage? {
         autoreleasepool {
             let adjusted = Self.apply(adjustments, to: CIImage(cgImage: source), sourceScale: sourceScale)
             let output = orientation.apply(to: adjusted)
+            let region = crop.map { Self.coreImageRect(topLeft: $0, in: output.extent) } ?? output.extent
+
+            guard !region.isEmpty else { return nil }
 
             return context.createCGImage(
                 output,
-                from: output.extent,
+                from: region,
                 format: source.bitsPerComponent > 8 ? .RGBA16 : .RGBA8,
                 colorSpace: Self.renderColorSpace(for: source),
                 deferred: false
             )
         }
+    }
+
+    /// `rect`, with its origin at the top left of `extent`, in Core Image's bottom-left coordinates,
+    /// expanded to whole pixels and limited to `extent`.
+    static func coreImageRect(topLeft rect: CGRect, in extent: CGRect) -> CGRect {
+        CGRect(
+            x: extent.minX + rect.minX,
+            y: extent.maxY - rect.maxY,
+            width: rect.width,
+            height: rect.height
+        ).integral.intersection(extent)
     }
 
     /// The scale of an image `extent` decoded from a source of `fullWidth` × `fullHeight` pixels, or 1

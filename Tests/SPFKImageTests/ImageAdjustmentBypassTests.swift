@@ -52,7 +52,7 @@ final class ImageAdjustmentBypassTests {
 
     @Test func theBypassedPartKeepsOnlyTheBypassedValues() {
         let adjustments = ImageAdjustmentDescription(exposure: 1, saturation: 0.5, bypassed: [.saturation, .vignette])
-        #expect(adjustments.bypassedPart == ImageAdjustmentDescription(saturation: 0.5, bypassed: [.saturation, .vignette]))
+        #expect(adjustments.unrenderedPart == ImageAdjustmentDescription(saturation: 0.5, bypassed: [.saturation, .vignette]))
     }
 
     @Test func codableRoundTripKeepsTheBypassedSet() throws {

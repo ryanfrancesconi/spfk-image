@@ -11,7 +11,9 @@ import Foundation
 /// highlights and shadows, brightness, brilliance, contrast and saturation, definition, sepia,
 /// sharpness, vignette.
 ///
-/// A ``bypassed`` parameter keeps its value but renders as neutral (see ``effective``).
+/// A ``bypassed`` parameter keeps its value but renders as neutral (see ``effective``). The
+/// ``Parameter/isViewState`` parameters describe how the preview shows the image, not an edit, and
+/// never render.
 public struct ImageAdjustmentDescription: Hashable, Sendable {
     /// Positive lifts shadows and holds highlights, region by region; negative deepens both.
     public var brilliance: Double { didSet { brilliance = Parameter.brilliance.sanitize(brilliance) } }
@@ -46,6 +48,12 @@ public struct ImageAdjustmentDescription: Hashable, Sendable {
     public var vignetteRadius: Double { didSet { vignetteRadius = Parameter.vignetteRadius.sanitize(vignetteRadius) } }
     /// How gradual the vignette's edge is. Has no effect while ``vignette`` is 0.
     public var vignetteSoftness: Double { didSet { vignetteSoftness = Parameter.vignetteSoftness.sanitize(vignetteSoftness) } }
+    /// The preview's zoom: 0 fits the view, 1 is the largest. View state.
+    public var zoom: Double { didSet { zoom = Parameter.zoom.sanitize(zoom) } }
+    /// Where the zoomed preview is centered, as an offset from the image's center in fractions of its
+    /// width and height; right and down are positive. View state, with no effect while ``zoom`` is 0.
+    public var zoomCenterX: Double { didSet { zoomCenterX = Parameter.zoomCenterX.sanitize(zoomCenterX) } }
+    public var zoomCenterY: Double { didSet { zoomCenterY = Parameter.zoomCenterY.sanitize(zoomCenterY) } }
 
     /// Parameters switched off: each keeps its value and renders as neutral.
     public var bypassed: Set<Parameter>
@@ -74,6 +82,9 @@ public struct ImageAdjustmentDescription: Hashable, Sendable {
         vignette: Double = 0,
         vignetteRadius: Double = 0,
         vignetteSoftness: Double = 0,
+        zoom: Double = 0,
+        zoomCenterX: Double = 0,
+        zoomCenterY: Double = 0,
         bypassed: Set<Parameter> = []
     ) {
         // Property observers do not run during initialization.
@@ -100,6 +111,9 @@ public struct ImageAdjustmentDescription: Hashable, Sendable {
         self.vignette = Parameter.vignette.sanitize(vignette)
         self.vignetteRadius = Parameter.vignetteRadius.sanitize(vignetteRadius)
         self.vignetteSoftness = Parameter.vignetteSoftness.sanitize(vignetteSoftness)
+        self.zoom = Parameter.zoom.sanitize(zoom)
+        self.zoomCenterX = Parameter.zoomCenterX.sanitize(zoomCenterX)
+        self.zoomCenterY = Parameter.zoomCenterY.sanitize(zoomCenterY)
         self.bypassed = bypassed
     }
 
@@ -109,10 +123,10 @@ public struct ImageAdjustmentDescription: Hashable, Sendable {
         bypassed.isEmpty && Parameter.allCases.allSatisfy { self[$0] == 0 }
     }
 
-    /// What renders: every ``bypassed`` parameter at neutral, and nothing bypassed. Empty when the
-    /// adjustment would leave the image unchanged.
+    /// What renders: every ``bypassed`` and view-state parameter at neutral, and nothing bypassed.
+    /// Empty when the adjustment would leave the image unchanged.
     public var effective: ImageAdjustmentDescription {
-        var result = self
+        var result = withoutViewState
         for parameter in bypassed {
             result[parameter] = 0
         }
@@ -120,12 +134,40 @@ public struct ImageAdjustmentDescription: Hashable, Sendable {
         return result
     }
 
-    /// The bypassed parameters alone, still bypassed: what stays pending once ``effective`` is
-    /// rendered.
-    public var bypassedPart: ImageAdjustmentDescription {
-        var result = ImageAdjustmentDescription(bypassed: bypassed)
+    /// The bypassed parameters, still bypassed, and the view state: what stays pending once
+    /// ``effective`` is rendered.
+    public var unrenderedPart: ImageAdjustmentDescription {
+        var result = viewState
+        result.bypassed = bypassed
         for parameter in bypassed {
             result[parameter] = self[parameter]
+        }
+        return result
+    }
+
+    /// The edit alone, with the view state at neutral.
+    public var withoutViewState: ImageAdjustmentDescription {
+        var result = self
+        for parameter in Parameter.viewState {
+            result[parameter] = 0
+        }
+        return result
+    }
+
+    /// The view state alone.
+    public var viewState: ImageAdjustmentDescription {
+        var result = ImageAdjustmentDescription()
+        for parameter in Parameter.viewState {
+            result[parameter] = self[parameter]
+        }
+        return result
+    }
+
+    /// This edit with `other`'s view state.
+    public func keepingViewState(of other: ImageAdjustmentDescription) -> ImageAdjustmentDescription {
+        var result = self
+        for parameter in Parameter.viewState {
+            result[parameter] = other[parameter]
         }
         return result
     }
@@ -141,6 +183,9 @@ public struct ImageAdjustmentDescription: Hashable, Sendable {
 extension ImageAdjustmentDescription {
     /// Case order is display order; the renderer's order is fixed separately.
     public enum Parameter: String, CaseIterable, Codable, Sendable {
+        case zoom
+        case zoomCenterX
+        case zoomCenterY
         case brilliance
         case exposure
         case highlights
@@ -165,6 +210,15 @@ extension ImageAdjustmentDescription {
         case vignetteRadius
         case vignetteSoftness
 
+        /// The parameters that describe the preview rather than the image.
+        public static let viewState: [Parameter] = [.zoom, .zoomCenterX, .zoomCenterY]
+
+        /// Whether this describes how the preview shows the image: it never renders and never makes a
+        /// file dirty.
+        public var isViewState: Bool {
+            Self.viewState.contains(self)
+        }
+
         /// Exposure is in stops; the rest are unitless positions. Highlights only go down: Core Image's
         /// highlight adjustment is at its maximum when neutral. Each levels offset keeps its point
         /// inside 0…1.
@@ -172,7 +226,8 @@ extension ImageAdjustmentDescription {
             switch self {
             case .exposure: -3 ... 3
             case .highlights: -1 ... 0
-            case .sepia, .sharpness, .definition, .noiseReduction, .levelsBlack: 0 ... 1
+            case .sepia, .sharpness, .definition, .noiseReduction, .levelsBlack, .zoom: 0 ... 1
+            case .zoomCenterX, .zoomCenterY: -0.5 ... 0.5
             case .levelsShadow: -0.25 ... 0.75
             case .levelsMid: -0.5 ... 0.5
             case .levelsHighlight: -0.75 ... 0.25
@@ -207,6 +262,9 @@ extension ImageAdjustmentDescription {
             case .vignette: \.vignette
             case .vignetteRadius: \.vignetteRadius
             case .vignetteSoftness: \.vignetteSoftness
+            case .zoom: \.zoom
+            case .zoomCenterX: \.zoomCenterX
+            case .zoomCenterY: \.zoomCenterY
             }
         }
 
@@ -224,7 +282,7 @@ extension ImageAdjustmentDescription: Codable {
     private enum CodingKeys: String, CodingKey {
         case brilliance, exposure, contrast, highlights, shadows, brightness, blackPoint, saturation, vibrance,
             temperature, tint, sepia, levelsBlack, levelsShadow, levelsMid, levelsHighlight, levelsWhite, sharpness,
-            definition, noiseReduction, vignette, vignetteRadius, vignetteSoftness, bypassed
+            definition, noiseReduction, vignette, vignetteRadius, vignetteSoftness, zoom, zoomCenterX, zoomCenterY, bypassed
     }
 
     /// A missing key decodes as neutral, so data written before a parameter existed still reads. A
@@ -256,6 +314,9 @@ extension ImageAdjustmentDescription: Codable {
             vignette: try c.decodeIfPresent(Double.self, forKey: .vignette) ?? 0,
             vignetteRadius: try c.decodeIfPresent(Double.self, forKey: .vignetteRadius) ?? 0,
             vignetteSoftness: try c.decodeIfPresent(Double.self, forKey: .vignetteSoftness) ?? 0,
+            zoom: try c.decodeIfPresent(Double.self, forKey: .zoom) ?? 0,
+            zoomCenterX: try c.decodeIfPresent(Double.self, forKey: .zoomCenterX) ?? 0,
+            zoomCenterY: try c.decodeIfPresent(Double.self, forKey: .zoomCenterY) ?? 0,
             bypassed: Set((try c.decodeIfPresent([String].self, forKey: .bypassed) ?? []).compactMap(Parameter.init(rawValue:)))
         )
     }
