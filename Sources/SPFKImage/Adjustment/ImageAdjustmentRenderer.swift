@@ -44,14 +44,7 @@ public struct ImageAdjustmentRenderer: Sendable {
         }
 
         if adjustments.temperature != 0 || adjustments.tint != 0 {
-            let filter = CIFilter.temperatureAndTint()
-            filter.inputImage = output
-            filter.neutral = CIVector(
-                x: neutralKelvin + adjustments.temperature * kelvinPerUnit,
-                y: adjustments.tint * tintPerUnit
-            )
-            filter.targetNeutral = CIVector(x: neutralKelvin, y: 0)
-            output = filter.outputImage ?? output
+            output = temperatureAndTint(output, temperature: adjustments.temperature, tint: adjustments.tint)
         }
 
         if adjustments.vibrance != 0 {
@@ -134,6 +127,16 @@ public struct ImageAdjustmentRenderer: Sendable {
         }
 
         return output.cropped(to: image.extent)
+    }
+
+    /// The Temperature and Tint step. Within a few kelvin of neutral `CITemperatureAndTint` renders
+    /// its input unchanged.
+    static func temperatureAndTint(_ image: CIImage, temperature: Double, tint: Double) -> CIImage {
+        let filter = CIFilter.temperatureAndTint()
+        filter.inputImage = image
+        filter.neutral = CIVector(x: neutralKelvin + temperature * kelvinPerUnit, y: tint * tintPerUnit)
+        filter.targetNeutral = CIVector(x: neutralKelvin, y: 0)
+        return filter.outputImage ?? image
     }
 
     /// `CIToneCurve` works on sRGB-encoded values and clamps its output to 0…1.

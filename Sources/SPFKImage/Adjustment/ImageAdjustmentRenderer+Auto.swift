@@ -35,14 +35,18 @@ extension ImageAdjustmentRenderer {
         return result
     }
 
-    /// Auto for the file at `url`, analyzed at ``autoAnalysisSize`` with `orientation` applied.
+    /// `kind` for the file at `url`, analyzed at ``autoAnalysisSize`` with `orientation` applied.
     /// `nil` when it cannot be decoded. Security-scoped access is the caller's.
-    public static func autoAdjustments(contentsOf url: URL, orientation: ImageOrientationEdit = .up) -> ImageAdjustmentDescription? {
+    public static func autoAdjustments(
+        contentsOf url: URL,
+        orientation: ImageOrientationEdit = .up,
+        kind: ImageAutoAdjustment = .adjust
+    ) -> ImageAdjustmentDescription? {
         autoreleasepool {
             guard let decoded = StillImageThumbnail.make(url: url, maxPixelSize: autoAnalysisSize, allowsEmbeddedThumbnail: false)
             else { return nil }
 
-            return autoAdjustments(for: orientation.apply(to: CIImage(cgImage: decoded)))
+            return kind.analyze(orientation.apply(to: CIImage(cgImage: decoded)))
         }
     }
 
@@ -67,16 +71,42 @@ extension ImageAdjustmentRenderer {
     }
 }
 
+/// An adjustment computed from the image itself, setting only the fields it owns.
+public enum ImageAutoAdjustment: Sendable, CaseIterable {
+    /// Core Image's automatic enhancement: Auto Adjust.
+    case adjust
+    /// Temperature and Tint neutralizing the image's near-gray pixels.
+    case whiteBalance
+
+    public var parameters: Set<ImageAdjustmentDescription.Parameter> {
+        switch self {
+        case .adjust: ImageAdjustmentDescription.Parameter.auto
+        case .whiteBalance: ImageAdjustmentDescription.Parameter.autoWhiteBalance
+        }
+    }
+
+    /// `image` is the unadjusted source, upright.
+    public func analyze(_ image: CIImage) -> ImageAdjustmentDescription {
+        switch self {
+        case .adjust: ImageAdjustmentRenderer.autoAdjustments(for: image)
+        case .whiteBalance: ImageAdjustmentRenderer.autoWhiteBalance(for: image)
+        }
+    }
+}
+
 extension ImageAdjustmentDescription.Parameter {
     /// What Auto sets; it leaves the rest as they are.
     public static let auto: Set<Self> = Set([.vibrance, .highlights, .shadows] + levels)
+
+    /// What Auto White Balance sets.
+    public static let autoWhiteBalance: Set<Self> = [.temperature, .tint]
 }
 
 extension ImageAdjustmentDescription {
-    /// This adjustment with the fields Auto owns taken from `auto`. What is bypassed is unchanged.
-    public func applyingAuto(_ auto: ImageAdjustmentDescription) -> ImageAdjustmentDescription {
+    /// This adjustment with the fields `kind` owns taken from `auto`. What is bypassed is unchanged.
+    public func applyingAuto(_ auto: ImageAdjustmentDescription, kind: ImageAutoAdjustment = .adjust) -> ImageAdjustmentDescription {
         var result = self
-        for parameter in Parameter.auto {
+        for parameter in kind.parameters {
             result[parameter] = auto[parameter]
         }
         return result
