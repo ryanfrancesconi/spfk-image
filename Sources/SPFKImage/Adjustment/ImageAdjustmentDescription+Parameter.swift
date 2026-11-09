@@ -27,6 +27,7 @@ extension ImageAdjustmentDescription {
         case levelsHighlight
         case levelsWhite
         case sharpness
+        case sharpnessRadius
         case definition
         case noiseReduction
         case vignette
@@ -56,7 +57,7 @@ extension ImageAdjustmentDescription {
             case .levelsHighlight: -0.75 ... 0.25
             case .levelsWhite: -1 ... 0
             case .brilliance, .contrast, .shadows, .brightness, .blackPoint, .whitePoint, .saturation, .vibrance, .temperature, .tint,
-                 .vignette, .vignetteRadius, .vignetteSoftness: -1 ... 1
+                 .sharpnessRadius, .vignette, .vignetteRadius, .vignetteSoftness: -1 ... 1
             }
         }
 
@@ -81,6 +82,7 @@ extension ImageAdjustmentDescription {
             case .levelsHighlight: \.levelsHighlight
             case .levelsWhite: \.levelsWhite
             case .sharpness: \.sharpness
+            case .sharpnessRadius: \.sharpnessRadius
             case .definition: \.definition
             case .noiseReduction: \.noiseReduction
             case .vignette: \.vignette

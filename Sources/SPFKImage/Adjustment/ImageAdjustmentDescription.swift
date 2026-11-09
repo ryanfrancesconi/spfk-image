@@ -41,6 +41,8 @@ public struct ImageAdjustmentDescription: Hashable, Sendable, Codable {
     public var levelsHighlight: Double { didSet { levelsHighlight = Parameter.levelsHighlight.sanitize(levelsHighlight) } }
     public var levelsWhite: Double { didSet { levelsWhite = Parameter.levelsWhite.sanitize(levelsWhite) } }
     public var sharpness: Double { didSet { sharpness = Parameter.sharpness.sanitize(sharpness) } }
+    /// How wide an edge sharpening reaches. Has no effect while ``sharpness`` is 0.
+    public var sharpnessRadius: Double { didSet { sharpnessRadius = Parameter.sharpnessRadius.sanitize(sharpnessRadius) } }
     /// Local contrast: strengthens detail against its surroundings without halos at strong edges.
     public var definition: Double { didSet { definition = Parameter.definition.sanitize(definition) } }
     public var noiseReduction: Double { didSet { noiseReduction = Parameter.noiseReduction.sanitize(noiseReduction) } }
@@ -80,6 +82,7 @@ public struct ImageAdjustmentDescription: Hashable, Sendable, Codable {
         levelsHighlight: Double = 0,
         levelsWhite: Double = 0,
         sharpness: Double = 0,
+        sharpnessRadius: Double = 0,
         definition: Double = 0,
         noiseReduction: Double = 0,
         vignette: Double = 0,
@@ -110,6 +113,7 @@ public struct ImageAdjustmentDescription: Hashable, Sendable, Codable {
         self.levelsHighlight = Parameter.levelsHighlight.sanitize(levelsHighlight)
         self.levelsWhite = Parameter.levelsWhite.sanitize(levelsWhite)
         self.sharpness = Parameter.sharpness.sanitize(sharpness)
+        self.sharpnessRadius = Parameter.sharpnessRadius.sanitize(sharpnessRadius)
         self.definition = Parameter.definition.sanitize(definition)
         self.noiseReduction = Parameter.noiseReduction.sanitize(noiseReduction)
         self.vignette = Parameter.vignette.sanitize(vignette)

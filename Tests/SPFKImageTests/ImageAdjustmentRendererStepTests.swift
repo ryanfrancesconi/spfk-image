@@ -117,6 +117,35 @@ final class ImageAdjustmentRendererStepTests {
         #expect(Self.maximumDifference(vignetted, try pixels(adjusted)) > 0.01)
     }
 
+    // MARK: - Sharpness radius
+
+    @Test func sharpnessRadiusActsOnlyWithSharpness() throws {
+        var adjusted = ImageAdjustmentChainPinTests.pinned
+        adjusted.sharpness = 0
+        let base = try pixels(adjusted)
+        adjusted.sharpnessRadius = 0.6
+        #expect(Self.maximumDifference(base, try pixels(adjusted)) == 0)
+
+        adjusted.sharpness = 0.6
+        let sharpened = try pixels(adjusted)
+        adjusted.sharpnessRadius = 0
+        #expect(Self.maximumDifference(sharpened, try pixels(adjusted)) > 0.01)
+    }
+
+    @Test func aWiderSharpnessRadiusChangesMoreOfTheImage() throws {
+        let plain = try pixels(.init())
+        let changed = { (radius: Double) throws -> Double in
+            let sharpened = try self.pixels(.init(sharpness: 1, sharpnessRadius: radius))
+            return zip(plain, sharpened).map { Double(abs($0 - $1)) }.reduce(0, +)
+        }
+
+        let narrow = try changed(-1)
+        let neutral = try changed(0)
+        let wide = try changed(1)
+        #expect(narrow < neutral)
+        #expect(neutral < wide)
+    }
+
     // MARK: - Source scale
 
     @Test func sourceScaleComparesTheLongerSides() {

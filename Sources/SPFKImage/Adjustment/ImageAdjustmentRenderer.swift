@@ -113,7 +113,7 @@ public struct ImageAdjustmentRenderer: Sendable {
             let filter = CIFilter.sharpenLuminance()
             filter.inputImage = output
             filter.sharpness = Float(adjustments.sharpness * maximumSharpness)
-            filter.radius = Float(sharpnessRadius * sourceScale)
+            filter.radius = Float(neutralSharpnessRadius * pow(2, adjustments.sharpnessRadius) * sourceScale)
             output = filter.outputImage ?? output
         }
 
@@ -241,8 +241,9 @@ public struct ImageAdjustmentRenderer: Sendable {
     static let tintPerUnit: CGFloat = 100
     /// Top of `CISharpenLuminance`'s slider range.
     static let maximumSharpness: Double = 2
-    /// `CISharpenLuminance`'s default radius, in full-resolution pixels.
-    static let sharpnessRadius: Double = 1.69
+    /// `CISharpenLuminance`'s default radius, in full-resolution pixels, used at a neutral sharpness
+    /// radius. Each unit of radius doubles or halves it.
+    static let neutralSharpnessRadius: Double = 1.69
     /// Where the vignette begins at a neutral radius, as a fraction of the shorter side. Each unit of
     /// radius doubles or halves it.
     static let neutralVignetteRadius: CGFloat = 0.75
