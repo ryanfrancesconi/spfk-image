@@ -229,6 +229,28 @@ struct ImageAdjustmentSelectiveColorTests {
         #expect(third != first)
     }
 
+    /// Concurrent builds for one step, as a preview render and a Save can run, each get the cube for
+    /// their own values.
+    @Test func concurrentBuildsGetTheirOwnCubes() async {
+        let step = "test-\(UUID().uuidString)"
+        let scales = (1 ... 16).map { Double($0) / 16 }
+
+        let built = await withTaskGroup(of: (Double, Data).self) { group in
+            for _ in 0 ..< 4 {
+                for scale in scales {
+                    group.addTask {
+                        (scale, ImageAdjustmentRenderer.colorCubeData(step: step, values: [scale]) { $0 * scale })
+                    }
+                }
+            }
+            return await group.reduce(into: []) { $0.append($1) }
+        }
+
+        for (scale, data) in built {
+            #expect(data == ImageAdjustmentRenderer.buildColorCube(dimension: ImageAdjustmentRenderer.colorCubeDimension) { $0 * scale })
+        }
+    }
+
     // MARK: - Storage
 
     @Test func dataWrittenBeforeSelectiveColorDecodesAsNeutral() throws {

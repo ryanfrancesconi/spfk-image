@@ -134,4 +134,21 @@ final class ImageAdjustmentLevelsTests {
         let lowered = try histogram(gray: 0.5, ImageAdjustmentDescription(whitePoint: -1))
         #expect(peak(lowered.luminance) < peak(plain.luminance) - 20)
     }
+
+    /// Every combination of each offset at either end of its range still reads strictly increasing.
+    @Test func everyRangeCornerReadsIncreasing() {
+        let levels = ImageAdjustmentDescription.Parameter.levels
+        let gap = ImageAdjustmentDescription.levelsMinimumGap
+
+        for corner in 0 ..< (1 << levels.count) {
+            var adjustments = ImageAdjustmentDescription()
+            for (bit, parameter) in levels.enumerated() {
+                adjustments[parameter] = corner & (1 << bit) == 0 ? parameter.range.lowerBound : parameter.range.upperBound
+            }
+
+            let positions = adjustments.levelsPositions
+            #expect(zip(positions, positions.dropFirst()).allSatisfy { $1 - $0 >= gap - 1e-12 }, "corner \(corner)")
+            #expect(positions.allSatisfy { (0 ... 1).contains($0) }, "corner \(corner)")
+        }
+    }
 }
