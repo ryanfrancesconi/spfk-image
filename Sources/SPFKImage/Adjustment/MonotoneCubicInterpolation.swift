@@ -12,8 +12,8 @@ public struct MonotoneCubicInterpolation: Sendable {
     public let y: [Double]
     private let tangents: [Double]
 
-    /// `x` must be strictly increasing and as long as `y`; with fewer than two points the curve is the
-    /// identity.
+    /// `x` must not decrease, and a repeated value is a vertical step. Extra values of the longer of
+    /// `x` and `y` are ignored; with fewer than two points the curve is the identity.
     public init(x: [Double], y: [Double]) {
         let count = min(x.count, y.count)
         self.x = Array(x.prefix(count))
@@ -67,6 +67,8 @@ public struct MonotoneCubicInterpolation: Sendable {
 
     private func hermite(segment k: Int, at input: Double) -> Double {
         let width = x[k + 1] - x[k]
+        guard width > 0 else { return y[k + 1] }
+
         let t = (input - x[k]) / width
         let t2 = t * t
         let t3 = t2 * t
@@ -81,7 +83,10 @@ public struct MonotoneCubicInterpolation: Sendable {
         let count = x.count
         guard count >= 2 else { return [Double](repeating: 0, count: count) }
 
-        let slopes = (0 ..< count - 1).map { (y[$0 + 1] - y[$0]) / (x[$0 + 1] - x[$0]) }
+        let slopes = (0 ..< count - 1).map { k in
+            let width = x[k + 1] - x[k]
+            return width > 0 ? (y[k + 1] - y[k]) / width : 0
+        }
         var m = [Double](repeating: 0, count: count)
         m[0] = slopes[0]
         m[count - 1] = slopes[count - 2]

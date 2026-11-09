@@ -241,4 +241,15 @@ struct ImageAdjustmentCurvesTests {
         #expect(decoded.rgb == [Point(x: 0, y: 0), Point(x: 0.3, y: 1), Point(x: 1, y: 1)])
         #expect(decoded.red == ImageToneCurves.identityPoints)
     }
+
+    /// Two points at one x make a vertical step, not a division by zero.
+    @Test func aRepeatedInputGivesFiniteValues() {
+        let curve = MonotoneCubicInterpolation(x: [0, 0.5, 0.5, 1], y: [0, 0.2, 0.8, 1])
+
+        let sampled = curve.sample(count: 64)
+        let values = [0.25, 0.5, 0.75].map { curve.value(at: $0) }
+
+        #expect(sampled.allSatisfy { $0.isFinite })
+        #expect(values.allSatisfy { $0.isFinite })
+    }
 }
