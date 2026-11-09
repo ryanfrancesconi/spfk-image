@@ -26,6 +26,24 @@ extension ImageAdjustmentDescription {
         case levelsMid
         case levelsHighlight
         case levelsWhite
+        case selectiveRedHue
+        case selectiveRedSaturation
+        case selectiveRedLuminance
+        case selectiveYellowHue
+        case selectiveYellowSaturation
+        case selectiveYellowLuminance
+        case selectiveGreenHue
+        case selectiveGreenSaturation
+        case selectiveGreenLuminance
+        case selectiveCyanHue
+        case selectiveCyanSaturation
+        case selectiveCyanLuminance
+        case selectiveBlueHue
+        case selectiveBlueSaturation
+        case selectiveBlueLuminance
+        case selectiveMagentaHue
+        case selectiveMagentaSaturation
+        case selectiveMagentaLuminance
         case sharpness
         case sharpnessRadius
         case definition
@@ -58,6 +76,12 @@ extension ImageAdjustmentDescription {
             case .levelsWhite: -1 ... 0
             case .brilliance, .contrast, .shadows, .brightness, .blackPoint, .whitePoint, .saturation, .vibrance, .temperature, .tint,
                  .sharpnessRadius, .vignette, .vignetteRadius, .vignetteSoftness: -1 ... 1
+            case .selectiveRedHue, .selectiveRedSaturation, .selectiveRedLuminance,
+                 .selectiveYellowHue, .selectiveYellowSaturation, .selectiveYellowLuminance,
+                 .selectiveGreenHue, .selectiveGreenSaturation, .selectiveGreenLuminance,
+                 .selectiveCyanHue, .selectiveCyanSaturation, .selectiveCyanLuminance,
+                 .selectiveBlueHue, .selectiveBlueSaturation, .selectiveBlueLuminance,
+                 .selectiveMagentaHue, .selectiveMagentaSaturation, .selectiveMagentaLuminance: -1 ... 1
             }
         }
 
@@ -81,6 +105,24 @@ extension ImageAdjustmentDescription {
             case .levelsMid: \.levelsMid
             case .levelsHighlight: \.levelsHighlight
             case .levelsWhite: \.levelsWhite
+            case .selectiveRedHue: \.selectiveRedHue
+            case .selectiveRedSaturation: \.selectiveRedSaturation
+            case .selectiveRedLuminance: \.selectiveRedLuminance
+            case .selectiveYellowHue: \.selectiveYellowHue
+            case .selectiveYellowSaturation: \.selectiveYellowSaturation
+            case .selectiveYellowLuminance: \.selectiveYellowLuminance
+            case .selectiveGreenHue: \.selectiveGreenHue
+            case .selectiveGreenSaturation: \.selectiveGreenSaturation
+            case .selectiveGreenLuminance: \.selectiveGreenLuminance
+            case .selectiveCyanHue: \.selectiveCyanHue
+            case .selectiveCyanSaturation: \.selectiveCyanSaturation
+            case .selectiveCyanLuminance: \.selectiveCyanLuminance
+            case .selectiveBlueHue: \.selectiveBlueHue
+            case .selectiveBlueSaturation: \.selectiveBlueSaturation
+            case .selectiveBlueLuminance: \.selectiveBlueLuminance
+            case .selectiveMagentaHue: \.selectiveMagentaHue
+            case .selectiveMagentaSaturation: \.selectiveMagentaSaturation
+            case .selectiveMagentaLuminance: \.selectiveMagentaLuminance
             case .sharpness: \.sharpness
             case .sharpnessRadius: \.sharpnessRadius
             case .definition: \.definition

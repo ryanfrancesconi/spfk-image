@@ -7,9 +7,9 @@ import Foundation
 /// Values are slider positions rather than Core Image parameters, so retuning the renderer's mapping
 /// never changes stored data. Each is clamped to its ``Parameter/range`` on construction and on
 /// assignment, a non-finite value becomes neutral, and neutral is 0 for every parameter. The renderer
-/// applies them in a fixed order: noise reduction, exposure, temperature and tint, vibrance, black point, white point, levels,
-/// curves, highlights and shadows, brightness, brilliance, contrast and saturation, definition, sepia,
-/// sharpness, vignette.
+/// applies them in a fixed order: noise reduction, exposure, temperature and tint, vibrance, black point,
+/// white point, levels, curves, highlights and shadows, brightness, brilliance, contrast and saturation,
+/// definition, selective color, sepia, sharpness, vignette.
 ///
 /// A ``bypassed`` parameter keeps its value but renders as neutral (see ``effective``). The
 /// ``Parameter/isViewState`` parameters describe how the preview shows the image, not an edit, and
@@ -40,6 +40,26 @@ public struct ImageAdjustmentDescription: Hashable, Sendable, Codable {
     public var levelsMid: Double { didSet { levelsMid = Parameter.levelsMid.sanitize(levelsMid) } }
     public var levelsHighlight: Double { didSet { levelsHighlight = Parameter.levelsHighlight.sanitize(levelsHighlight) } }
     public var levelsWhite: Double { didSet { levelsWhite = Parameter.levelsWhite.sanitize(levelsWhite) } }
+    /// Selective Color: hue, saturation and luminance shifts for each of six color bands (see
+    /// ``SelectiveColor``).
+    public var selectiveRedHue: Double { didSet { selectiveRedHue = Parameter.selectiveRedHue.sanitize(selectiveRedHue) } }
+    public var selectiveRedSaturation: Double { didSet { selectiveRedSaturation = Parameter.selectiveRedSaturation.sanitize(selectiveRedSaturation) } }
+    public var selectiveRedLuminance: Double { didSet { selectiveRedLuminance = Parameter.selectiveRedLuminance.sanitize(selectiveRedLuminance) } }
+    public var selectiveYellowHue: Double { didSet { selectiveYellowHue = Parameter.selectiveYellowHue.sanitize(selectiveYellowHue) } }
+    public var selectiveYellowSaturation: Double { didSet { selectiveYellowSaturation = Parameter.selectiveYellowSaturation.sanitize(selectiveYellowSaturation) } }
+    public var selectiveYellowLuminance: Double { didSet { selectiveYellowLuminance = Parameter.selectiveYellowLuminance.sanitize(selectiveYellowLuminance) } }
+    public var selectiveGreenHue: Double { didSet { selectiveGreenHue = Parameter.selectiveGreenHue.sanitize(selectiveGreenHue) } }
+    public var selectiveGreenSaturation: Double { didSet { selectiveGreenSaturation = Parameter.selectiveGreenSaturation.sanitize(selectiveGreenSaturation) } }
+    public var selectiveGreenLuminance: Double { didSet { selectiveGreenLuminance = Parameter.selectiveGreenLuminance.sanitize(selectiveGreenLuminance) } }
+    public var selectiveCyanHue: Double { didSet { selectiveCyanHue = Parameter.selectiveCyanHue.sanitize(selectiveCyanHue) } }
+    public var selectiveCyanSaturation: Double { didSet { selectiveCyanSaturation = Parameter.selectiveCyanSaturation.sanitize(selectiveCyanSaturation) } }
+    public var selectiveCyanLuminance: Double { didSet { selectiveCyanLuminance = Parameter.selectiveCyanLuminance.sanitize(selectiveCyanLuminance) } }
+    public var selectiveBlueHue: Double { didSet { selectiveBlueHue = Parameter.selectiveBlueHue.sanitize(selectiveBlueHue) } }
+    public var selectiveBlueSaturation: Double { didSet { selectiveBlueSaturation = Parameter.selectiveBlueSaturation.sanitize(selectiveBlueSaturation) } }
+    public var selectiveBlueLuminance: Double { didSet { selectiveBlueLuminance = Parameter.selectiveBlueLuminance.sanitize(selectiveBlueLuminance) } }
+    public var selectiveMagentaHue: Double { didSet { selectiveMagentaHue = Parameter.selectiveMagentaHue.sanitize(selectiveMagentaHue) } }
+    public var selectiveMagentaSaturation: Double { didSet { selectiveMagentaSaturation = Parameter.selectiveMagentaSaturation.sanitize(selectiveMagentaSaturation) } }
+    public var selectiveMagentaLuminance: Double { didSet { selectiveMagentaLuminance = Parameter.selectiveMagentaLuminance.sanitize(selectiveMagentaLuminance) } }
     public var sharpness: Double { didSet { sharpness = Parameter.sharpness.sanitize(sharpness) } }
     /// How wide an edge sharpening reaches. Has no effect while ``sharpness`` is 0.
     public var sharpnessRadius: Double { didSet { sharpnessRadius = Parameter.sharpnessRadius.sanitize(sharpnessRadius) } }
@@ -87,6 +107,24 @@ public struct ImageAdjustmentDescription: Hashable, Sendable, Codable {
         levelsMid: Double = 0,
         levelsHighlight: Double = 0,
         levelsWhite: Double = 0,
+        selectiveRedHue: Double = 0,
+        selectiveRedSaturation: Double = 0,
+        selectiveRedLuminance: Double = 0,
+        selectiveYellowHue: Double = 0,
+        selectiveYellowSaturation: Double = 0,
+        selectiveYellowLuminance: Double = 0,
+        selectiveGreenHue: Double = 0,
+        selectiveGreenSaturation: Double = 0,
+        selectiveGreenLuminance: Double = 0,
+        selectiveCyanHue: Double = 0,
+        selectiveCyanSaturation: Double = 0,
+        selectiveCyanLuminance: Double = 0,
+        selectiveBlueHue: Double = 0,
+        selectiveBlueSaturation: Double = 0,
+        selectiveBlueLuminance: Double = 0,
+        selectiveMagentaHue: Double = 0,
+        selectiveMagentaSaturation: Double = 0,
+        selectiveMagentaLuminance: Double = 0,
         sharpness: Double = 0,
         sharpnessRadius: Double = 0,
         definition: Double = 0,
@@ -120,6 +158,24 @@ public struct ImageAdjustmentDescription: Hashable, Sendable, Codable {
         self.levelsMid = Parameter.levelsMid.sanitize(levelsMid)
         self.levelsHighlight = Parameter.levelsHighlight.sanitize(levelsHighlight)
         self.levelsWhite = Parameter.levelsWhite.sanitize(levelsWhite)
+        self.selectiveRedHue = Parameter.selectiveRedHue.sanitize(selectiveRedHue)
+        self.selectiveRedSaturation = Parameter.selectiveRedSaturation.sanitize(selectiveRedSaturation)
+        self.selectiveRedLuminance = Parameter.selectiveRedLuminance.sanitize(selectiveRedLuminance)
+        self.selectiveYellowHue = Parameter.selectiveYellowHue.sanitize(selectiveYellowHue)
+        self.selectiveYellowSaturation = Parameter.selectiveYellowSaturation.sanitize(selectiveYellowSaturation)
+        self.selectiveYellowLuminance = Parameter.selectiveYellowLuminance.sanitize(selectiveYellowLuminance)
+        self.selectiveGreenHue = Parameter.selectiveGreenHue.sanitize(selectiveGreenHue)
+        self.selectiveGreenSaturation = Parameter.selectiveGreenSaturation.sanitize(selectiveGreenSaturation)
+        self.selectiveGreenLuminance = Parameter.selectiveGreenLuminance.sanitize(selectiveGreenLuminance)
+        self.selectiveCyanHue = Parameter.selectiveCyanHue.sanitize(selectiveCyanHue)
+        self.selectiveCyanSaturation = Parameter.selectiveCyanSaturation.sanitize(selectiveCyanSaturation)
+        self.selectiveCyanLuminance = Parameter.selectiveCyanLuminance.sanitize(selectiveCyanLuminance)
+        self.selectiveBlueHue = Parameter.selectiveBlueHue.sanitize(selectiveBlueHue)
+        self.selectiveBlueSaturation = Parameter.selectiveBlueSaturation.sanitize(selectiveBlueSaturation)
+        self.selectiveBlueLuminance = Parameter.selectiveBlueLuminance.sanitize(selectiveBlueLuminance)
+        self.selectiveMagentaHue = Parameter.selectiveMagentaHue.sanitize(selectiveMagentaHue)
+        self.selectiveMagentaSaturation = Parameter.selectiveMagentaSaturation.sanitize(selectiveMagentaSaturation)
+        self.selectiveMagentaLuminance = Parameter.selectiveMagentaLuminance.sanitize(selectiveMagentaLuminance)
         self.sharpness = Parameter.sharpness.sanitize(sharpness)
         self.sharpnessRadius = Parameter.sharpnessRadius.sanitize(sharpnessRadius)
         self.definition = Parameter.definition.sanitize(definition)
