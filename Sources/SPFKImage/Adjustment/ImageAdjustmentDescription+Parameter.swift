@@ -48,6 +48,13 @@ extension ImageAdjustmentDescription {
         case selectiveMagentaHue
         case selectiveMagentaSaturation
         case selectiveMagentaLuminance
+        case colorGradingShadowHue
+        case colorGradingShadowSaturation
+        case colorGradingMidtoneHue
+        case colorGradingMidtoneSaturation
+        case colorGradingHighlightHue
+        case colorGradingHighlightSaturation
+        case colorGradingBalance
         case sharpness
         case sharpnessRadius
         case definition
@@ -87,6 +94,9 @@ extension ImageAdjustmentDescription {
                  .selectiveCyanHue, .selectiveCyanSaturation, .selectiveCyanLuminance,
                  .selectiveBlueHue, .selectiveBlueSaturation, .selectiveBlueLuminance,
                  .selectiveMagentaHue, .selectiveMagentaSaturation, .selectiveMagentaLuminance: -1 ... 1
+            case .colorGradingShadowHue, .colorGradingShadowSaturation, .colorGradingMidtoneHue, .colorGradingMidtoneSaturation,
+                 .colorGradingHighlightHue, .colorGradingHighlightSaturation: 0 ... 1
+            case .colorGradingBalance: -1 ... 1
             }
         }
 
@@ -132,6 +142,13 @@ extension ImageAdjustmentDescription {
             case .selectiveMagentaHue: \.selectiveMagentaHue
             case .selectiveMagentaSaturation: \.selectiveMagentaSaturation
             case .selectiveMagentaLuminance: \.selectiveMagentaLuminance
+            case .colorGradingShadowHue: \.colorGradingShadowHue
+            case .colorGradingShadowSaturation: \.colorGradingShadowSaturation
+            case .colorGradingMidtoneHue: \.colorGradingMidtoneHue
+            case .colorGradingMidtoneSaturation: \.colorGradingMidtoneSaturation
+            case .colorGradingHighlightHue: \.colorGradingHighlightHue
+            case .colorGradingHighlightSaturation: \.colorGradingHighlightSaturation
+            case .colorGradingBalance: \.colorGradingBalance
             case .sharpness: \.sharpness
             case .sharpnessRadius: \.sharpnessRadius
             case .definition: \.definition

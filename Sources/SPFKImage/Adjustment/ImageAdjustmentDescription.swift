@@ -9,7 +9,7 @@ import Foundation
 /// assignment, a non-finite value becomes neutral, and neutral is 0 for every parameter. The renderer
 /// applies them in a fixed order: noise reduction, exposure, temperature and tint, vibrance, black point,
 /// white point, levels, curves, highlights and shadows, brightness, brilliance, contrast and saturation,
-/// definition, selective color, black and white, sepia, sharpness, vignette.
+/// definition, selective color, black and white, color grading, sepia, sharpness, vignette.
 ///
 /// A ``bypassed`` parameter keeps its value but renders as neutral (see ``effective``). The
 /// ``Parameter/isViewState`` parameters describe how the preview shows the image, not an edit, and
@@ -68,6 +68,16 @@ public struct ImageAdjustmentDescription: Hashable, Sendable, Codable {
     public var selectiveMagentaHue: Double { didSet { selectiveMagentaHue = Parameter.selectiveMagentaHue.sanitize(selectiveMagentaHue) } }
     public var selectiveMagentaSaturation: Double { didSet { selectiveMagentaSaturation = Parameter.selectiveMagentaSaturation.sanitize(selectiveMagentaSaturation) } }
     public var selectiveMagentaLuminance: Double { didSet { selectiveMagentaLuminance = Parameter.selectiveMagentaLuminance.sanitize(selectiveMagentaLuminance) } }
+    /// Color Grading: a tint for each of shadows, midtones and highlights (see ``ColorGradingRange``).
+    /// A hue has no effect while its saturation is 0.
+    public var colorGradingShadowHue: Double { didSet { colorGradingShadowHue = Parameter.colorGradingShadowHue.sanitize(colorGradingShadowHue) } }
+    public var colorGradingShadowSaturation: Double { didSet { colorGradingShadowSaturation = Parameter.colorGradingShadowSaturation.sanitize(colorGradingShadowSaturation) } }
+    public var colorGradingMidtoneHue: Double { didSet { colorGradingMidtoneHue = Parameter.colorGradingMidtoneHue.sanitize(colorGradingMidtoneHue) } }
+    public var colorGradingMidtoneSaturation: Double { didSet { colorGradingMidtoneSaturation = Parameter.colorGradingMidtoneSaturation.sanitize(colorGradingMidtoneSaturation) } }
+    public var colorGradingHighlightHue: Double { didSet { colorGradingHighlightHue = Parameter.colorGradingHighlightHue.sanitize(colorGradingHighlightHue) } }
+    public var colorGradingHighlightSaturation: Double { didSet { colorGradingHighlightSaturation = Parameter.colorGradingHighlightSaturation.sanitize(colorGradingHighlightSaturation) } }
+    /// Positive extends the highlights' tint into darker tones; negative extends the shadows'.
+    public var colorGradingBalance: Double { didSet { colorGradingBalance = Parameter.colorGradingBalance.sanitize(colorGradingBalance) } }
     public var sharpness: Double { didSet { sharpness = Parameter.sharpness.sanitize(sharpness) } }
     /// How wide an edge sharpening reaches. Has no effect while ``sharpness`` is 0.
     public var sharpnessRadius: Double { didSet { sharpnessRadius = Parameter.sharpnessRadius.sanitize(sharpnessRadius) } }
@@ -137,6 +147,13 @@ public struct ImageAdjustmentDescription: Hashable, Sendable, Codable {
         selectiveMagentaHue: Double = 0,
         selectiveMagentaSaturation: Double = 0,
         selectiveMagentaLuminance: Double = 0,
+        colorGradingShadowHue: Double = 0,
+        colorGradingShadowSaturation: Double = 0,
+        colorGradingMidtoneHue: Double = 0,
+        colorGradingMidtoneSaturation: Double = 0,
+        colorGradingHighlightHue: Double = 0,
+        colorGradingHighlightSaturation: Double = 0,
+        colorGradingBalance: Double = 0,
         sharpness: Double = 0,
         sharpnessRadius: Double = 0,
         definition: Double = 0,
@@ -192,6 +209,13 @@ public struct ImageAdjustmentDescription: Hashable, Sendable, Codable {
         self.selectiveMagentaHue = Parameter.selectiveMagentaHue.sanitize(selectiveMagentaHue)
         self.selectiveMagentaSaturation = Parameter.selectiveMagentaSaturation.sanitize(selectiveMagentaSaturation)
         self.selectiveMagentaLuminance = Parameter.selectiveMagentaLuminance.sanitize(selectiveMagentaLuminance)
+        self.colorGradingShadowHue = Parameter.colorGradingShadowHue.sanitize(colorGradingShadowHue)
+        self.colorGradingShadowSaturation = Parameter.colorGradingShadowSaturation.sanitize(colorGradingShadowSaturation)
+        self.colorGradingMidtoneHue = Parameter.colorGradingMidtoneHue.sanitize(colorGradingMidtoneHue)
+        self.colorGradingMidtoneSaturation = Parameter.colorGradingMidtoneSaturation.sanitize(colorGradingMidtoneSaturation)
+        self.colorGradingHighlightHue = Parameter.colorGradingHighlightHue.sanitize(colorGradingHighlightHue)
+        self.colorGradingHighlightSaturation = Parameter.colorGradingHighlightSaturation.sanitize(colorGradingHighlightSaturation)
+        self.colorGradingBalance = Parameter.colorGradingBalance.sanitize(colorGradingBalance)
         self.sharpness = Parameter.sharpness.sanitize(sharpness)
         self.sharpnessRadius = Parameter.sharpnessRadius.sanitize(sharpnessRadius)
         self.definition = Parameter.definition.sanitize(definition)

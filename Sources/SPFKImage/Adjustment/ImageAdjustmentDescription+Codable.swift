@@ -12,6 +12,8 @@ extension ImageAdjustmentDescription {
             selectiveCyanHue, selectiveCyanSaturation, selectiveCyanLuminance,
             selectiveBlueHue, selectiveBlueSaturation, selectiveBlueLuminance,
             selectiveMagentaHue, selectiveMagentaSaturation, selectiveMagentaLuminance,
+            colorGradingShadowHue, colorGradingShadowSaturation, colorGradingMidtoneHue, colorGradingMidtoneSaturation,
+            colorGradingHighlightHue, colorGradingHighlightSaturation, colorGradingBalance,
             sharpness, sharpnessRadius, definition, noiseReduction, vignette, vignetteRadius, vignetteSoftness, zoom, zoomCenterX, zoomCenterY, bypassed,
             curves, curvesBypassed
     }
@@ -62,6 +64,13 @@ extension ImageAdjustmentDescription {
             selectiveMagentaHue: try c.decodeIfPresent(Double.self, forKey: .selectiveMagentaHue) ?? 0,
             selectiveMagentaSaturation: try c.decodeIfPresent(Double.self, forKey: .selectiveMagentaSaturation) ?? 0,
             selectiveMagentaLuminance: try c.decodeIfPresent(Double.self, forKey: .selectiveMagentaLuminance) ?? 0,
+            colorGradingShadowHue: try c.decodeIfPresent(Double.self, forKey: .colorGradingShadowHue) ?? 0,
+            colorGradingShadowSaturation: try c.decodeIfPresent(Double.self, forKey: .colorGradingShadowSaturation) ?? 0,
+            colorGradingMidtoneHue: try c.decodeIfPresent(Double.self, forKey: .colorGradingMidtoneHue) ?? 0,
+            colorGradingMidtoneSaturation: try c.decodeIfPresent(Double.self, forKey: .colorGradingMidtoneSaturation) ?? 0,
+            colorGradingHighlightHue: try c.decodeIfPresent(Double.self, forKey: .colorGradingHighlightHue) ?? 0,
+            colorGradingHighlightSaturation: try c.decodeIfPresent(Double.self, forKey: .colorGradingHighlightSaturation) ?? 0,
+            colorGradingBalance: try c.decodeIfPresent(Double.self, forKey: .colorGradingBalance) ?? 0,
             sharpness: try c.decodeIfPresent(Double.self, forKey: .sharpness) ?? 0,
             sharpnessRadius: try c.decodeIfPresent(Double.self, forKey: .sharpnessRadius) ?? 0,
             definition: try c.decodeIfPresent(Double.self, forKey: .definition) ?? 0,
