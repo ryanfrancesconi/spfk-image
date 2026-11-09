@@ -9,7 +9,7 @@ import Foundation
 /// assignment, a non-finite value becomes neutral, and neutral is 0 for every parameter. The renderer
 /// applies them in a fixed order: noise reduction, exposure, temperature and tint, vibrance, black point,
 /// white point, levels, curves, highlights and shadows, brightness, brilliance, contrast and saturation,
-/// definition, selective color, black and white, color grading, sepia, sharpness, vignette.
+/// definition, selective color, black and white, color grading, sepia, sharpness, vignette, grain.
 ///
 /// A ``bypassed`` parameter keeps its value but renders as neutral (see ``effective``). The
 /// ``Parameter/isViewState`` parameters describe how the preview shows the image, not an edit, and
@@ -90,6 +90,10 @@ public struct ImageAdjustmentDescription: Hashable, Sendable, Codable {
     public var vignetteRadius: Double { didSet { vignetteRadius = Parameter.vignetteRadius.sanitize(vignetteRadius) } }
     /// How gradual the vignette's edge is. Has no effect while ``vignette`` is 0.
     public var vignetteSoftness: Double { didSet { vignetteSoftness = Parameter.vignetteSoftness.sanitize(vignetteSoftness) } }
+    /// Film grain over the finished image, strongest in the midtones.
+    public var grain: Double { didSet { grain = Parameter.grain.sanitize(grain) } }
+    /// The grain's size, each unit doubling or halving it. Has no effect while ``grain`` is 0.
+    public var grainSize: Double { didSet { grainSize = Parameter.grainSize.sanitize(grainSize) } }
     /// The preview's zoom: 0 fits the view, 1 is the largest. View state.
     public var zoom: Double { didSet { zoom = Parameter.zoom.sanitize(zoom) } }
     /// Where the zoomed preview is centered, as an offset from the image's center in fractions of its
@@ -161,6 +165,8 @@ public struct ImageAdjustmentDescription: Hashable, Sendable, Codable {
         vignette: Double = 0,
         vignetteRadius: Double = 0,
         vignetteSoftness: Double = 0,
+        grain: Double = 0,
+        grainSize: Double = 0,
         zoom: Double = 0,
         zoomCenterX: Double = 0,
         zoomCenterY: Double = 0,
@@ -223,6 +229,8 @@ public struct ImageAdjustmentDescription: Hashable, Sendable, Codable {
         self.vignette = Parameter.vignette.sanitize(vignette)
         self.vignetteRadius = Parameter.vignetteRadius.sanitize(vignetteRadius)
         self.vignetteSoftness = Parameter.vignetteSoftness.sanitize(vignetteSoftness)
+        self.grain = Parameter.grain.sanitize(grain)
+        self.grainSize = Parameter.grainSize.sanitize(grainSize)
         self.zoom = Parameter.zoom.sanitize(zoom)
         self.zoomCenterX = Parameter.zoomCenterX.sanitize(zoomCenterX)
         self.zoomCenterY = Parameter.zoomCenterY.sanitize(zoomCenterY)

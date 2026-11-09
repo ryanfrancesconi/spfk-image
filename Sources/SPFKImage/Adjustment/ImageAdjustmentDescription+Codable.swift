@@ -14,7 +14,7 @@ extension ImageAdjustmentDescription {
             selectiveMagentaHue, selectiveMagentaSaturation, selectiveMagentaLuminance,
             colorGradingShadowHue, colorGradingShadowSaturation, colorGradingMidtoneHue, colorGradingMidtoneSaturation,
             colorGradingHighlightHue, colorGradingHighlightSaturation, colorGradingBalance,
-            sharpness, sharpnessRadius, definition, noiseReduction, vignette, vignetteRadius, vignetteSoftness, zoom, zoomCenterX, zoomCenterY, bypassed,
+            sharpness, sharpnessRadius, definition, noiseReduction, vignette, vignetteRadius, vignetteSoftness, grain, grainSize, zoom, zoomCenterX, zoomCenterY, bypassed,
             curves, curvesBypassed
     }
 
@@ -78,6 +78,8 @@ extension ImageAdjustmentDescription {
             vignette: try c.decodeIfPresent(Double.self, forKey: .vignette) ?? 0,
             vignetteRadius: try c.decodeIfPresent(Double.self, forKey: .vignetteRadius) ?? 0,
             vignetteSoftness: try c.decodeIfPresent(Double.self, forKey: .vignetteSoftness) ?? 0,
+            grain: try c.decodeIfPresent(Double.self, forKey: .grain) ?? 0,
+            grainSize: try c.decodeIfPresent(Double.self, forKey: .grainSize) ?? 0,
             zoom: try c.decodeIfPresent(Double.self, forKey: .zoom) ?? 0,
             zoomCenterX: try c.decodeIfPresent(Double.self, forKey: .zoomCenterX) ?? 0,
             zoomCenterY: try c.decodeIfPresent(Double.self, forKey: .zoomCenterY) ?? 0,

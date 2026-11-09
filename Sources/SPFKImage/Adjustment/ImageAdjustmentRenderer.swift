@@ -138,6 +138,16 @@ public struct ImageAdjustmentRenderer: Sendable {
             output = filter.outputImage ?? output
         }
 
+        if adjustments.grain != 0 {
+            output = grain(
+                output,
+                amount: adjustments.grain,
+                size: adjustments.grainSize,
+                origin: image.extent.origin,
+                sourceScale: sourceScale
+            )
+        }
+
         return output.cropped(to: image.extent)
     }
 

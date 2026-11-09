@@ -62,6 +62,8 @@ extension ImageAdjustmentDescription {
         case vignette
         case vignetteRadius
         case vignetteSoftness
+        case grain
+        case grainSize
 
         /// The parameters that describe the preview rather than the image.
         public static let viewState: [Parameter] = [.zoom, .zoomCenterX, .zoomCenterY]
@@ -79,7 +81,7 @@ extension ImageAdjustmentDescription {
             switch self {
             case .exposure: -3 ... 3
             case .highlights: -1 ... 0
-            case .sepia, .blackAndWhite, .sharpness, .definition, .noiseReduction, .levelsBlack, .zoom: 0 ... 1
+            case .sepia, .blackAndWhite, .sharpness, .definition, .noiseReduction, .levelsBlack, .grain, .zoom: 0 ... 1
             case .zoomCenterX, .zoomCenterY: -0.5 ... 0.5
             case .levelsShadow: -0.25 ... 0.75
             case .levelsMid: -0.5 ... 0.5
@@ -87,7 +89,7 @@ extension ImageAdjustmentDescription {
             case .levelsWhite: -1 ... 0
             case .brilliance, .contrast, .shadows, .brightness, .blackPoint, .whitePoint, .saturation, .vibrance, .temperature, .tint,
                  .blackAndWhiteRed, .blackAndWhiteGreen, .blackAndWhiteBlue,
-                 .sharpnessRadius, .vignette, .vignetteRadius, .vignetteSoftness: -1 ... 1
+                 .sharpnessRadius, .vignette, .vignetteRadius, .vignetteSoftness, .grainSize: -1 ... 1
             case .selectiveRedHue, .selectiveRedSaturation, .selectiveRedLuminance,
                  .selectiveYellowHue, .selectiveYellowSaturation, .selectiveYellowLuminance,
                  .selectiveGreenHue, .selectiveGreenSaturation, .selectiveGreenLuminance,
@@ -156,6 +158,8 @@ extension ImageAdjustmentDescription {
             case .vignette: \.vignette
             case .vignetteRadius: \.vignetteRadius
             case .vignetteSoftness: \.vignetteSoftness
+            case .grain: \.grain
+            case .grainSize: \.grainSize
             case .zoom: \.zoom
             case .zoomCenterX: \.zoomCenterX
             case .zoomCenterY: \.zoomCenterY
