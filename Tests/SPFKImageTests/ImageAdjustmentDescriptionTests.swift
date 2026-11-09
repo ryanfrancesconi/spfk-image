@@ -95,6 +95,7 @@ final class ImageAdjustmentDescriptionTests {
         #expect(decoded.blackPoint == 0)
         #expect(decoded.brilliance == 0)
         #expect(decoded.definition == 0)
+        #expect(decoded.noiseReduction == 0)
     }
 
     @Test func vibranceAndVignetteClampOnInitAndDecode() throws {

@@ -32,6 +32,10 @@ public struct ImageAdjustmentRenderer: Sendable {
 
         var output = image
 
+        if adjustments.noiseReduction != 0 {
+            output = noiseReduction(output, adjustments.noiseReduction * min(1, sourceScale))
+        }
+
         if adjustments.exposure != 0 {
             let filter = CIFilter.exposureAdjust()
             filter.inputImage = output

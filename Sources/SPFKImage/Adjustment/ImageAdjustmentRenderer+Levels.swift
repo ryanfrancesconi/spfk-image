@@ -11,7 +11,8 @@ extension ImageAdjustmentRenderer {
     }
 
     /// The part of `adjustments` that renders before the levels step, so its output is what the
-    /// levels curve receives.
+    /// levels curve receives. Leaves out noise reduction, which smooths the image without moving its
+    /// tones.
     public static func levelsInput(of adjustments: ImageAdjustmentDescription) -> ImageAdjustmentDescription {
         let effective = adjustments.effective
 

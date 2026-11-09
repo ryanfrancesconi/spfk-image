@@ -7,7 +7,7 @@ import Foundation
 /// Values are slider positions rather than Core Image parameters, so retuning the renderer's mapping
 /// never changes stored data. Each is clamped to its ``Parameter/range`` on construction and on
 /// assignment, a non-finite value becomes neutral, and neutral is 0 for every parameter. The renderer
-/// applies them in a fixed order: exposure, temperature and tint, vibrance, black point, levels,
+/// applies them in a fixed order: noise reduction, exposure, temperature and tint, vibrance, black point, levels,
 /// highlights and shadows, brightness, brilliance, contrast and saturation, definition, sepia,
 /// sharpness, vignette.
 ///
@@ -39,6 +39,7 @@ public struct ImageAdjustmentDescription: Hashable, Sendable {
     public var sharpness: Double { didSet { sharpness = Parameter.sharpness.sanitize(sharpness) } }
     /// Local contrast: strengthens detail against its surroundings without halos at strong edges.
     public var definition: Double { didSet { definition = Parameter.definition.sanitize(definition) } }
+    public var noiseReduction: Double { didSet { noiseReduction = Parameter.noiseReduction.sanitize(noiseReduction) } }
     /// Negative lightens the edges.
     public var vignette: Double { didSet { vignette = Parameter.vignette.sanitize(vignette) } }
     /// How far from the center the vignette begins. Has no effect while ``vignette`` is 0.
@@ -69,6 +70,7 @@ public struct ImageAdjustmentDescription: Hashable, Sendable {
         levelsWhite: Double = 0,
         sharpness: Double = 0,
         definition: Double = 0,
+        noiseReduction: Double = 0,
         vignette: Double = 0,
         vignetteRadius: Double = 0,
         vignetteSoftness: Double = 0,
@@ -94,6 +96,7 @@ public struct ImageAdjustmentDescription: Hashable, Sendable {
         self.levelsWhite = Parameter.levelsWhite.sanitize(levelsWhite)
         self.sharpness = Parameter.sharpness.sanitize(sharpness)
         self.definition = Parameter.definition.sanitize(definition)
+        self.noiseReduction = Parameter.noiseReduction.sanitize(noiseReduction)
         self.vignette = Parameter.vignette.sanitize(vignette)
         self.vignetteRadius = Parameter.vignetteRadius.sanitize(vignetteRadius)
         self.vignetteSoftness = Parameter.vignetteSoftness.sanitize(vignetteSoftness)
@@ -157,6 +160,7 @@ extension ImageAdjustmentDescription {
         case levelsWhite
         case sharpness
         case definition
+        case noiseReduction
         case vignette
         case vignetteRadius
         case vignetteSoftness
@@ -168,7 +172,7 @@ extension ImageAdjustmentDescription {
             switch self {
             case .exposure: -3 ... 3
             case .highlights: -1 ... 0
-            case .sepia, .sharpness, .definition, .levelsBlack: 0 ... 1
+            case .sepia, .sharpness, .definition, .noiseReduction, .levelsBlack: 0 ... 1
             case .levelsShadow: -0.25 ... 0.75
             case .levelsMid: -0.5 ... 0.5
             case .levelsHighlight: -0.75 ... 0.25
@@ -199,6 +203,7 @@ extension ImageAdjustmentDescription {
             case .levelsWhite: \.levelsWhite
             case .sharpness: \.sharpness
             case .definition: \.definition
+            case .noiseReduction: \.noiseReduction
             case .vignette: \.vignette
             case .vignetteRadius: \.vignetteRadius
             case .vignetteSoftness: \.vignetteSoftness
@@ -219,7 +224,7 @@ extension ImageAdjustmentDescription: Codable {
     private enum CodingKeys: String, CodingKey {
         case brilliance, exposure, contrast, highlights, shadows, brightness, blackPoint, saturation, vibrance,
             temperature, tint, sepia, levelsBlack, levelsShadow, levelsMid, levelsHighlight, levelsWhite, sharpness,
-            definition, vignette, vignetteRadius, vignetteSoftness, bypassed
+            definition, noiseReduction, vignette, vignetteRadius, vignetteSoftness, bypassed
     }
 
     /// A missing key decodes as neutral, so data written before a parameter existed still reads. A
@@ -247,6 +252,7 @@ extension ImageAdjustmentDescription: Codable {
             levelsWhite: try c.decodeIfPresent(Double.self, forKey: .levelsWhite) ?? 0,
             sharpness: try c.decodeIfPresent(Double.self, forKey: .sharpness) ?? 0,
             definition: try c.decodeIfPresent(Double.self, forKey: .definition) ?? 0,
+            noiseReduction: try c.decodeIfPresent(Double.self, forKey: .noiseReduction) ?? 0,
             vignette: try c.decodeIfPresent(Double.self, forKey: .vignette) ?? 0,
             vignetteRadius: try c.decodeIfPresent(Double.self, forKey: .vignetteRadius) ?? 0,
             vignetteSoftness: try c.decodeIfPresent(Double.self, forKey: .vignetteSoftness) ?? 0,
