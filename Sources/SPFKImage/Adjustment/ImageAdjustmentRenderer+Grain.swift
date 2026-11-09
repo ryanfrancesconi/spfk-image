@@ -42,7 +42,13 @@ extension ImageAdjustmentRenderer {
         let decode = CIFilter.sRGBToneCurveToLinear()
         decode.inputImage = overlay.outputImage
 
-        return decode.outputImage ?? image
+        // The overlay of opaque noise is opaque; the source's own alpha is put back.
+        let alpha = CIFilter.blendWithAlphaMask()
+        alpha.inputImage = decode.outputImage
+        alpha.backgroundImage = CIImage.empty()
+        alpha.maskImage = image
+
+        return alpha.outputImage ?? image
     }
 
     /// Uniform noise in 0…1, the same in every channel, with alpha 1. `CIRandomGenerator` repeats every
