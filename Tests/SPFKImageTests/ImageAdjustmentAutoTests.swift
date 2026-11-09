@@ -48,24 +48,52 @@ final class ImageAdjustmentAutoTests {
         return 10 * log10(Double(a.count) / squaredError)
     }
 
+    /// `image` white balanced by `balance`, then through Apple's own enhancement filters for the
+    /// balanced image.
+    private func appleReference(_ image: CIImage, balance: ImageAdjustmentDescription) throws -> CIImage {
+        let balanced = ImageAdjustmentRenderer.temperatureAndTint(image, temperature: balance.temperature, tint: balance.tint)
+            .cropped(to: image.extent)
+
+        var apple = balanced
+        for filter in balanced.autoAdjustmentFilters(options: [.redEye: false]) {
+            filter.setValue(apple, forKey: kCIInputImageKey)
+            apple = try #require(filter.outputImage)
+        }
+        return apple.cropped(to: image.extent)
+    }
+
     @Test(arguments: fixtures)
     func autoRendersCloseToCoreImagesFilters(url: URL) throws {
         let image = try analysisImage(url)
 
-        var apple = image
-        for filter in image.autoAdjustmentFilters(options: [.redEye: false]) {
-            filter.setValue(apple, forKey: kCIInputImageKey)
-            apple = try #require(filter.outputImage)
-        }
-
         let auto = ImageAdjustmentRenderer.autoAdjustments(for: image)
+        let apple = try appleReference(image, balance: auto)
         let ours = ImageAdjustmentRenderer.apply(auto, to: image)
-        let measured = try psnr(pixels(apple.cropped(to: image.extent)), pixels(ours))
+        let measured = try psnr(pixels(apple), pixels(ours))
 
-        print("Auto PSNR \(url.lastPathComponent): \(String(format: "%.1f", measured)) dB")
+        print("Auto PSNR \(url.lastPathComponent): \(String(format: "%.1f", measured)) dB, temperature \(auto.temperature), tint \(auto.tint)")
         #expect(measured > 28, "\(url.lastPathComponent): \(measured) dB")
         #expect(!auto.isEmpty)
         #expect(Set(Parameter.allCases.filter { auto[$0] != 0 }).isSubset(of: Parameter.auto))
+    }
+
+    /// The enhancement analyzed on the unbalanced image, as Phase 9 first built it, against analyzing the
+    /// balanced one; both measured against Apple's filters after the same white balance.
+    @Test(arguments: fixtures)
+    func analyzingTheBalancedImageIsNoWorse(url: URL) throws {
+        let image = try analysisImage(url)
+        let auto = ImageAdjustmentRenderer.autoAdjustments(for: image)
+        let apple = try pixels(appleReference(image, balance: auto))
+
+        var unbalanced = ImageAdjustmentRenderer.enhancement(for: image)
+        unbalanced.temperature = auto.temperature
+        unbalanced.tint = auto.tint
+
+        let balancedPSNR = try psnr(apple, pixels(ImageAdjustmentRenderer.apply(auto, to: image)))
+        let unbalancedPSNR = try psnr(apple, pixels(ImageAdjustmentRenderer.apply(unbalanced, to: image)))
+
+        print("Auto analysis order \(url.lastPathComponent): balanced \(String(format: "%.1f", balancedPSNR)) dB, unbalanced \(String(format: "%.1f", unbalancedPSNR)) dB")
+        #expect(balancedPSNR >= unbalancedPSNR - 1)
     }
 
     @Test func autoFromAFileMatchesItsAnalysisDecodeAndRepeats() throws {

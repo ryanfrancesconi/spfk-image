@@ -5,12 +5,28 @@ import Foundation
 import SPFKBase
 
 extension ImageAdjustmentRenderer {
-    /// Core Image's automatic enhancement of `image`, as the fields Auto owns (see
-    /// ``ImageAdjustmentDescription/Parameter/auto``); every other field is neutral.
+    /// Auto Adjust for `image`: white balance, then Core Image's automatic enhancement of the balanced
+    /// image, as the fields Auto owns (see ``ImageAdjustmentDescription/Parameter/auto``); every other
+    /// field is neutral.
     ///
-    /// `image` is the unadjusted source, upright: the analysis detects faces, which is orientation
-    /// sensitive. Face balance and red-eye have no field and are dropped.
+    /// The enhancement analyzes the balanced image because Temperature and Tint render before the
+    /// levels it sets. `image` is the unadjusted source, upright: the analysis detects faces, which is
+    /// orientation sensitive.
     public static func autoAdjustments(for image: CIImage) -> ImageAdjustmentDescription {
+        let balance = autoWhiteBalance(for: image)
+        let balanced = balance.temperature == 0 && balance.tint == 0
+            ? image
+            : temperatureAndTint(image, temperature: balance.temperature, tint: balance.tint).cropped(to: image.extent)
+
+        var result = enhancement(for: balanced)
+        result.temperature = balance.temperature
+        result.tint = balance.tint
+        return result
+    }
+
+    /// Core Image's automatic enhancement of `image` alone. Face balance and red-eye have no field and
+    /// are dropped.
+    static func enhancement(for image: CIImage) -> ImageAdjustmentDescription {
         var result = ImageAdjustmentDescription()
 
         for filter in image.autoAdjustmentFilters(options: [.redEye: false]) {
@@ -73,7 +89,7 @@ extension ImageAdjustmentRenderer {
 
 /// An adjustment computed from the image itself, setting only the fields it owns.
 public enum ImageAutoAdjustment: Sendable, CaseIterable {
-    /// Core Image's automatic enhancement: Auto Adjust.
+    /// Auto Adjust: white balance, then Core Image's automatic enhancement.
     case adjust
     /// Temperature and Tint neutralizing the image's near-gray pixels.
     case whiteBalance
@@ -96,7 +112,7 @@ public enum ImageAutoAdjustment: Sendable, CaseIterable {
 
 extension ImageAdjustmentDescription.Parameter {
     /// What Auto sets; it leaves the rest as they are.
-    public static let auto: Set<Self> = Set([.vibrance, .highlights, .shadows] + levels)
+    public static let auto: Set<Self> = Set([.temperature, .tint, .vibrance, .highlights, .shadows] + levels)
 
     /// What Auto White Balance sets.
     public static let autoWhiteBalance: Set<Self> = [.temperature, .tint]
