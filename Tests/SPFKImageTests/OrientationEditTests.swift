@@ -3,14 +3,15 @@
 import CoreImage
 import Foundation
 import ImageIO
+import SPFKBase
 import Testing
 import UniformTypeIdentifiers
 
 @testable import SPFKImage
 
 /// Each edit checked against pixels: a 2×3 bitmap whose six values are distinct, compared after
-/// ImageIO displays a tagged file and after ``ImageOrientationEdit/apply(to:)``.
-struct ImageOrientationEditTests {
+/// ImageIO displays a tagged file and after ``OrientationEdit/apply(to:)``.
+struct OrientationEditTests {
     typealias Grid = [[Int]]
 
     /// Two wide, three tall, top row first.
@@ -78,7 +79,7 @@ struct ImageOrientationEditTests {
         return try Self.grid(try #require(CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary)))
     }
 
-    private func applied(_ edit: ImageOrientationEdit, to grid: Grid) throws -> Grid {
+    private func applied(_ edit: OrientationEdit, to grid: Grid) throws -> Grid {
         let output = edit.apply(to: CIImage(cgImage: try Self.image(grid)))
         #expect(output.extent.origin == .zero)
         return try Self.grid(try #require(context.createCGImage(output, from: output.extent)))
@@ -86,79 +87,61 @@ struct ImageOrientationEditTests {
 
     // MARK: - Definition
 
-    @Test(arguments: ImageOrientationEdit.allCases)
-    func applyMatchesImageIOsDisplayOfTheTag(edit: ImageOrientationEdit) throws {
+    @Test(arguments: OrientationEdit.allCases)
+    func applyMatchesImageIOsDisplayOfTheTag(edit: OrientationEdit) throws {
         #expect(try applied(edit, to: Self.values) == Self.displayed(Self.values, tag: edit.rawValue))
     }
 
     /// An edit performed on a tagged file's display matches the file retagged with the composed value.
-    @Test(arguments: ImageOrientationEdit.allCases, ImageOrientationEdit.allCases)
-    func composedTagDisplaysTheEditedImage(edit: ImageOrientationEdit, file: ImageOrientationEdit) throws {
+    @Test(arguments: OrientationEdit.allCases, OrientationEdit.allCases)
+    func composedTagDisplaysTheEditedImage(edit: OrientationEdit, file: OrientationEdit) throws {
         let shown = try Self.displayed(Self.values, tag: file.rawValue)
 
         #expect(try applied(edit, to: shown) == Self.displayed(Self.values, tag: edit.applied(toFileOrientation: file.rawValue)))
     }
 
-    @Test(arguments: ImageOrientationEdit.allCases, ImageOrientationEdit.Command.allCases)
-    func aCommandActsOnTheDisplayedImage(start: ImageOrientationEdit, command: ImageOrientationEdit.Command) throws {
+    @Test(arguments: OrientationEdit.allCases, OrientationEdit.Command.allCases)
+    func aCommandActsOnTheDisplayedImage(start: OrientationEdit, command: OrientationEdit.Command) throws {
         let shown = try applied(start, to: Self.values)
 
         #expect(try applied(start.applying(command), to: Self.values) == applied(command.edit, to: shown))
     }
 
     @Test func rotateRightIsClockwise() throws {
-        #expect(try applied(ImageOrientationEdit.up.rotatedRight, to: Self.values) == [[180, 100, 20], [220, 140, 60]])
+        #expect(try applied(OrientationEdit.up.rotatedRight, to: Self.values) == [[180, 100, 20], [220, 140, 60]])
     }
 
     @Test func rotateLeftIsCounterclockwise() throws {
-        #expect(try applied(ImageOrientationEdit.up.rotatedLeft, to: Self.values) == [[60, 140, 220], [20, 100, 180]])
+        #expect(try applied(OrientationEdit.up.rotatedLeft, to: Self.values) == [[60, 140, 220], [20, 100, 180]])
     }
 
     @Test func flipHorizontalMirrorsLeftToRight() throws {
-        #expect(try applied(ImageOrientationEdit.up.flippedHorizontally, to: Self.values) == [[60, 20], [140, 100], [220, 180]])
+        #expect(try applied(OrientationEdit.up.flippedHorizontally, to: Self.values) == [[60, 20], [140, 100], [220, 180]])
     }
 
     @Test func flipVerticalMirrorsTopToBottom() throws {
-        #expect(try applied(ImageOrientationEdit.up.flippedVertically, to: Self.values) == [[180, 220], [100, 140], [20, 60]])
+        #expect(try applied(OrientationEdit.up.flippedVertically, to: Self.values) == [[180, 220], [100, 140], [20, 60]])
     }
 
-    @Test(arguments: ImageOrientationEdit.allCases)
-    func thePreviewRenderIsOriented(edit: ImageOrientationEdit) throws {
+    @Test(arguments: OrientationEdit.allCases)
+    func thePreviewRenderIsOriented(edit: OrientationEdit) throws {
         let rendered = try #require(ImageAdjustmentRenderer().render(ImageAdjustmentDescription(), orientation: edit, source: Self.image(Self.values)))
 
         #expect(try Self.grid(rendered) == applied(edit, to: Self.values))
     }
 
-    // MARK: - Group identities
-
-    @Test(arguments: ImageOrientationEdit.allCases)
-    func fourRotationsReturnToTheStart(start: ImageOrientationEdit) {
-        #expect(start.rotatedRight.rotatedRight.rotatedRight.rotatedRight == start)
-        #expect(start.rotatedLeft.rotatedLeft.rotatedLeft.rotatedLeft == start)
-        #expect(start.rotatedLeft.rotatedRight == start)
-    }
-
-    @Test(arguments: ImageOrientationEdit.allCases)
-    func twoFlipsReturnToTheStart(start: ImageOrientationEdit) {
-        #expect(start.flippedHorizontally.flippedHorizontally == start)
-        #expect(start.flippedVertically.flippedVertically == start)
-    }
+    // MARK: - Composition
 
     @Test func rotateRightThenFlipHorizontalEqualsFlipVerticalThenRotateRight() throws {
-        let first = ImageOrientationEdit.up.rotatedRight.flippedHorizontally
-        let second = ImageOrientationEdit.up.flippedVertically.rotatedRight
+        let first = OrientationEdit.up.rotatedRight.flippedHorizontally
+        let second = OrientationEdit.up.flippedVertically.rotatedRight
 
         #expect(try applied(first, to: Self.values) == applied(second, to: Self.values))
     }
 
-    @Test(arguments: ImageOrientationEdit.allCases)
-    func swapsDimensionsMatchesTheDisplayedShape(edit: ImageOrientationEdit) throws {
+    @Test(arguments: OrientationEdit.allCases)
+    func swapsDimensionsMatchesTheDisplayedShape(edit: OrientationEdit) throws {
         let shown = try applied(edit, to: Self.values)
         #expect(edit.swapsDimensions == (shown.count == 2))
-    }
-
-    @Test(arguments: [0, 9, -1])
-    func anOutOfRangeFileTagReadsAsUp(tag: Int) {
-        #expect(ImageOrientationEdit.right.applied(toFileOrientation: tag) == ImageOrientationEdit.right.rawValue)
     }
 }

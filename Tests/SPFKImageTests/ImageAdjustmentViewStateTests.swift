@@ -2,6 +2,7 @@
 
 import CoreImage
 import Foundation
+import SPFKBase
 import SPFKTesting
 import Testing
 
@@ -19,8 +20,8 @@ final class ImageAdjustmentViewStateTests {
 
     // MARK: - Crop
 
-    @Test(arguments: [ImageOrientationEdit.up, .right])
-    func aCropMatchesTheSameRegionOfTheFullRender(orientation: ImageOrientationEdit) throws {
+    @Test(arguments: [OrientationEdit.up, .right])
+    func aCropMatchesTheSameRegionOfTheFullRender(orientation: OrientationEdit) throws {
         // Vignette and brilliance read the whole image's extent, so a crop must not shift them.
         let adjustments = ImageAdjustmentDescription(light: .init(brilliance: 0.6, exposure: 0.3), vignette: .init(amount: 0.8))
         let full = try #require(renderer.render(adjustments, orientation: orientation, source: source))

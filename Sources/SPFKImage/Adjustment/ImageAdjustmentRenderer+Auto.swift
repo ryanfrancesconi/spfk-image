@@ -55,7 +55,7 @@ extension ImageAdjustmentRenderer {
     /// `nil` when it cannot be decoded. Security-scoped access is the caller's.
     public static func autoAdjustments(
         contentsOf url: URL,
-        orientation: ImageOrientationEdit = .up,
+        orientation: OrientationEdit = .up,
         kind: ImageAutoAdjustment = .adjust
     ) -> ImageAdjustmentDescription? {
         autoreleasepool {

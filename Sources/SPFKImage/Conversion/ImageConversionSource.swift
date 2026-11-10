@@ -1,6 +1,7 @@
 // Copyright Ryan Francesconi. All Rights Reserved. Revision History at https://github.com/ryanfrancesconi/spfk-image
 
 import Foundation
+import SPFKBase
 
 /// One file's conversion: where ``ImageFormatConverter`` reads, where it writes, and how.
 public struct ImageConversionSource: Sendable {
@@ -16,7 +17,7 @@ public struct ImageConversionSource: Sendable {
     public var adjustments: ImageAdjustmentDescription?
 
     /// A pending rotation or mirror rendered into the output, after ``adjustments``.
-    public var orientation: ImageOrientationEdit
+    public var orientation: OrientationEdit
 
     public init(
         input: URL,
@@ -24,7 +25,7 @@ public struct ImageConversionSource: Sendable {
         options: ImageConversionOptions,
         originalInput: URL? = nil,
         adjustments: ImageAdjustmentDescription? = nil,
-        orientation: ImageOrientationEdit = .up
+        orientation: OrientationEdit = .up
     ) {
         self.input = input
         self.output = output

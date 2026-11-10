@@ -2,9 +2,10 @@
 
 import Foundation
 import ImageIO
+import SPFKBase
 import UniformTypeIdentifiers
 
-extension ImageOrientationEdit {
+extension OrientationEdit {
     /// The types ``rewriteFile(source:destination:)`` can write. ImageIO refuses GIF, and has no
     /// destination for WebP, JPEG XL or DNG.
     public static let losslessRewriteTypes: Set<UTType> = [.jpeg, .heic, .png, .tiff]

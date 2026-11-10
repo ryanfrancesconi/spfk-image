@@ -3,6 +3,7 @@
 import CoreImage
 import Foundation
 import ImageIO
+import SPFKBase
 import UniformTypeIdentifiers
 
 extension ImageAdjustmentRenderer {
@@ -16,7 +17,7 @@ extension ImageAdjustmentRenderer {
     /// `destination` must not exist, and exists afterwards only if this returns; `source` is never written.
     public func renderFile(
         _ adjustments: ImageAdjustmentDescription,
-        orientation: ImageOrientationEdit = .up,
+        orientation: OrientationEdit = .up,
         source: URL,
         destination: URL,
         quality: Double = defaultFileQuality
@@ -30,7 +31,7 @@ extension ImageAdjustmentRenderer {
     /// `expectedOrientation` replaces the orientation the read-back requires, so a test can force a mismatch.
     func renderFile(
         _ adjustments: ImageAdjustmentDescription,
-        orientation: ImageOrientationEdit = .up,
+        orientation: OrientationEdit = .up,
         source: URL,
         destination: URL,
         quality: Double,
@@ -65,7 +66,7 @@ extension ImageAdjustmentRenderer {
 
     private func write(
         _ adjustments: ImageAdjustmentDescription,
-        orientation: ImageOrientationEdit,
+        orientation: OrientationEdit,
         source url: URL,
         destination: URL,
         quality: Double

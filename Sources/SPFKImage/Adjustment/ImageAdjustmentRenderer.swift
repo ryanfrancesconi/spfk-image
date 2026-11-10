@@ -3,6 +3,7 @@
 import CoreImage
 import CoreImage.CIFilterBuiltins
 import Foundation
+import SPFKBase
 
 /// Applies an ``ImageAdjustmentDescription`` to an image through Core Image.
 ///
@@ -212,7 +213,7 @@ public struct ImageAdjustmentRenderer: Sendable {
     /// Eager (`deferred: false`), so the cost lands here rather than wherever the image is first drawn.
     public func render(
         _ adjustments: ImageAdjustmentDescription,
-        orientation: ImageOrientationEdit = .up,
+        orientation: OrientationEdit = .up,
         source: CGImage,
         sourceScale: Double = 1,
         crop: CGRect? = nil

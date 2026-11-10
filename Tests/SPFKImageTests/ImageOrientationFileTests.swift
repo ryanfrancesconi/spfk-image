@@ -3,6 +3,7 @@
 import CoreImage
 import Foundation
 import ImageIO
+import SPFKBase
 import SPFKTesting
 import Testing
 import UniformTypeIdentifiers
@@ -82,14 +83,14 @@ final class ImageOrientationFileTests {
 
     @Test(arguments: [UTType.jpeg, .heic, .png, .tiff], [1, 6])
     func theRewriteChangesOnlyTheTag(type: UTType, start: Int) throws {
-        try #require(ImageOrientationEdit.losslessRewriteTypes.contains(type))
+        try #require(OrientationEdit.losslessRewriteTypes.contains(type))
         let source = try AdjustmentFileFixtures.tagged(type, orientation: start, in: directory)
         let bytes = try Data(contentsOf: source)
         let output = output(for: source)
 
-        try ImageOrientationEdit.right.rewriteFile(source: source, destination: output)
+        try OrientationEdit.right.rewriteFile(source: source, destination: output)
 
-        #expect(try orientation(output) == ImageOrientationEdit.right.applied(toFileOrientation: start))
+        #expect(try orientation(output) == OrientationEdit.right.applied(toFileOrientation: start))
         #expect(try pixels(output) == pixels(source))
         #expect(try captureDate(output) == AdjustmentFileFixtures.captureDate)
         #expect(try latitude(output) == AdjustmentFileFixtures.latitude)
@@ -103,9 +104,9 @@ final class ImageOrientationFileTests {
         let original = try #require(try gainMapData(source))
         let output = output(for: source)
 
-        try ImageOrientationEdit.left.rewriteFile(source: source, destination: output)
+        try OrientationEdit.left.rewriteFile(source: source, destination: output)
 
-        #expect(try orientation(output) == ImageOrientationEdit.left.rawValue)
+        #expect(try orientation(output) == OrientationEdit.left.rawValue)
         #expect(try gainMapData(output) == original)
         #expect(try gainMapDisplaysAlignedWithTheImage(output))
     }
@@ -118,19 +119,19 @@ final class ImageOrientationFileTests {
         try #require(CGImageSourceGetType(reader) as String? == UTType.heif.identifier)
         let output = output(for: source)
 
-        try ImageOrientationEdit.right.rewriteFile(source: source, destination: output)
+        try OrientationEdit.right.rewriteFile(source: source, destination: output)
 
-        #expect(try orientation(output) == ImageOrientationEdit.right.rawValue)
+        #expect(try orientation(output) == OrientationEdit.right.rawValue)
         #expect(try pixels(output) == pixels(source))
     }
 
-    /// Pins why GIF is not in ``ImageOrientationEdit/losslessRewriteTypes``.
+    /// Pins why GIF is not in ``OrientationEdit/losslessRewriteTypes``.
     @Test func imageIORefusesToRewriteAGIF() throws {
         let source = try AdjustmentFileFixtures.tagged(.gif, orientation: 1, in: directory)
         let output = output(for: source)
 
         #expect(throws: ImageAdjustmentRenderError.encodeFailed) {
-            try ImageOrientationEdit.right.rewriteFile(source: source, destination: output)
+            try OrientationEdit.right.rewriteFile(source: source, destination: output)
         }
 
         #expect(!FileManager.default.fileExists(atPath: output.path))
@@ -143,7 +144,7 @@ final class ImageOrientationFileTests {
         try occupant.write(to: output)
 
         #expect(throws: ImageAdjustmentRenderError.destinationExists) {
-            try ImageOrientationEdit.right.rewriteFile(source: source, destination: output)
+            try OrientationEdit.right.rewriteFile(source: source, destination: output)
         }
 
         #expect(try Data(contentsOf: output) == occupant)
@@ -158,7 +159,7 @@ final class ImageOrientationFileTests {
 
         try renderer.renderFile(ImageAdjustmentDescription(light: .init(exposure: 1)), orientation: .flippedRight, source: source, destination: output)
 
-        #expect(try orientation(output) == ImageOrientationEdit.flippedRight.applied(toFileOrientation: start))
+        #expect(try orientation(output) == OrientationEdit.flippedRight.applied(toFileOrientation: start))
         #expect(try captureDate(output) == AdjustmentFileFixtures.captureDate)
     }
 
@@ -169,7 +170,7 @@ final class ImageOrientationFileTests {
 
         try renderer.renderFile(ImageAdjustmentDescription(light: .init(exposure: 1)), orientation: .right, source: source, destination: output)
 
-        #expect(try orientation(output) == ImageOrientationEdit.right.rawValue)
+        #expect(try orientation(output) == OrientationEdit.right.rawValue)
         #expect(try gainMapDisplaysAlignedWithTheImage(output))
     }
 }
@@ -179,25 +180,25 @@ extension ImageOrientationFileTests {
     private func gridFile(_ type: UTType, orientation: Int) throws -> URL {
         let url = directory.appendingPathComponent("grid-\(orientation)").appendingPathExtension(for: type)
         let destination = try #require(CGImageDestinationCreateWithURL(url as CFURL, type.identifier as CFString, 1, nil))
-        let image = try ImageOrientationEditTests.image(ImageOrientationEditTests.values)
+        let image = try OrientationEditTests.image(OrientationEditTests.values)
         CGImageDestinationAddImage(destination, image, [kCGImagePropertyOrientation: orientation] as CFDictionary)
         try #require(CGImageDestinationFinalize(destination))
         return url
     }
 
-    private func displayedGrid(_ url: URL) throws -> ImageOrientationEditTests.Grid {
+    private func displayedGrid(_ url: URL) throws -> OrientationEditTests.Grid {
         let source = try #require(CGImageSourceCreateWithURL(url as CFURL, nil))
         let options: [CFString: Any] = [
             kCGImageSourceCreateThumbnailFromImageAlways: true,
             kCGImageSourceCreateThumbnailWithTransform: true,
             kCGImageSourceThumbnailMaxPixelSize: 3,
         ]
-        return try ImageOrientationEditTests.grid(try #require(CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary)))
+        return try OrientationEditTests.grid(try #require(CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary)))
     }
 
     /// Export renders the edit on top of the file's own tag, whichever route the format would otherwise take.
-    @Test(arguments: [UTType.png, .tiff], [ImageOrientationEdit.right, .upMirrored, .leftMirrored])
-    func anExportRendersTheEditOverTheFilesTag(format: UTType, edit: ImageOrientationEdit) throws {
+    @Test(arguments: [UTType.png, .tiff], [OrientationEdit.right, .upMirrored, .leftMirrored])
+    func anExportRendersTheEditOverTheFilesTag(format: UTType, edit: OrientationEdit) throws {
         let source = try gridFile(.png, orientation: 6)
         let output = directory.appendingPathComponent("export-\(edit.rawValue)").appendingPathExtension(for: format)
 
@@ -211,13 +212,13 @@ extension ImageOrientationFileTests {
             formats: ImageConversionFormats()
         ).convert().output
 
-        #expect(try displayedGrid(written) == ImageOrientationEditTests.displayed(
-            ImageOrientationEditTests.values, tag: edit.applied(toFileOrientation: 6)
+        #expect(try displayedGrid(written) == OrientationEditTests.displayed(
+            OrientationEditTests.values, tag: edit.applied(toFileOrientation: 6)
         ))
     }
 }
 
-private extension ImageOrientationEdit {
+private extension OrientationEdit {
     /// Rotate Right then Flip Horizontal: a mirrored value, so a test sees both halves composed.
-    static let flippedRight = ImageOrientationEdit.up.rotatedRight.flippedHorizontally
+    static let flippedRight = OrientationEdit.up.rotatedRight.flippedHorizontally
 }
