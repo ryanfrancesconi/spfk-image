@@ -6,6 +6,14 @@ import ImageIO
 import SPFKBase
 import UniformTypeIdentifiers
 
+/// What ``ImageAdjustmentRenderer/renderFile(_:orientation:source:destination:quality:stage:)`` is doing. A Core
+/// Image render reports no fraction of its own, so the stage is the only progress it has.
+public enum ImageRenderStage: Sendable {
+    case rendering
+    case encoding
+    case verifying
+}
+
 extension ImageAdjustmentRenderer {
     /// JPEG and HEIC encode quality for a rendered file.
     public static let defaultFileQuality: Double = 0.9
@@ -15,16 +23,18 @@ extension ImageAdjustmentRenderer {
     /// Adjusts the source's unoriented pixels and writes them with its metadata, its orientation tag with
     /// `orientation` performed, and every auxiliary image (gain maps, depth, mattes) carried unchanged.
     /// `destination` must not exist, and exists afterwards only if this returns; `source` is never written.
+    /// `stage` is called as each stage begins, and not after a throw.
     public func renderFile(
         _ adjustments: ImageAdjustmentDescription,
         orientation: OrientationEdit = .up,
         source: URL,
         destination: URL,
-        quality: Double = defaultFileQuality
+        quality: Double = defaultFileQuality,
+        stage: (@Sendable (ImageRenderStage) -> Void)? = nil
     ) throws {
         try renderFile(
             adjustments, orientation: orientation, source: source, destination: destination, quality: quality,
-            expectedOrientation: nil
+            expectedOrientation: nil, stage: stage
         )
     }
 
@@ -35,7 +45,8 @@ extension ImageAdjustmentRenderer {
         source: URL,
         destination: URL,
         quality: Double,
-        expectedOrientation: Int?
+        expectedOrientation: Int?,
+        stage: (@Sendable (ImageRenderStage) -> Void)? = nil
     ) throws {
         guard !FileManager.default.fileExists(atPath: destination.path) else {
             throw ImageAdjustmentRenderError.destinationExists
@@ -43,8 +54,13 @@ extension ImageAdjustmentRenderer {
 
         do {
             let written = try autoreleasepool {
-                try write(adjustments, orientation: orientation, source: source, destination: destination, quality: quality)
+                try write(
+                    adjustments, orientation: orientation, source: source, destination: destination, quality: quality,
+                    stage: stage
+                )
             }
+
+            stage?(.verifying)
 
             try Self.verify(
                 destination,
@@ -69,7 +85,8 @@ extension ImageAdjustmentRenderer {
         orientation: OrientationEdit,
         source url: URL,
         destination: URL,
-        quality: Double
+        quality: Double,
+        stage: (@Sendable (ImageRenderStage) -> Void)?
     ) throws -> Geometry {
         guard let source = CGImageSourceCreateWithURL(url as CFURL, nil),
               let sourceType = CGImageSourceGetType(source),
@@ -104,6 +121,8 @@ extension ImageAdjustmentRenderer {
               )
         else { throw ImageAdjustmentRenderError.unsupportedColorModel }
 
+        stage?(.rendering)
+
         guard let image = context.createCGImage(
             Self.apply(adjustments, to: input),
             from: input.extent,
@@ -130,6 +149,8 @@ extension ImageAdjustmentRenderer {
             guard let info = CGImageSourceCopyAuxiliaryDataInfoAtIndex(source, 0, auxiliaryType) else { continue }
             CGImageDestinationAddAuxiliaryDataInfo(output, auxiliaryType, info)
         }
+
+        stage?(.encoding)
 
         guard CGImageDestinationFinalize(output) else { throw ImageAdjustmentRenderError.encodeFailed }
 
