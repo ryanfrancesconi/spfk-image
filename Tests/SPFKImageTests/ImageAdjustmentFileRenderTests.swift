@@ -108,20 +108,20 @@ final class ImageAdjustmentFileRenderTests {
 
     // MARK: - Pixels
 
-    @Test func theAdjustmentIsInTheWrittenPixels() throws {
+    @Test func theAdjustmentIsInTheWrittenPixels() async throws {
         let source = try AdjustmentFileFixtures.tagged(.jpeg, orientation: 1, in: directory)
         let output = destination(for: source)
 
-        try renderer.renderFile(brighter, source: source, destination: output)
+        try await renderer.renderFile(brighter, source: source, destination: output)
 
         #expect(try meanLuminance(output) > meanLuminance(source) + 20)
     }
 
-    @Test func transparencySurvives() throws {
+    @Test func transparencySurvives() async throws {
         let source = try AdjustmentFileFixtures.halfTransparentPNG(in: directory)
         let output = destination(for: source)
 
-        try renderer.renderFile(brighter, source: source, destination: output)
+        try await renderer.renderFile(brighter, source: source, destination: output)
 
         let image = try decode(output)
         var pixels = [UInt8](repeating: 0, count: image.width * image.height * 4)
@@ -142,35 +142,35 @@ final class ImageAdjustmentFileRenderTests {
         #expect(alpha(image.width * 7 / 8) == 0)
     }
 
-    @Test func grayscaleStaysGrayscale() throws {
+    @Test func grayscaleStaysGrayscale() async throws {
         let source = try AdjustmentFileFixtures.grayJPEG(in: directory)
         let output = destination(for: source)
 
-        try renderer.renderFile(brighter, source: source, destination: output)
+        try await renderer.renderFile(brighter, source: source, destination: output)
 
         #expect(try properties(output)[kCGImagePropertyColorModel as String] as? String == kCGImagePropertyColorModelGray as String)
         #expect(try meanLuminance(output) > meanLuminance(source) + 20)
     }
 
     @Test(arguments: [UTType.png, .tiff])
-    func sixteenBitDepthSurvives(type: UTType) throws {
+    func sixteenBitDepthSurvives(type: UTType) async throws {
         let source = try AdjustmentFileFixtures.sixteenBit(type, in: directory)
         let depth = try #require(try properties(source)[kCGImagePropertyDepth as String] as? Int)
         try #require(depth == 16)
         let output = destination(for: source)
 
-        try renderer.renderFile(brighter, source: source, destination: output)
+        try await renderer.renderFile(brighter, source: source, destination: output)
 
         #expect(try properties(output)[kCGImagePropertyDepth as String] as? Int == depth)
     }
 
-    @Test func qualityReachesTheEncoder() throws {
+    @Test func qualityReachesTheEncoder() async throws {
         let source = try AdjustmentFileFixtures.tagged(.jpeg, orientation: 1, in: directory)
         let low = directory.appendingPathComponent("low-quality.jpg")
         let high = directory.appendingPathComponent("high-quality.jpg")
 
-        try renderer.renderFile(brighter, source: source, destination: low, quality: 0.3)
-        try renderer.renderFile(brighter, source: source, destination: high, quality: 1)
+        try await renderer.renderFile(brighter, source: source, destination: low, quality: 0.3)
+        try await renderer.renderFile(brighter, source: source, destination: high, quality: 1)
 
         let size = { (url: URL) throws -> Int in
             try FileManager.default.attributesOfItem(atPath: url.path)[.size] as? Int ?? 0
@@ -182,11 +182,11 @@ final class ImageAdjustmentFileRenderTests {
     // MARK: - What the file keeps
 
     @Test(arguments: [UTType.jpeg, .heic])
-    func metadataSurvives(type: UTType) throws {
+    func metadataSurvives(type: UTType) async throws {
         let source = try AdjustmentFileFixtures.tagged(type, orientation: 1, in: directory)
         let output = destination(for: source)
 
-        try renderer.renderFile(brighter, source: source, destination: output)
+        try await renderer.renderFile(brighter, source: source, destination: output)
 
         #expect(try captureDate(output) == AdjustmentFileFixtures.captureDate)
         #expect(try latitude(output) == AdjustmentFileFixtures.latitude)
@@ -196,27 +196,27 @@ final class ImageAdjustmentFileRenderTests {
     /// Catches the undocumented orientation option changing behavior: a HEIC written without it reads
     /// back as 1 and displays sideways.
     @Test(arguments: [UTType.jpeg, .heic], [6, 8])
-    func orientationRoundTrips(type: UTType, orientation expected: Int) throws {
+    func orientationRoundTrips(type: UTType, orientation expected: Int) async throws {
         let source = try AdjustmentFileFixtures.tagged(type, orientation: expected, in: directory)
         let output = destination(for: source)
 
-        try renderer.renderFile(brighter, source: source, destination: output)
+        try await renderer.renderFile(brighter, source: source, destination: output)
 
         #expect(try orientation(output) == expected)
         #expect(try uprightSize(output) == uprightSize(source))
     }
 
     @Test(arguments: [UTType.jpeg, .heic])
-    func aGainMapIsCarried(type: UTType) throws {
+    func aGainMapIsCarried(type: UTType) async throws {
         let source = try AdjustmentFileFixtures.gainMapped(type, in: directory)
         let output = destination(for: source)
 
-        try renderer.renderFile(brighter, source: source, destination: output)
+        try await renderer.renderFile(brighter, source: source, destination: output)
 
         #expect(try hasGainMap(output))
     }
 
-    @Test func heicNamedHeifIsWritten() throws {
+    @Test func heicNamedHeifIsWritten() async throws {
         let heic = try AdjustmentFileFixtures.tagged(.heic, orientation: 1, in: directory)
         let source = directory.appendingPathComponent("named.heif")
         try FileManager.default.moveItem(at: heic, to: source)
@@ -225,7 +225,7 @@ final class ImageAdjustmentFileRenderTests {
         try #require(CGImageSourceGetType(sourceRef) as String? == UTType.heif.identifier)
 
         let output = destination(for: source)
-        try renderer.renderFile(brighter, source: source, destination: output)
+        try await renderer.renderFile(brighter, source: source, destination: output)
 
         #expect(try meanLuminance(output) > meanLuminance(source) + 20)
     }
@@ -246,75 +246,75 @@ final class ImageAdjustmentFileRenderTests {
         #expect(try Data(contentsOf: source) == bytes)
     }
 
-    @Test func aMultiPageFileIsRefused() throws {
+    @Test func aMultiPageFileIsRefused() async throws {
         let source = try AdjustmentFileFixtures.twoPageTIFF(in: directory)
         let output = destination(for: source)
 
-        #expect(throws: ImageAdjustmentRenderError.multipleImages) {
-            try self.renderer.renderFile(self.brighter, source: source, destination: output)
+        await #expect(throws: ImageAdjustmentRenderError.multipleImages) {
+            try await self.renderer.renderFile(self.brighter, source: source, destination: output)
         }
 
         #expect(!FileManager.default.fileExists(atPath: output.path))
     }
 
-    @Test func anExistingDestinationIsLeftAlone() throws {
+    @Test func anExistingDestinationIsLeftAlone() async throws {
         let source = try AdjustmentFileFixtures.tagged(.jpeg, orientation: 1, in: directory)
         let output = destination(for: source)
         let occupant = Data("occupied".utf8)
         try occupant.write(to: output)
 
-        #expect(throws: ImageAdjustmentRenderError.destinationExists) {
-            try self.renderer.renderFile(self.brighter, source: source, destination: output)
+        await #expect(throws: ImageAdjustmentRenderError.destinationExists) {
+            try await self.renderer.renderFile(self.brighter, source: source, destination: output)
         }
 
         #expect(try Data(contentsOf: output) == occupant)
     }
 
-    @Test func aCMYKFileIsRefused() throws {
+    @Test func aCMYKFileIsRefused() async throws {
         let source = try AdjustmentFileFixtures.cmykTIFF(in: directory)
         try #require(try properties(source)[kCGImagePropertyColorModel as String] as? String == kCGImagePropertyColorModelCMYK as String)
         let output = destination(for: source)
 
-        #expect(throws: ImageAdjustmentRenderError.unsupportedColorModel) {
-            try self.renderer.renderFile(self.brighter, source: source, destination: output)
+        await #expect(throws: ImageAdjustmentRenderError.unsupportedColorModel) {
+            try await self.renderer.renderFile(self.brighter, source: source, destination: output)
         }
 
         #expect(!FileManager.default.fileExists(atPath: output.path))
     }
 
     /// Core Image reads an indexed file as RGB, so without the refusal it would be written back as truecolor.
-    @Test func anIndexedFileIsRefused() throws {
+    @Test func anIndexedFileIsRefused() async throws {
         let source = try AdjustmentFileFixtures.indexedPNG(in: directory)
         try #require(try properties(source)[kCGImagePropertyIsIndexed as String] as? Bool == true)
         let output = destination(for: source)
 
-        #expect(throws: ImageAdjustmentRenderError.unsupportedColorModel) {
-            try self.renderer.renderFile(self.brighter, source: source, destination: output)
+        await #expect(throws: ImageAdjustmentRenderError.unsupportedColorModel) {
+            try await self.renderer.renderFile(self.brighter, source: source, destination: output)
         }
 
         #expect(!FileManager.default.fileExists(atPath: output.path))
     }
 
-    @Test func aFormatImageIOCannotWriteIsRefused() throws {
+    @Test func aFormatImageIOCannotWriteIsRefused() async throws {
         let source = TestBundleResources.shared.sharksandwich_webp
         let reader = try #require(CGImageSourceCreateWithURL(source as CFURL, nil))
         let sourceType = try #require(CGImageSourceGetType(reader)) as String
         let output = destination(for: source)
 
-        #expect(throws: ImageAdjustmentRenderError.unwritableType(sourceType)) {
-            try self.renderer.renderFile(self.brighter, source: source, destination: output)
+        await #expect(throws: ImageAdjustmentRenderError.unwritableType(sourceType)) {
+            try await self.renderer.renderFile(self.brighter, source: source, destination: output)
         }
 
         #expect(!FileManager.default.fileExists(atPath: output.path))
     }
 
-    @Test func aFileThatIsNotAnImageIsRefused() throws {
+    @Test func aFileThatIsNotAnImageIsRefused() async throws {
         let source = directory.appendingPathComponent("not-an-image.jpg")
         try Data("not an image".utf8).write(to: source)
         let output = destination(for: source)
 
-        #expect(throws: ImageAdjustmentRenderError.unreadable) {
-            try self.renderer.renderFile(self.brighter, source: source, destination: output)
+        await #expect(throws: ImageAdjustmentRenderError.unreadable) {
+            try await self.renderer.renderFile(self.brighter, source: source, destination: output)
         }
 
         #expect(!FileManager.default.fileExists(atPath: output.path))

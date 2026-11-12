@@ -153,22 +153,22 @@ final class ImageOrientationFileTests {
     // MARK: - Render with orientation
 
     @Test(arguments: [UTType.jpeg, .heic], [1, 6])
-    func theRenderWritesTheComposedTag(type: UTType, start: Int) throws {
+    func theRenderWritesTheComposedTag(type: UTType, start: Int) async throws {
         let source = try AdjustmentFileFixtures.tagged(type, orientation: start, in: directory)
         let output = output(for: source)
 
-        try renderer.renderFile(ImageAdjustmentDescription(light: .init(exposure: 1)), orientation: .flippedRight, source: source, destination: output)
+        try await renderer.renderFile(ImageAdjustmentDescription(light: .init(exposure: 1)), orientation: .flippedRight, source: source, destination: output)
 
         #expect(try orientation(output) == OrientationEdit.flippedRight.applied(toFileOrientation: start))
         #expect(try captureDate(output) == AdjustmentFileFixtures.captureDate)
     }
 
     @Test(arguments: [UTType.jpeg, .heic])
-    func theRenderKeepsTheGainMapAligned(type: UTType) throws {
+    func theRenderKeepsTheGainMapAligned(type: UTType) async throws {
         let source = try AdjustmentFileFixtures.gainMapped(type, in: directory)
         let output = output(for: source)
 
-        try renderer.renderFile(ImageAdjustmentDescription(light: .init(exposure: 1)), orientation: .right, source: source, destination: output)
+        try await renderer.renderFile(ImageAdjustmentDescription(light: .init(exposure: 1)), orientation: .right, source: source, destination: output)
 
         #expect(try orientation(output) == OrientationEdit.right.rawValue)
         #expect(try gainMapDisplaysAlignedWithTheImage(output))

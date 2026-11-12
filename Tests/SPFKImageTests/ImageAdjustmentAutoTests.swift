@@ -2,6 +2,7 @@
 
 import CoreImage
 import Foundation
+import SPFKBase
 import SPFKTesting
 import Testing
 

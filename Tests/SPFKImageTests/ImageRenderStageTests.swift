@@ -27,10 +27,10 @@ final class ImageRenderStageTests {
         { [stages] stage in stages.withLock { $0.append(stage) } }
     }
 
-    @Test func stagesAreReportedInOrder() throws {
+    @Test func stagesAreReportedInOrder() async throws {
         let source = try AdjustmentFileFixtures.tagged(.jpeg, orientation: 1, in: directory)
 
-        try renderer.renderFile(
+        try await renderer.renderFile(
             brighter, source: source, destination: directory.appendingPathComponent("out.jpg"), stage: record
         )
 
@@ -51,11 +51,11 @@ final class ImageRenderStageTests {
         #expect(stages.withLock { $0 } == [.rendering, .encoding, .verifying])
     }
 
-    @Test func aRefusedSourceReportsNoStage() throws {
+    @Test func aRefusedSourceReportsNoStage() async throws {
         let source = try AdjustmentFileFixtures.twoPageTIFF(in: directory)
 
-        #expect(throws: ImageAdjustmentRenderError.multipleImages) {
-            try self.renderer.renderFile(
+        await #expect(throws: ImageAdjustmentRenderError.multipleImages) {
+            try await self.renderer.renderFile(
                 self.brighter, source: source, destination: self.directory.appendingPathComponent("out.tiff"),
                 stage: self.record
             )

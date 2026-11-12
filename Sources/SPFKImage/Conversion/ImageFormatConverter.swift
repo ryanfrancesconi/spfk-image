@@ -64,6 +64,8 @@ public struct ImageFormatConverter: Sendable {
         let written = workDirectory.appending(component: converted.output.lastPathComponent, directoryHint: .notDirectory)
 
         try await BlockingCallLimiter.shared.run {
+            try Task.checkCancellation()
+
             try autoreleasepool {
                 try write(to: written, type: type)
             }

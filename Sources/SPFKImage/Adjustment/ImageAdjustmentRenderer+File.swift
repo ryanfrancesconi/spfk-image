@@ -23,7 +23,8 @@ extension ImageAdjustmentRenderer {
     /// Adjusts the source's unoriented pixels and writes them with its metadata, its orientation tag with
     /// `orientation` performed, and every auxiliary image (gain maps, depth, mattes) carried unchanged.
     /// `destination` must not exist, and exists afterwards only if this returns; `source` is never written.
-    /// `stage` is called as each stage begins, and not after a throw.
+    /// `stage` is called as each stage begins, and not after a throw. Waits for a ``BlockingCallLimiter`` slot,
+    /// since an AV1 encode blocks its thread.
     public func renderFile(
         _ adjustments: ImageAdjustmentDescription,
         orientation: OrientationEdit = .up,
@@ -31,11 +32,15 @@ extension ImageAdjustmentRenderer {
         destination: URL,
         quality: Double = defaultFileQuality,
         stage: (@Sendable (ImageRenderStage) -> Void)? = nil
-    ) throws {
-        try renderFile(
-            adjustments, orientation: orientation, source: source, destination: destination, quality: quality,
-            expectedOrientation: nil, stage: stage
-        )
+    ) async throws {
+        try await BlockingCallLimiter.shared.run {
+            try Task.checkCancellation()
+
+            try renderFile(
+                adjustments, orientation: orientation, source: source, destination: destination, quality: quality,
+                expectedOrientation: nil, stage: stage
+            )
+        }
     }
 
     /// `expectedOrientation` replaces the orientation the read-back requires, so a test can force a mismatch.
