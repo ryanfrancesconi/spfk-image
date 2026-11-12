@@ -12,13 +12,13 @@ extension ImageAdjustmentRenderer {
     /// The enhancement analyzes the balanced image because Temperature and Tint render before the
     /// levels it sets. `image` is the unadjusted source, upright: the analysis detects faces, which is
     /// orientation sensitive.
-    public static func autoAdjustments(for image: CIImage) -> ImageAdjustmentDescription {
+    public static func autoAdjustments(for image: CIImage) async -> ImageAdjustmentDescription {
         let balance = autoWhiteBalance(for: image)
         let balanced = balance.color.temperature == 0 && balance.color.tint == 0
             ? image
             : temperatureAndTint(image, temperature: balance.color.temperature, tint: balance.color.tint).cropped(to: image.extent)
 
-        var result = enhancement(for: balanced)
+        var result = await enhancement(for: balanced)
         result.color.temperature = balance.color.temperature
         result.color.tint = balance.color.tint
         return result
@@ -26,10 +26,14 @@ extension ImageAdjustmentRenderer {
 
     /// Core Image's automatic enhancement of `image` alone. Face balance and red-eye have no field and
     /// are dropped.
-    static func enhancement(for image: CIImage) -> ImageAdjustmentDescription {
+    static func enhancement(for image: CIImage) async -> ImageAdjustmentDescription {
         var result = ImageAdjustmentDescription()
 
-        for filter in image.autoAdjustmentFilters(options: [.redEye: false]) {
+        let filters = await BlockingCallLimiter.shared.run {
+            image.autoAdjustmentFilters(options: [.redEye: false])
+        }
+
+        for filter in filters {
             switch filter.name {
             case "CIVibrance":
                 result.color.vibrance = number(filter, kCIInputAmountKey)
@@ -57,13 +61,14 @@ extension ImageAdjustmentRenderer {
         contentsOf url: URL,
         orientation: OrientationEdit = .up,
         kind: ImageAutoAdjustment = .adjust
-    ) -> ImageAdjustmentDescription? {
-        autoreleasepool {
-            guard let decoded = StillImageThumbnail.make(url: url, maxPixelSize: autoAnalysisSize, allowsEmbeddedThumbnail: false)
-            else { return nil }
-
-            return kind.analyze(orientation.apply(to: CIImage(cgImage: decoded)))
+    ) async -> ImageAdjustmentDescription? {
+        let image = autoreleasepool {
+            StillImageThumbnail.make(url: url, maxPixelSize: autoAnalysisSize, allowsEmbeddedThumbnail: false)
+                .map { orientation.apply(to: CIImage(cgImage: $0)) }
         }
+
+        guard let image else { return nil }
+        return await kind.analyze(image)
     }
 
     /// The long edge Auto analyzes at, whatever the file's size, so a file gets the same result
@@ -102,9 +107,9 @@ public enum ImageAutoAdjustment: Sendable, CaseIterable {
     }
 
     /// `image` is the unadjusted source, upright.
-    public func analyze(_ image: CIImage) -> ImageAdjustmentDescription {
+    public func analyze(_ image: CIImage) async -> ImageAdjustmentDescription {
         switch self {
-        case .adjust: ImageAdjustmentRenderer.autoAdjustments(for: image)
+        case .adjust: await ImageAdjustmentRenderer.autoAdjustments(for: image)
         case .whiteBalance: ImageAdjustmentRenderer.autoWhiteBalance(for: image)
         }
     }

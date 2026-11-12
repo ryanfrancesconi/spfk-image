@@ -63,7 +63,7 @@ final class ImageFormatConverterMetadataTests: BinTestCase {
         _ metadata: ImageMetadataCopyScheme,
         maxPixelSize: Int? = nil,
         conflictScheme: FileConflictScheme = .overwrite
-    ) throws -> URL {
+    ) async throws -> URL {
         let type = try #require(UTType(identifier))
         let output = bin.appending(component: "\(metadata.rawValue)-\(maxPixelSize ?? 0)", directoryHint: .notDirectory)
             .appendingPathExtension(for: type)
@@ -72,7 +72,7 @@ final class ImageFormatConverterMetadataTests: BinTestCase {
             format: identifier, maxPixelSize: maxPixelSize, conflictScheme: conflictScheme, metadata: metadata
         )
 
-        return try ImageFormatConverter(
+        return try await ImageFormatConverter(
             source: ImageConversionSource(input: input, output: output, options: options)
         ).convert().output
     }
@@ -100,9 +100,9 @@ final class ImageFormatConverterMetadataTests: BinTestCase {
     // MARK: - Schemes
 
     @Test(arguments: keepingTypes)
-    func copyAllKeepsEveryField(identifier: String) throws {
+    func copyAllKeepsEveryField(identifier: String) async throws {
         let source = try taggedSource()
-        let output = try convert(source.url, to: identifier, .copyAll)
+        let output = try await convert(source.url, to: identifier, .copyAll)
         let written = try readBack(output)
 
         #expect(written.displayedSize == source.readBack.displayedSize)
@@ -120,9 +120,9 @@ final class ImageFormatConverterMetadataTests: BinTestCase {
     }
 
     @Test(arguments: keepingTypes)
-    func copyAllExceptLocationRemovesOnlyTheLocation(identifier: String) throws {
+    func copyAllExceptLocationRemovesOnlyTheLocation(identifier: String) async throws {
         let source = try taggedSource()
-        let output = try convert(source.url, to: identifier, .copyAllExceptLocation)
+        let output = try await convert(source.url, to: identifier, .copyAllExceptLocation)
         let written = try readBack(output)
 
         #expect(written.gps.isEmpty)
@@ -135,9 +135,9 @@ final class ImageFormatConverterMetadataTests: BinTestCase {
     }
 
     @Test(arguments: keepingTypes)
-    func stripAllKeepsOnlyTheImage(identifier: String) throws {
+    func stripAllKeepsOnlyTheImage(identifier: String) async throws {
         let source = try taggedSource()
-        let output = try convert(source.url, to: identifier, .stripAll)
+        let output = try await convert(source.url, to: identifier, .stripAll)
         let written = try readBack(output)
 
         #expect(written.displayedSize == source.readBack.displayedSize)
@@ -152,9 +152,9 @@ final class ImageFormatConverterMetadataTests: BinTestCase {
 
     /// A resize into JPEG goes through the render path, which must honor the scheme as the transcode does.
     @Test(arguments: ImageMetadataCopyScheme.allCases)
-    func aResizedJPEGHonorsTheScheme(metadata: ImageMetadataCopyScheme) throws {
+    func aResizedJPEGHonorsTheScheme(metadata: ImageMetadataCopyScheme) async throws {
         let source = try taggedSource()
-        let written = try readBack(convert(source.url, to: UTType.jpeg.identifier, metadata, maxPixelSize: 400))
+        let written = try await readBack(convert(source.url, to: UTType.jpeg.identifier, metadata, maxPixelSize: 400))
 
         #expect(written.paths.contains("photoshop:LabelColor") == (metadata != .stripAll))
         #expect(written.gps.isEmpty == (metadata != .copyAll))
@@ -162,9 +162,9 @@ final class ImageFormatConverterMetadataTests: BinTestCase {
 
     #if os(macOS)
     /// The replaced file's own tags are not carried into its replacement.
-    @Test func replacingATaggedOutputUnderStripAllLeavesNoTags() throws {
+    @Test func replacingATaggedOutputUnderStripAllLeavesNoTags() async throws {
         let source = try taggedSource()
-        let first = try convert(source.url, to: UTType.heic.identifier, .copyAll)
+        let first = try await convert(source.url, to: UTType.heic.identifier, .copyAll)
         try #require(first.tagNames.isNotEmpty)
 
         let stripped = bin.appending(component: "\(ImageMetadataCopyScheme.stripAll.rawValue)-0", directoryHint: .notDirectory)
@@ -172,53 +172,53 @@ final class ImageFormatConverterMetadataTests: BinTestCase {
         try FileManager.default.copyItem(at: first, to: stripped)
         try #require(stripped.tagNames.isNotEmpty)
 
-        let output = try convert(source.url, to: UTType.heic.identifier, .stripAll)
+        let output = try await convert(source.url, to: UTType.heic.identifier, .stripAll)
 
         #expect(output == stripped)
         #expect(output.tagNames.isEmpty)
     }
     #endif
 
-    @Test func anUnreadableSourceIsRefusedWithAReason() throws {
+    @Test func anUnreadableSourceIsRefusedWithAReason() async throws {
         let input = bin.appending(component: "broken.jpg", directoryHint: .notDirectory)
         try Data("not an image".utf8).write(to: input)
 
-        #expect(throws: ImageConversionError.unreadable(input)) {
-            try self.convert(input, to: UTType.heic.identifier, .copyAll)
+        await #expect(throws: ImageConversionError.unreadable(input)) {
+            try await self.convert(input, to: UTType.heic.identifier, .copyAll)
         }
     }
 
     /// SVG renders through `SVGImage` elsewhere, but Convert reads pixels through ImageIO.
-    @Test func anSVGSourceIsUnreadable() throws {
+    @Test func anSVGSourceIsUnreadable() async throws {
         let input = bin.appending(component: "icon.svg", directoryHint: .notDirectory)
         try Data(#"<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10"><rect width="10" height="10"/></svg>"#.utf8).write(to: input)
 
-        #expect(throws: ImageConversionError.unreadable(input)) {
-            try self.convert(input, to: UTType.png.identifier, .copyAll)
+        await #expect(throws: ImageConversionError.unreadable(input)) {
+            try await self.convert(input, to: UTType.png.identifier, .copyAll)
         }
     }
 
     // MARK: - Gain maps
 
     @Test(arguments: [UTType.jpeg.identifier, UTType.heic.identifier, "public.avif"])
-    func stripAllKeepsTheGainMap(identifier: String) throws {
+    func stripAllKeepsTheGainMap(identifier: String) async throws {
         let input = try AdjustmentFileFixtures.gainMapped(.heic, in: bin)
-        let output = try convert(input, to: identifier, .stripAll)
+        let output = try await convert(input, to: identifier, .stripAll)
         let written = try #require(CGImageSourceCreateWithURL(output as CFURL, nil))
 
         #expect(CGImageSourceCopyAuxiliaryDataInfoAtIndex(written, 0, kCGImageAuxiliaryDataTypeHDRGainMap) != nil)
     }
 
-    @Test func aResizedJPEGKeepsItsGainMap() throws {
+    @Test func aResizedJPEGKeepsItsGainMap() async throws {
         let input = try AdjustmentFileFixtures.gainMapped(.jpeg, in: bin)
-        let output = try convert(input, to: UTType.jpeg.identifier, .copyAll, maxPixelSize: 400)
+        let output = try await convert(input, to: UTType.jpeg.identifier, .copyAll, maxPixelSize: 400)
         let written = try #require(CGImageSourceCreateWithURL(output as CFURL, nil))
 
         #expect(CGImageSourceCopyAuxiliaryDataInfoAtIndex(written, 0, kCGImageAuxiliaryDataTypeHDRGainMap) != nil)
     }
 
     /// AVIF renders upright, so a rotated source's gain map has to turn with its pixels or it lights the wrong areas.
-    @Test func aRotatedGainMapTurnsWithTheImage() throws {
+    @Test func aRotatedGainMapTurnsWithTheImage() async throws {
         let input = try ConversionFixtures.rotatedGainMap(orientation: 6, in: bin)
         let source = try #require(CGImageSourceCreateWithURL(input as CFURL, nil))
         let sourceMap = try #require(
@@ -229,7 +229,7 @@ final class ImageFormatConverterMetadataTests: BinTestCase {
         let sourceHeight = try #require(sourceDescription["Height"] as? Int)
         try #require(sourceWidth != sourceHeight)
 
-        let output = try convert(input, to: "public.avif", .copyAll)
+        let output = try await convert(input, to: "public.avif", .copyAll)
         let written = try #require(CGImageSourceCreateWithURL(output as CFURL, nil))
         let writtenMap = try #require(
             CGImageSourceCopyAuxiliaryDataInfoAtIndex(written, 0, kCGImageAuxiliaryDataTypeHDRGainMap) as? [String: Any]

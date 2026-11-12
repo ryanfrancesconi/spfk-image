@@ -66,11 +66,11 @@ final class ImageFormatConverterEncoderTests: BinTestCase {
         try #require(!ImageFormatConverter.writableTypeIdentifiers.contains(UTType.webP.identifier))
     }
 
-    private func convert(_ input: URL, named name: String, encoder: PNGStandInEncoder = .init(), maxPixelSize: Int? = nil) throws -> URL {
+    private func convert(_ input: URL, named name: String, encoder: PNGStandInEncoder = .init(), maxPixelSize: Int? = nil) async throws -> URL {
         let output = bin.appending(component: name, directoryHint: .notDirectory).appendingPathExtension("png")
         let options = ImageConversionOptions(format: UTType.webP.identifier, maxPixelSize: maxPixelSize)
 
-        return try ImageFormatConverter(
+        return try await ImageFormatConverter(
             source: ImageConversionSource(input: input, output: output, options: options),
             formats: ImageConversionFormats(encoders: [encoder])
         ).convert().output
@@ -166,34 +166,34 @@ final class ImageFormatConverterEncoderTests: BinTestCase {
 
     // MARK: - Conversion
 
-    @Test func aRotatedSourceReachesTheEncoderUpright() throws {
+    @Test func aRotatedSourceReachesTheEncoderUpright() async throws {
         try requireWebPIsReadOnly()
 
         let input = try AdjustmentFileFixtures.tagged(.jpeg, orientation: 6, in: bin)
         let stored = try pixelSize(properties(input))
 
-        let output = try properties(convert(input, named: "upright"))
+        let output = try await properties(convert(input, named: "upright"))
 
         #expect(try pixelSize(output) == .init(width: stored.height, height: stored.width))
         #expect(output[kCGImagePropertyOrientation as String] as? Int ?? 1 == 1)
     }
 
-    @Test func anImageLargerThanTheEncoderHoldsIsRefusedUntilLimited() throws {
+    @Test func anImageLargerThanTheEncoderHoldsIsRefusedUntilLimited() async throws {
         try requireWebPIsReadOnly()
 
         let input = try AdjustmentFileFixtures.tagged(.jpeg, orientation: 1, in: bin)
         let encoder = PNGStandInEncoder(maxPixelSize: 100)
 
-        #expect(throws: ImageConversionError.exceedsMaxPixelSize(UTType.webP.identifier, 100)) {
-            try self.convert(input, named: "refused", encoder: encoder)
+        await #expect(throws: ImageConversionError.exceedsMaxPixelSize(UTType.webP.identifier, 100)) {
+            try await self.convert(input, named: "refused", encoder: encoder)
         }
 
-        let limited = try pixelSize(properties(convert(input, named: "limited", encoder: encoder, maxPixelSize: 100)))
+        let limited = try await pixelSize(properties(convert(input, named: "limited", encoder: encoder, maxPixelSize: 100)))
         #expect(max(limited.width, limited.height) == 100)
     }
 
     /// An output that reads back at the wrong size never replaces the file already at its path.
-    @Test func anEncoderWritingTheWrongSizeLeavesTheExistingOutput() throws {
+    @Test func anEncoderWritingTheWrongSizeLeavesTheExistingOutput() async throws {
         try requireWebPIsReadOnly()
 
         let input = try AdjustmentFileFixtures.tagged(.jpeg, orientation: 1, in: bin)
@@ -201,8 +201,8 @@ final class ImageFormatConverterEncoderTests: BinTestCase {
         let existing = Data("existing".utf8)
         try existing.write(to: output)
 
-        #expect(throws: ImageConversionError.readBackMismatch) {
-            try self.convert(input, named: "existing", encoder: PNGStandInEncoder(writesOnePixel: true))
+        await #expect(throws: ImageConversionError.readBackMismatch) {
+            try await self.convert(input, named: "existing", encoder: PNGStandInEncoder(writesOnePixel: true))
         }
         #expect(try Data(contentsOf: output) == existing)
     }
@@ -222,7 +222,7 @@ final class ImageFormatConverterEncoderTests: BinTestCase {
         )
 
         await #expect(throws: CancellationError.self) {
-            try await Task { try converter.convert() }.value
+            try await Task { try await converter.convert() }.value
         }
         #expect(try Data(contentsOf: output) == existing)
     }

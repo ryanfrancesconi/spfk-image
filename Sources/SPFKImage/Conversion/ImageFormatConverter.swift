@@ -23,7 +23,7 @@ public struct ImageFormatConverter: Sendable {
 
     /// Converts the source's primary image and returns the source as written, its output renamed by a
     /// `.unique` conflict. Neither `input` nor `originalInput` is ever written.
-    public func convert() throws -> ImageConversionSource {
+    public func convert() async throws -> ImageConversionSource {
         try Task.checkCancellation()
 
         // Ahead of the conflict handling, which replaces an existing output.
@@ -63,8 +63,10 @@ public struct ImageFormatConverter: Sendable {
 
         let written = workDirectory.appending(component: converted.output.lastPathComponent, directoryHint: .notDirectory)
 
-        try autoreleasepool {
-            try write(to: written, type: type)
+        try await BlockingCallLimiter.shared.run {
+            try autoreleasepool {
+                try write(to: written, type: type)
+            }
         }
 
         #if os(macOS)

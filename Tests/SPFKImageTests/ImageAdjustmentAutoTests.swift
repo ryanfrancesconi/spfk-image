@@ -50,12 +50,14 @@ final class ImageAdjustmentAutoTests {
 
     /// `image` white balanced by `balance`, then through Apple's own enhancement filters for the
     /// balanced image.
-    private func appleReference(_ image: CIImage, balance: ImageAdjustmentDescription) throws -> CIImage {
+    private func appleReference(_ image: CIImage, balance: ImageAdjustmentDescription) async throws -> CIImage {
         let balanced = ImageAdjustmentRenderer.temperatureAndTint(image, temperature: balance.color.temperature, tint: balance.color.tint)
             .cropped(to: image.extent)
 
+        let filters = await BlockingCallLimiter.shared.run { balanced.autoAdjustmentFilters(options: [.redEye: false]) }
+
         var apple = balanced
-        for filter in balanced.autoAdjustmentFilters(options: [.redEye: false]) {
+        for filter in filters {
             filter.setValue(apple, forKey: kCIInputImageKey)
             apple = try #require(filter.outputImage)
         }
@@ -63,11 +65,11 @@ final class ImageAdjustmentAutoTests {
     }
 
     @Test(arguments: fixtures)
-    func autoRendersCloseToCoreImagesFilters(url: URL) throws {
+    func autoRendersCloseToCoreImagesFilters(url: URL) async throws {
         let image = try analysisImage(url)
 
-        let auto = ImageAdjustmentRenderer.autoAdjustments(for: image)
-        let apple = try appleReference(image, balance: auto)
+        let auto = await ImageAdjustmentRenderer.autoAdjustments(for: image)
+        let apple = try await appleReference(image, balance: auto)
         let ours = ImageAdjustmentRenderer.apply(auto, to: image)
         let measured = try psnr(pixels(apple), pixels(ours))
 
@@ -80,12 +82,12 @@ final class ImageAdjustmentAutoTests {
     /// The enhancement analyzed on the unbalanced image, as Phase 9 first built it, against analyzing the
     /// balanced one; both measured against Apple's filters after the same white balance.
     @Test(arguments: fixtures)
-    func analyzingTheBalancedImageIsNoWorse(url: URL) throws {
+    func analyzingTheBalancedImageIsNoWorse(url: URL) async throws {
         let image = try analysisImage(url)
-        let auto = ImageAdjustmentRenderer.autoAdjustments(for: image)
-        let apple = try pixels(appleReference(image, balance: auto))
+        let auto = await ImageAdjustmentRenderer.autoAdjustments(for: image)
+        let apple = try await pixels(appleReference(image, balance: auto))
 
-        var unbalanced = ImageAdjustmentRenderer.enhancement(for: image)
+        var unbalanced = await ImageAdjustmentRenderer.enhancement(for: image)
         unbalanced.color.temperature = auto.color.temperature
         unbalanced.color.tint = auto.color.tint
 
@@ -96,12 +98,14 @@ final class ImageAdjustmentAutoTests {
         #expect(balancedPSNR >= unbalancedPSNR - 1)
     }
 
-    @Test func autoFromAFileMatchesItsAnalysisDecodeAndRepeats() throws {
+    @Test func autoFromAFileMatchesItsAnalysisDecodeAndRepeats() async throws {
         let url = TestBundleResources.shared.songbird
-        let first = try #require(ImageAdjustmentRenderer.autoAdjustments(contentsOf: url))
+        let first = try #require(await ImageAdjustmentRenderer.autoAdjustments(contentsOf: url))
+        let fromImage = await ImageAdjustmentRenderer.autoAdjustments(for: try analysisImage(url))
+        let again = await ImageAdjustmentRenderer.autoAdjustments(contentsOf: url)
 
-        #expect(first == ImageAdjustmentRenderer.autoAdjustments(for: try analysisImage(url)))
-        #expect(first == ImageAdjustmentRenderer.autoAdjustments(contentsOf: url))
+        #expect(first == fromImage)
+        #expect(first == again)
     }
 
     @Test func inputPositionInvertsTheCurveBetweenItsPoints() {

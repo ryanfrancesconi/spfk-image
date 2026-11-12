@@ -198,11 +198,11 @@ extension ImageOrientationFileTests {
 
     /// Export renders the edit on top of the file's own tag, whichever route the format would otherwise take.
     @Test(arguments: [UTType.png, .tiff], [OrientationEdit.right, .upMirrored, .leftMirrored])
-    func anExportRendersTheEditOverTheFilesTag(format: UTType, edit: OrientationEdit) throws {
+    func anExportRendersTheEditOverTheFilesTag(format: UTType, edit: OrientationEdit) async throws {
         let source = try gridFile(.png, orientation: 6)
         let output = directory.appendingPathComponent("export-\(edit.rawValue)").appendingPathExtension(for: format)
 
-        let written = try ImageFormatConverter(
+        let written = try await ImageFormatConverter(
             source: ImageConversionSource(
                 input: source,
                 output: output,

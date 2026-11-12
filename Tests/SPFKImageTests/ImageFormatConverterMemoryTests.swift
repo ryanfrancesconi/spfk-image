@@ -53,7 +53,7 @@ final class ImageFormatConverterMemoryTests: BinTestCase {
         let grown = try await retainedMemoryMB(warmUp: 16, measured: 60, width: 8) { index in
             let output = bin.appendingPathComponent("out-\(index).heic")
             let source = ImageConversionSource(input: input, output: output, options: options)
-            _ = try ImageFormatConverter(source: source).convert()
+            _ = try await ImageFormatConverter(source: source).convert()
             try FileManager.default.removeItem(at: output)
         }
 

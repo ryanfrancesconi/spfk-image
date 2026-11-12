@@ -23,10 +23,10 @@ final class ImageFormatConverterAdjustmentTests: BinTestCase {
         format: UTType = .png,
         adjustments: ImageAdjustmentDescription?,
         formats: ImageConversionFormats = ImageConversionFormats()
-    ) throws -> URL {
+    ) async throws -> URL {
         let output = bin.appending(component: name, directoryHint: .notDirectory).appendingPathExtension("png")
 
-        return try ImageFormatConverter(
+        return try await ImageFormatConverter(
             source: ImageConversionSource(
                 input: input,
                 output: output,
@@ -69,35 +69,35 @@ final class ImageFormatConverterAdjustmentTests: BinTestCase {
 
     // MARK: - Tests
 
-    @Test func adjustmentsReachTheOutputAndTheSourceIsUntouched() throws {
+    @Test func adjustmentsReachTheOutputAndTheSourceIsUntouched() async throws {
         let input = try AdjustmentFileFixtures.tagged(.jpeg, orientation: 6, in: bin)
         let before = try Data(contentsOf: input)
 
-        let plain = try convert(input, named: "plain", adjustments: nil)
-        let adjusted = try convert(input, named: "adjusted", adjustments: brighter)
+        let plain = try await convert(input, named: "plain", adjustments: nil)
+        let adjusted = try await convert(input, named: "adjusted", adjustments: brighter)
 
         #expect(try meanLuminance(adjusted) > meanLuminance(plain) + 20)
         #expect(try Data(contentsOf: input) == before)
     }
 
     /// The encoder branch returns before a route is chosen, so the adjustments must not depend on one.
-    @Test func adjustmentsReachAnEncoderOutput() throws {
+    @Test func adjustmentsReachAnEncoderOutput() async throws {
         let input = try AdjustmentFileFixtures.tagged(.jpeg, orientation: 1, in: bin)
         let before = try Data(contentsOf: input)
         let formats = ImageConversionFormats(encoders: [ImageFormatConverterEncoderTests.PNGStandInEncoder()])
 
-        let plain = try convert(input, named: "plain", format: .webP, adjustments: nil, formats: formats)
-        let adjusted = try convert(input, named: "adjusted", format: .webP, adjustments: brighter, formats: formats)
+        let plain = try await convert(input, named: "plain", format: .webP, adjustments: nil, formats: formats)
+        let adjusted = try await convert(input, named: "adjusted", format: .webP, adjustments: brighter, formats: formats)
 
         #expect(try meanLuminance(adjusted) > meanLuminance(plain) + 20)
         #expect(try Data(contentsOf: input) == before)
     }
 
-    @Test func anAdjustedDisplayP3SourceStaysDisplayP3() throws {
+    @Test func anAdjustedDisplayP3SourceStaysDisplayP3() async throws {
         let input = try displayP3PNG()
         try #require((try properties(input)[kCGImagePropertyProfileName as String] as? String)?.contains("P3") == true)
 
-        let adjusted = try convert(input, named: "adjusted", adjustments: brighter)
+        let adjusted = try await convert(input, named: "adjusted", adjustments: brighter)
 
         #expect((try properties(adjusted)[kCGImagePropertyProfileName as String] as? String)?.contains("P3") == true)
     }
