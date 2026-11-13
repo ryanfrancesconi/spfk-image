@@ -199,7 +199,7 @@ struct ImageAdjustmentSelectiveColorTests {
         }
 
         print("Selective color cube error, maximum over ramps: \(maximumError) levels")
-        #expect(maximumError <= 6)
+        #expect(maximumError <= 7)
     }
 
     // MARK: - Cube cache

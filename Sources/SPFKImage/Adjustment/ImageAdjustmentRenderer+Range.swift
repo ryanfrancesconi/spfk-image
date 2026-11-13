@@ -11,7 +11,11 @@ extension ImageAdjustmentRenderer {
     ///
     /// `step` must render a value outside 0…1 as it renders that value clamped, as Core Image's blend
     /// modes and color cubes do, and keep its input's alpha.
+    ///
+    /// `image` is read twice, so it renders once into an intermediate; otherwise every step upstream
+    /// is evaluated once per read, doubling at each such step in a chain.
     static func preservingRange(_ image: CIImage, _ step: (CIImage) -> CIImage) -> CIImage {
+        let image = image.insertingIntermediate(cache: false)
         let negatedClamp = matrix(
             image.applyingFilter("CIColorClamp"),
             r: CIVector(x: -1, y: 0, z: 0, w: 0),
