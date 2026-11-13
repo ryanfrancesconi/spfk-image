@@ -20,18 +20,18 @@ struct ImageAdjustmentAvailabilityTests {
         return description
     }
 
-    @Test func videoLeavesOutGrainAndTheLocalDetailSteps() {
-        let full = Self.full
-        let restricted = full.restricted(to: .video)
-        let left: Set<ImageAdjustmentDescription.Parameter> = [.brilliance, .definition, .noiseReduction]
+    @Test func videoKeepsEverything() {
+        #expect(Self.full.restricted(to: .video) == Self.full)
+    }
 
-        for parameter in ImageAdjustmentDescription.Parameter.allCases {
-            let kept = parameter.group != .grain && !left.contains(parameter)
-            #expect(restricted[parameter] == (kept ? full[parameter] : 0), "\(parameter)")
-        }
+    @Test func anExcludedParameterGoesToNeutral() {
+        let restricted = Self.full.restricted(to: .init(groups: [.light, .detail], excludedParameters: [.brilliance, .definition]))
 
-        #expect(restricted.curves == full.curves)
-        #expect(restricted.bypassed == Set(ImageAdjustmentDescription.Group.allCases).subtracting([.grain]))
+        #expect(restricted.light.brilliance == 0)
+        #expect(restricted.detail.definition == 0)
+        #expect(restricted.light.exposure == Self.full.light.exposure)
+        #expect(restricted.detail.noiseReduction == Self.full.detail.noiseReduction)
+        #expect(restricted.bypassed == [.light, .detail])
     }
 
     @Test func aGroupLeftOutLosesItsCurvePoints() {
