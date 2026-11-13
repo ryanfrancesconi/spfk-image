@@ -162,16 +162,19 @@ public struct ImageAdjustmentRenderer: Sendable {
         return filter.outputImage ?? image
     }
 
-    /// `CIToneCurve` works on sRGB-encoded values and clamps its output to 0…1.
+    /// `CIToneCurve` works on sRGB-encoded values and clamps its output to 0…1, so a value outside
+    /// 0…1 continues from the curve's end at 0 or 1 (see ``preservingRange(_:_:)``).
     static func toneCurve(_ image: CIImage, _ points: [CGPoint]) -> CIImage {
-        let filter = CIFilter.toneCurve()
-        filter.inputImage = image
-        filter.point0 = points[0]
-        filter.point1 = points[1]
-        filter.point2 = points[2]
-        filter.point3 = points[3]
-        filter.point4 = points[4]
-        return filter.outputImage ?? image
+        preservingRange(image) { image in
+            let filter = CIFilter.toneCurve()
+            filter.inputImage = image
+            filter.point0 = points[0]
+            filter.point1 = points[1]
+            filter.point2 = points[2]
+            filter.point3 = points[3]
+            filter.point4 = points[4]
+            return filter.outputImage ?? image
+        }
     }
 
     /// A straight line in sRGB-encoded values. Positive maps `value × maximumBlackPoint` to 0 and

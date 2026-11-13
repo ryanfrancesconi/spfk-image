@@ -11,15 +11,20 @@ extension ImageAdjustmentRenderer {
     /// `CIColorCurves` works on sRGB-encoded values only when given this space; without it, on linear.
     private static let curvesColorSpace = CGColorSpace(name: CGColorSpace.sRGB)
 
+    /// A value outside 0…1 continues from the curve's end at 0 or 1 (see ``preservingRange(_:_:)``).
     static func curves(_ image: CIImage, _ curves: ImageToneCurves) -> CIImage {
-        let filter = CIFilter.colorCurves()
-        filter.inputImage = image
-        filter.curvesData = curvesTable(curves).withUnsafeBufferPointer { Data(buffer: $0) }
-        filter.curvesDomain = CIVector(x: 0, y: 1)
-        if let curvesColorSpace {
-            filter.colorSpace = curvesColorSpace
+        let data = curvesTable(curves).withUnsafeBufferPointer { Data(buffer: $0) }
+
+        return preservingRange(image) { image in
+            let filter = CIFilter.colorCurves()
+            filter.inputImage = image
+            filter.curvesData = data
+            filter.curvesDomain = CIVector(x: 0, y: 1)
+            if let curvesColorSpace {
+                filter.colorSpace = curvesColorSpace
+            }
+            return filter.outputImage ?? image
         }
-        return filter.outputImage ?? image
     }
 
     /// Interleaved red, green and blue outputs at `count` evenly spaced inputs: each channel's curve

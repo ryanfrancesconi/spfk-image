@@ -1,6 +1,7 @@
 // Copyright Ryan Francesconi. All Rights Reserved. Revision History at https://github.com/ryanfrancesconi/spfk-image
 
 import CoreImage
+import CoreImage.CIFilterBuiltins
 import Foundation
 @testable import SPFKImage
 import Testing
@@ -55,5 +56,46 @@ struct ImageAdjustmentRangeTests {
     @Test func colorGradingPassesAnHDRWhiteThrough() throws {
         let output = try pixels(.init(colorGrading: .init(highlights: .init(saturation: 1))), flat(1.5, 1.5, 1.5))
         #expect(output.allSatisfy { abs($0.x - 1.5) < 0.005 && abs($0.y - 1.5) < 0.005 && abs($0.z - 1.5) < 0.005 })
+    }
+
+    /// A tone curve's end at white carries on above it, so an HDR highlight keeps its distance above 1.
+    @Test func toneCurvesContinueAboveWhite() throws {
+        for adjustments in [
+            ImageAdjustmentDescription(light: .init(brightness: 0.5)),
+            ImageAdjustmentDescription(levels: .init(shadow: 0.2)),
+            ImageAdjustmentDescription(curves: ImageToneCurves(rgb: [.init(x: 0, y: 0), .init(x: 0.5, y: 0.7), .init(x: 1, y: 1)])),
+        ] {
+            let output = try pixels(adjustments, flat(1.5, 1.5, 1.5))
+            #expect(output.allSatisfy { abs($0.x - 1.5) < 0.005 && abs($0.y - 1.5) < 0.005 && abs($0.z - 1.5) < 0.005 })
+        }
+    }
+
+    /// A white point lowering white lowers what lies above it by the same amount, with no step at 1.
+    @Test func aLoweredWhitePointHasNoStepAtWhite() throws {
+        let adjustments = ImageAdjustmentDescription(light: .init(whitePoint: -0.5))
+        let atWhite = try pixels(adjustments, flat(1, 1, 1))[0].x
+        let above = try pixels(adjustments, flat(1.01, 1.01, 1.01))[0].x
+        #expect(above > atWhite)
+        #expect(above - atWhite < 0.02)
+    }
+
+    /// Below 1 the steps render as Core Image's clamping filters do, within the carry's rounding.
+    @Test func toneCurvesLeaveInRangeValuesAsBefore() throws {
+        let image = try flat(0.4, 0.3, 0.2)
+        let points = ImageAdjustmentRenderer.brightnessCurve(0.5)
+
+        let filter = CIFilter.toneCurve()
+        filter.inputImage = image
+        filter.point0 = points[0]
+        filter.point1 = points[1]
+        filter.point2 = points[2]
+        filter.point3 = points[3]
+        filter.point4 = points[4]
+        let reference = try ImageAdjustmentChainPinTests.floatPixels(try #require(filter.outputImage), context: context)
+        let rendered = try ImageAdjustmentChainPinTests.floatPixels(ImageAdjustmentRenderer.toneCurve(image, points), context: context)
+
+        try #require(rendered.count == reference.count)
+        let maximumDifference = zip(rendered, reference).map { abs($0 - $1) }.max() ?? 0
+        #expect(maximumDifference < 0.001)
     }
 }
