@@ -10,7 +10,7 @@ extension CGImage {
     /// images a store has already written.
     ///
     /// The buffer goes through `combine(bytes:)` rather than `combine(_: Data)`, which hashes
-    /// only a leading slice — covers sharing a plain band above the artwork collide under it.
+    /// only a leading slice - covers sharing a plain band above the artwork collide under it.
     public var fingerprint: Int? {
         guard let data = dataProvider?.data as Data? else { return nil }
 

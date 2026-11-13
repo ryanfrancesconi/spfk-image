@@ -2,7 +2,7 @@
 
 import Foundation
 
-/// A smooth curve through points in increasing x that never overshoots them (Fritsch–Carlson), flat
+/// A smooth curve through points in increasing x that never overshoots them (Fritsch-Carlson), flat
 /// beyond the first and last.
 ///
 /// Between two points the curve stays inside their y range, so points inside 0…1 give a curve inside
