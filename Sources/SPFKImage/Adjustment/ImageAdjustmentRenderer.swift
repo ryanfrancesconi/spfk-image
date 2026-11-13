@@ -22,11 +22,13 @@ public struct ImageAdjustmentRenderer: Sendable {
     ///
     /// `sourceScale` is `image`'s size relative to the full-resolution source (see
     /// ``sourceScale(of:fullWidth:fullHeight:)``), so a filter sized in pixels looks the same on a
-    /// downsampled preview as in the saved file.
+    /// downsampled preview as in the saved file. `grainSeed` picks the grain's pattern; a video passes
+    /// its frame index so the grain moves from frame to frame.
     public static func apply(
         _ adjustments: ImageAdjustmentDescription,
         to image: CIImage,
-        sourceScale: Double = 1
+        sourceScale: Double = 1,
+        grainSeed: Int64 = 0
     ) -> CIImage {
         let adjustments = adjustments.effective
         guard !adjustments.isEmpty else { return image }
@@ -135,7 +137,7 @@ public struct ImageAdjustmentRenderer: Sendable {
         }
 
         if adjustments.grain.amount != 0 {
-            output = grain(output, adjustments.grain, origin: image.extent.origin, sourceScale: sourceScale)
+            output = grain(output, adjustments.grain, origin: image.extent.origin, sourceScale: sourceScale, seed: grainSeed)
         }
 
         return output.cropped(to: image.extent)

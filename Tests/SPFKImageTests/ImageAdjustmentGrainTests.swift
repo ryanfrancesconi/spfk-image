@@ -1,6 +1,7 @@
 // Copyright Ryan Francesconi. All Rights Reserved. Revision History at https://github.com/ryanfrancesconi/spfk-image
 
 import CoreGraphics
+import CoreImage
 import Foundation
 @testable import SPFKImage
 import Testing
@@ -122,6 +123,54 @@ struct ImageAdjustmentGrainTests {
         let preview = try #require(ImageStatistics(try render(adjustments, source, sourceScale: 0.25)))
 
         #expect(preview.luminanceStandardDeviation < full.luminanceStandardDeviation * 0.75)
+    }
+
+    // MARK: - Seed
+
+    private func render(_ adjustments: ImageAdjustmentDescription, _ source: CGImage, seed: Int64) throws -> CGImage {
+        let image = CIImage(cgImage: source)
+        let output = ImageAdjustmentRenderer.apply(adjustments, to: image, grainSeed: seed)
+        let space = try #require(CGColorSpace(name: CGColorSpace.sRGB))
+        return try #require(CIContext().createCGImage(output, from: image.extent, format: .RGBA8, colorSpace: space))
+    }
+
+    private func differingFraction(_ a: [UInt8], _ b: [UInt8]) -> Double {
+        let differing = zip(a, b).enumerated().filter { $0.offset % 4 == 0 && $0.element.0 != $0.element.1 }.count
+        return Double(differing) / Double(a.count / 4)
+    }
+
+    @Test func seedZeroIsTheImageGrain() throws {
+        let source = try flat(128)
+        let adjustments = ImageAdjustmentDescription(grain: .init(amount: 1))
+
+        #expect(try bytes(try render(adjustments, source)) == bytes(try render(adjustments, source, seed: 0)))
+    }
+
+    @Test(arguments: [(Int64(0), Int64(1)), (1, 2), (2, 3), (1, 1000)])
+    func differentSeedsGiveDifferentGrain(a: Int64, b: Int64) throws {
+        let source = try flat(128)
+        let adjustments = ImageAdjustmentDescription(grain: .init(amount: 1))
+        let first = try bytes(try render(adjustments, source, seed: a))
+        let second = try bytes(try render(adjustments, source, seed: b))
+
+        #expect(differingFraction(first, second) > 0.5)
+    }
+
+    @Test func aSeedRepeats() throws {
+        let source = try flat(128)
+        let adjustments = ImageAdjustmentDescription(grain: .init(amount: 1, size: 0.5))
+
+        #expect(try bytes(try render(adjustments, source, seed: 17)) == bytes(try render(adjustments, source, seed: 17)))
+    }
+
+    @Test func aSeedChangesThePatternNotTheStrength() throws {
+        let source = try flat(128)
+        let adjustments = ImageAdjustmentDescription(grain: .init(amount: 1))
+        let unseeded = try #require(ImageStatistics(try render(adjustments, source, seed: 0)))
+        let seeded = try #require(ImageStatistics(try render(adjustments, source, seed: 41)))
+
+        #expect(abs(seeded.meanLuminance - unseeded.meanLuminance) < 1)
+        #expect(abs(seeded.luminanceStandardDeviation / unseeded.luminanceStandardDeviation - 1) < 0.1)
     }
 
     @Test func grainRoundTripsThroughCodable() throws {
