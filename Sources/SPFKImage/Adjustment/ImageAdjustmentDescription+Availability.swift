@@ -16,7 +16,10 @@ extension ImageAdjustmentDescription {
         }
 
         /// What a video renders, through a per-frame Core Image composition.
-        public static let video = Availability(groups: [.light, .color], excludedParameters: [.brilliance])
+        public static let video = Availability(
+            groups: [.light, .color, .curves, .levels, .selectiveColor, .colorGrading, .blackAndWhite, .vignette, .detail],
+            excludedParameters: [.brilliance, .definition, .noiseReduction]
+        )
 
         /// No adjustment at all: what a file that only takes orientation shows.
         public static let empty = Availability(groups: [])
