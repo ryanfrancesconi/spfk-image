@@ -18,6 +18,10 @@ enum AdjustmentFileFixtures {
     static let latitude = 37.7749
     static let keywords = ["alpha", "beta"]
 
+    /// The SDK declares no constant for AVIF. An AVIF encode blocks its thread, so a test generating one runs the
+    /// generator inside a `BlockingCallLimiter` slot.
+    static let avif = UTType(importedAs: "public.avif")
+
     static func songbird() throws -> CGImage {
         guard let source = CGImageSourceCreateWithURL(TestBundleResources.shared.songbird as CFURL, nil),
               let image = CGImageSourceCreateImageAtIndex(source, 0, nil)
@@ -55,8 +59,11 @@ enum AdjustmentFileFixtures {
         return url
     }
 
-    /// `songbird.jpg` as `type` with a synthetic Apple HDR gain map.
+    /// `songbird.jpg` as `type` with a synthetic Apple HDR gain map. Core Image has no AVIF representation, so an
+    /// AVIF is the HEIC's image, metadata and gain map copied into an AVIF destination.
     static func gainMapped(_ type: UTType, in directory: URL) throws -> URL {
+        if type == avif { return try gainMappedAVIF(in: directory) }
+
         let url = directory.appendingPathComponent("gain-map").appendingPathExtension(for: type)
         let base = CIImage(cgImage: try songbird())
         let size = CGSize(width: base.extent.width / 2, height: base.extent.height / 2)
@@ -80,6 +87,24 @@ enum AdjustmentFileFixtures {
 
         guard let data else { throw GenerationError(message: "no \(type.identifier) representation") }
         try data.write(to: url)
+
+        return url
+    }
+
+    private static func gainMappedAVIF(in directory: URL) throws -> URL {
+        let heic = try gainMapped(.heic, in: directory)
+        let url = directory.appendingPathComponent("gain-map").appendingPathExtension(for: avif)
+
+        guard let source = CGImageSourceCreateWithURL(heic as CFURL, nil),
+              let image = CGImageSourceCreateImageAtIndex(source, 0, nil),
+              let gainMap = CGImageSourceCopyAuxiliaryDataInfoAtIndex(source, 0, kCGImageAuxiliaryDataTypeHDRGainMap),
+              let destination = CGImageDestinationCreateWithURL(url as CFURL, avif.identifier as CFString, 1, nil)
+        else { throw GenerationError(message: "no gain-mapped AVIF") }
+
+        CGImageDestinationAddImageAndMetadata(destination, image, CGImageSourceCopyMetadataAtIndex(source, 0, nil), nil)
+        CGImageDestinationAddAuxiliaryDataInfo(destination, kCGImageAuxiliaryDataTypeHDRGainMap, gainMap)
+
+        guard CGImageDestinationFinalize(destination) else { throw GenerationError(message: "AVIF did not encode") }
 
         return url
     }

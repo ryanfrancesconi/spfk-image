@@ -3,6 +3,7 @@
 import CoreImage
 import Foundation
 import ImageIO
+import SPFKBase
 import SPFKTesting
 import Testing
 import UniformTypeIdentifiers
@@ -72,6 +73,23 @@ final class ImageAdjustmentFileRenderTests {
 
     private func meanLuminance(_ url: URL) throws -> Double {
         try #require(ImageStatistics(try decode(url))).meanLuminance
+    }
+
+    private func uprightDecode(_ url: URL) throws -> CGImage {
+        let source = try #require(CGImageSourceCreateWithURL(url as CFURL, nil))
+        let image = CIImage(cgImageSource: source, index: 0, options: [.applyOrientationProperty: true])
+        return try #require(CIContext().createCGImage(image, from: image.extent))
+    }
+
+    /// Mean luminance of each quadrant, top-left first, row by row.
+    private func quadrantLuminances(_ image: CGImage) throws -> [Double] {
+        let half = CGSize(width: image.width / 2, height: image.height / 2)
+
+        return try [CGPoint(x: 0, y: 0), CGPoint(x: half.width, y: 0), CGPoint(x: 0, y: half.height), CGPoint(x: half.width, y: half.height)]
+            .map { origin in
+                let quadrant = try #require(image.cropping(to: CGRect(origin: origin, size: half)))
+                return try #require(ImageStatistics(quadrant)).meanLuminance
+            }
     }
 
     /// The size the file displays at, its orientation applied.
@@ -181,9 +199,9 @@ final class ImageAdjustmentFileRenderTests {
 
     // MARK: - What the file keeps
 
-    @Test(arguments: [UTType.jpeg, .heic])
+    @Test(arguments: [UTType.jpeg, .heic, AdjustmentFileFixtures.avif])
     func metadataSurvives(type: UTType) async throws {
-        let source = try AdjustmentFileFixtures.tagged(type, orientation: 1, in: directory)
+        let source = try await BlockingCallLimiter.shared.run { try AdjustmentFileFixtures.tagged(type, orientation: 1, in: directory) }
         let output = destination(for: source)
 
         try await renderer.renderFile(brighter, source: source, destination: output)
@@ -206,14 +224,48 @@ final class ImageAdjustmentFileRenderTests {
         #expect(try uprightSize(output) == uprightSize(source))
     }
 
-    @Test(arguments: [UTType.jpeg, .heic])
+    @Test(arguments: [UTType.jpeg, .heic, AdjustmentFileFixtures.avif])
     func aGainMapIsCarried(type: UTType) async throws {
-        let source = try AdjustmentFileFixtures.gainMapped(type, in: directory)
+        let source = try await BlockingCallLimiter.shared.run { try AdjustmentFileFixtures.gainMapped(type, in: directory) }
         let output = destination(for: source)
 
         try await renderer.renderFile(brighter, source: source, destination: output)
 
         #expect(try hasGainMap(output))
+    }
+
+    /// ImageIO reads an AVIF's orientation and cannot write one, so Save turns the pixels instead.
+    @Test func anAVIFsOrientationIsWrittenIntoItsPixels() async throws {
+        let source = TestBundleResources.shared.orientation_8_avif
+        let output = destination(for: source)
+        let slight = ImageAdjustmentDescription(light: .init(exposure: 0.01))
+        try #require(try orientation(source) == 8)
+
+        try await renderer.renderFile(slight, source: source, destination: output)
+
+        #expect(try orientation(output) == 1)
+        #expect(try properties(output)[kCGImagePropertyPixelWidth as String] as? Int == 226)
+        #expect(try properties(output)[kCGImagePropertyPixelHeight as String] as? Int == 400)
+
+        let expected = try quadrantLuminances(try uprightDecode(source))
+        let written = try quadrantLuminances(try decode(output))
+
+        for (a, b) in zip(expected, written) {
+            #expect(abs(a - b) < 6, "quadrants \(expected) against \(written)")
+        }
+    }
+
+    @Test func anUprightAVIFIsWrittenAsBefore() async throws {
+        let source = try await BlockingCallLimiter.shared.run {
+            try AdjustmentFileFixtures.tagged(AdjustmentFileFixtures.avif, orientation: 1, in: directory)
+        }
+        let output = destination(for: source)
+
+        try await renderer.renderFile(brighter, source: source, destination: output)
+
+        #expect(try orientation(output) == 1)
+        #expect(try decode(output).width == decode(source).width)
+        #expect(try decode(output).height == decode(source).height)
     }
 
     @Test func heicNamedHeifIsWritten() async throws {

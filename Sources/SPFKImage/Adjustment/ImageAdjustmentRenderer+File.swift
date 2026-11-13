@@ -22,7 +22,9 @@ extension ImageAdjustmentRenderer {
     ///
     /// Adjusts the source's unoriented pixels and writes them with its metadata, its orientation tag with
     /// `orientation` performed, and every auxiliary image (gain maps, depth, mattes) carried unchanged.
-    /// `destination` must not exist, and exists afterwards only if this returns; `source` is never written.
+    /// A format that cannot store an orientation (AVIF) is written upright, with orientation 1, and its gain maps
+    /// turned to match. `destination` must not exist, and exists afterwards only if this returns; `source` is never
+    /// written.
     /// `stage` is called as each stage begins, and not after a throw. Waits for a ``BlockingCallLimiter`` slot,
     /// since an AV1 encode blocks its thread.
     public func renderFile(
@@ -115,8 +117,11 @@ extension ImageAdjustmentRenderer {
             height: height
         )
 
-        // Unoriented, so the auxiliary planes copied below stay aligned with it.
-        let input = CIImage(cgImageSource: source, index: 0, options: nil)
+        let type = Self.fileType(for: sourceType as String)
+        let bakesOrientation = geometry.orientation != 1 && !Self.writesOrientation(type)
+
+        // Unoriented unless baked, so the auxiliary planes copied below stay aligned with it.
+        let input = CIImage(cgImageSource: source, index: 0, options: bakesOrientation ? [.applyOrientationProperty: true] : nil)
 
         guard let colorSpace = input.colorSpace,
               let format = Self.fileFormat(
@@ -128,15 +133,17 @@ extension ImageAdjustmentRenderer {
 
         stage?(.rendering)
 
+        let rendered = bakesOrientation
+            ? orientation.apply(to: Self.apply(adjustments, to: input).cropped(to: input.extent))
+            : Self.apply(adjustments, to: input)
+
         guard let image = context.createCGImage(
-            Self.apply(adjustments, to: input),
-            from: input.extent,
+            rendered,
+            from: bakesOrientation ? rendered.extent : input.extent,
             format: format,
             colorSpace: colorSpace,
             deferred: false
         ) else { throw ImageAdjustmentRenderError.renderFailed }
-
-        let type = Self.fileType(for: sourceType as String)
 
         guard let output = CGImageDestinationCreateWithURL(destination as CFURL, type as CFString, 1, nil) else {
             throw ImageAdjustmentRenderError.unwritableType(type)
@@ -145,21 +152,39 @@ extension ImageAdjustmentRenderer {
         // The orientation key is undocumented for this call; without it HEIC is written as 1.
         let options: [CFString: Any] = [
             kCGImageDestinationLossyCompressionQuality: quality,
-            kCGImagePropertyOrientation: geometry.orientation,
+            kCGImagePropertyOrientation: bakesOrientation ? 1 : geometry.orientation,
         ]
 
-        CGImageDestinationAddImageAndMetadata(output, image, CGImageSourceCopyMetadataAtIndex(source, 0, nil), options as CFDictionary)
+        if bakesOrientation {
+            let metadata = CGImageSourceCopyMetadataAtIndex(source, 0, nil).flatMap { CGImageMetadataCreateMutableCopy($0) }
 
-        for auxiliaryType in Self.auxiliaryDataTypes {
-            guard let info = CGImageSourceCopyAuxiliaryDataInfoAtIndex(source, 0, auxiliaryType) else { continue }
-            CGImageDestinationAddAuxiliaryDataInfo(output, auxiliaryType, info)
+            if let metadata {
+                CGImageMetadataSetValueMatchingImageProperty(
+                    metadata, kCGImagePropertyTIFFDictionary, kCGImagePropertyTIFFOrientation, 1 as CFNumber
+                )
+            }
+
+            CGImageDestinationAddImageAndMetadata(output, image, metadata, options as CFDictionary)
+
+            // Depth and mattes are left out: they would no longer line up with the turned pixels.
+            ImageFormatConverter.addGainMaps(from: source, index: 0, orientation: geometry.orientation, to: output)
+        } else {
+            CGImageDestinationAddImageAndMetadata(output, image, CGImageSourceCopyMetadataAtIndex(source, 0, nil), options as CFDictionary)
+
+            for auxiliaryType in Self.auxiliaryDataTypes {
+                guard let info = CGImageSourceCopyAuxiliaryDataInfoAtIndex(source, 0, auxiliaryType) else { continue }
+                CGImageDestinationAddAuxiliaryDataInfo(output, auxiliaryType, info)
+            }
         }
 
         stage?(.encoding)
 
         guard CGImageDestinationFinalize(output) else { throw ImageAdjustmentRenderError.encodeFailed }
 
-        return geometry
+        guard bakesOrientation else { return geometry }
+
+        let displayed = ImageFormatConverter.displayedSize(width: width, height: height, orientation: geometry.orientation)
+        return Geometry(orientation: 1, width: displayed.width, height: displayed.height)
     }
 
     static func verify(_ url: URL, orientation: Int, width: Int, height: Int) throws {
@@ -169,6 +194,11 @@ extension ImageAdjustmentRenderer {
               properties[kCGImagePropertyPixelWidth as String] as? Int == width,
               properties[kCGImagePropertyPixelHeight as String] as? Int == height
         else { throw ImageAdjustmentRenderError.readBackMismatch }
+    }
+
+    /// Whether ImageIO writes an orientation tag for `typeIdentifier`. It reads AVIF's and never writes one.
+    static func writesOrientation(_ typeIdentifier: String) -> Bool {
+        typeIdentifier != ImageFormatConverter.avifIdentifier
     }
 
     /// The source's own type, except `public.heif`, which ImageIO cannot create a destination for.
