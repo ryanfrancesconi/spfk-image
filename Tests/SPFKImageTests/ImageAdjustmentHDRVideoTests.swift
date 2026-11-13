@@ -105,6 +105,7 @@ struct ImageAdjustmentHDRVideoTests {
 
     enum Step: String, CaseIterable, CustomTestStringConvertible {
         case brightness, whitePoint, blackPoint, levels, curves
+        case definition, brilliance, darkBrilliance, noiseReduction, sharpness
 
         var adjustments: ImageAdjustmentDescription {
             switch self {
@@ -113,6 +114,11 @@ struct ImageAdjustmentHDRVideoTests {
             case .blackPoint: .init(light: .init(blackPoint: 0.3))
             case .levels: .init(levels: .init(shadow: 0.2))
             case .curves: .init(curves: ImageToneCurves(rgb: [.init(x: 0, y: 0), .init(x: 0.5, y: 0.6), .init(x: 1, y: 1)]))
+            case .definition: .init(detail: .init(definition: 0.1))
+            case .brilliance: .init(light: .init(brilliance: 0.3))
+            case .darkBrilliance: .init(light: .init(brilliance: -0.3))
+            case .noiseReduction: .init(detail: .init(noiseReduction: 0.5))
+            case .sharpness: .init(detail: .init(sharpness: 0.5))
             }
         }
 
@@ -126,8 +132,8 @@ struct ImageAdjustmentHDRVideoTests {
         #expect(adjusted.peak >= source.peak)
     }
 
-    @Test(arguments: [Step.blackPoint, .levels, .curves])
-    func otherCurvesKeepTheHighlights(_ step: Step) async throws {
+    @Test(arguments: [Step.blackPoint, .levels, .curves, .definition, .brilliance, .darkBrilliance, .noiseReduction, .sharpness])
+    func otherStepsKeepTheHighlights(_ step: Step) async throws {
         let source = try await Self.luma(ImageAdjustmentDescription())
         let adjusted = try await Self.luma(step.adjustments)
         #expect(adjusted.peak >= source.p999)

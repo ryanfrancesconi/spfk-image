@@ -35,7 +35,16 @@ extension ImageAdjustmentRenderer {
     /// Multiplies every channel, in sRGB-encoded values, by `lp′ / lp`, where `lp` is the encoded
     /// luminance and `lp′ = curve(base) + detailGain × (lp − base)`. A ratio keeps hue, scales
     /// saturation with brightness, and cannot take a channel below 0.
+    ///
+    /// The ratio is taken on the image clamped to 0…1 and what lies outside is carried over, since
+    /// `lp′` is clamped while `lp` is not and an HDR highlight would otherwise be pulled to white.
     private static func localTone(_ image: CIImage, curve: [CGPoint], detailGain: Double) -> CIImage {
+        preservingRange(image) { image in
+            localToneInRange(image.applyingFilter("CIColorClamp"), curve: curve, detailGain: detailGain)
+        }
+    }
+
+    private static func localToneInRange(_ image: CIImage, curve: [CGPoint], detailGain: Double) -> CIImage {
         let extent = image.extent
         let luminance = encode(rec709Luminance(image))
         let base = edgeAwareBase(luminance)
