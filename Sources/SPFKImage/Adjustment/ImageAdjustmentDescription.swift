@@ -13,17 +13,17 @@ import Foundation
 ///
 /// A ``bypassed`` section keeps its values but renders as neutral (see ``effective``).
 public struct ImageAdjustmentDescription: Hashable, Sendable, Codable {
-    public var light: Light { didSet { sanitize(.light) } }
-    public var color: Color { didSet { sanitize(.color) } }
-    public var blackAndWhite: BlackAndWhite { didSet { sanitize(.blackAndWhite) } }
+    public var light: Light { didSet { light.clamp() } }
+    public var color: Color { didSet { color.clamp() } }
+    public var blackAndWhite: BlackAndWhite { didSet { blackAndWhite.clamp() } }
     /// Applied after levels.
     public var curves: ImageToneCurves
-    public var levels: Levels { didSet { sanitize(.levels) } }
-    public var selectiveColor: SelectiveColor { didSet { sanitize(.selectiveColor) } }
-    public var colorGrading: ColorGrading { didSet { sanitize(.colorGrading) } }
-    public var detail: Detail { didSet { sanitize(.detail) } }
-    public var vignette: Vignette { didSet { sanitize(.vignette) } }
-    public var grain: Grain { didSet { sanitize(.grain) } }
+    public var levels: Levels { didSet { levels.clamp() } }
+    public var selectiveColor: SelectiveColor { didSet { selectiveColor.clamp() } }
+    public var colorGrading: ColorGrading { didSet { colorGrading.clamp() } }
+    public var detail: Detail { didSet { detail.clamp() } }
+    public var vignette: Vignette { didSet { vignette.clamp() } }
+    public var grain: Grain { didSet { grain.clamp() } }
 
     /// Sections switched off: each keeps its values and renders as neutral.
     public var bypassed: Set<Group>
@@ -61,9 +61,16 @@ public struct ImageAdjustmentDescription: Hashable, Sendable, Codable {
         self.grain = grain
         self.bypassed = bypassed
 
-        for group in Group.allCases {
-            sanitize(group)
-        }
+        // Observers do not run in `init`.
+        self.light.clamp()
+        self.color.clamp()
+        self.blackAndWhite.clamp()
+        self.levels.clamp()
+        self.selectiveColor.clamp()
+        self.colorGrading.clamp()
+        self.detail.clamp()
+        self.vignette.clamp()
+        self.grain.clamp()
     }
 
     /// Decodes through ``init(light:color:blackAndWhite:curves:levels:selectiveColor:colorGrading:detail:vignette:grain:bypassed:)``,
@@ -84,18 +91,6 @@ public struct ImageAdjustmentDescription: Hashable, Sendable, Codable {
             grain: c.decode(Grain.self, forKey: .grain),
             bypassed: c.decode(Set<Group>.self, forKey: .bypassed)
         )
-    }
-
-    /// Clamps each of `group`'s values to its range, writing only those that change: a write re-enters
-    /// the section's observer.
-    private mutating func sanitize(_ group: Group) {
-        for parameter in group.parameters {
-            let value = self[keyPath: parameter.keyPath]
-            let sanitized = parameter.sanitize(value)
-            if sanitized != value {
-                self[keyPath: parameter.keyPath] = sanitized
-            }
-        }
     }
 
     /// True when every parameter is neutral, the curves are identity, and nothing is bypassed: nothing

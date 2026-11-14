@@ -35,6 +35,24 @@ final class ImageAdjustmentDescriptionTests {
         #expect(!description.isEmpty)
     }
 
+    @Test(arguments: Parameter.allCases)
+    func assignmentClampsEveryParameterToItsOwnRange(parameter: Parameter) {
+        let range = parameter.range
+        var description = ImageAdjustmentDescription()
+
+        description[parameter] = range.upperBound + 5
+        #expect(description[parameter] == range.upperBound)
+
+        description[parameter] = range.lowerBound - 5
+        #expect(description[parameter] == range.lowerBound)
+
+        description[parameter] = .nan
+        #expect(description[parameter] == 0)
+
+        description[parameter] = .infinity
+        #expect(description[parameter] == 0)
+    }
+
     @Test func initClampsEveryParameterToItsRange() {
         let description = ImageAdjustmentDescription(
             light: .init(exposure: 99, highlights: 99, shadows: -99, contrast: -99),
