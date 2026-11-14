@@ -13,6 +13,19 @@ final class ImageAdjustmentDescriptionTests {
         #expect(ImageAdjustmentDescription().isEmpty)
     }
 
+    @Test func noArgumentInitMatchesTheFullInitializersDefaults() {
+        let shared = ImageAdjustmentDescription()
+        let built = ImageAdjustmentDescription(light: .init())
+
+        #expect(shared == built)
+        #expect(shared.curves.isIdentity)
+        #expect(shared.bypassed.isEmpty)
+
+        for parameter in Parameter.allCases {
+            #expect(shared[parameter] == 0, "\(parameter)")
+        }
+    }
+
     @Test(arguments: Parameter.allCases)
     func anyParameterOffNeutralIsNotEmpty(parameter: Parameter) {
         var description = ImageAdjustmentDescription()

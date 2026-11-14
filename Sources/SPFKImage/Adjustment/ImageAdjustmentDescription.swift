@@ -28,6 +28,14 @@ public struct ImageAdjustmentDescription: Hashable, Sendable, Codable {
     /// Sections switched off: each keeps its values and renders as neutral.
     public var bypassed: Set<Group>
 
+    /// Every section neutral and nothing bypassed. One shared value: building it clamps every
+    /// parameter, which a per-row caller cannot afford.
+    public init() {
+        self = Self.neutral
+    }
+
+    private static let neutral = ImageAdjustmentDescription(light: Light())
+
     public init(
         light: Light = Light(),
         color: Color = Color(),
@@ -93,7 +101,7 @@ public struct ImageAdjustmentDescription: Hashable, Sendable, Codable {
     /// True when every parameter is neutral, the curves are identity, and nothing is bypassed: nothing
     /// to store. A stored adjustment in this state is represented as `nil`.
     public var isEmpty: Bool {
-        self == ImageAdjustmentDescription()
+        self == Self.neutral
     }
 
     /// Whether every value in `group` is neutral.
