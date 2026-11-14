@@ -59,54 +59,69 @@ enum AdjustmentFileFixtures {
         return url
     }
 
-    /// `songbird.jpg` as `type` with a synthetic Apple HDR gain map. Core Image has no AVIF representation, so an
-    /// AVIF is the HEIC's image, metadata and gain map copied into an AVIF destination.
-    static func gainMapped(_ type: UTType, in directory: URL) throws -> URL {
-        if type == avif { return try gainMappedAVIF(in: directory) }
+    /// Which gain map a fixture carries. Core Image writes only ISO 21496-1 maps, so an Apple map is the ISO map's
+    /// data written through ImageIO under Apple's type: enough to prove a map is carried, not that Apple's HDR
+    /// metadata is read.
+    enum GainMapFormat: String, CaseIterable, Sendable {
+        case apple
+        case iso
 
-        let url = directory.appendingPathComponent("gain-map").appendingPathExtension(for: type)
-        let base = CIImage(cgImage: try songbird())
-        let size = CGSize(width: base.extent.width / 2, height: base.extent.height / 2)
+        @available(macOS 15, iOS 18, *)
+        var auxiliaryType: CFString {
+            switch self {
+            case .apple: kCGImageAuxiliaryDataTypeHDRGainMap
+            case .iso: kCGImageAuxiliaryDataTypeISOGainMap
+            }
+        }
 
-        let gradient = CIFilter.radialGradient()
-        gradient.center = CGPoint(x: size.width / 2, y: size.height / 2)
-        gradient.radius0 = 0
-        gradient.radius1 = Float(min(size.width, size.height) / 2)
-        gradient.color0 = CIColor.white
-        gradient.color1 = CIColor.black
+        /// The map `url` carries in this format, if any.
+        @available(macOS 15, iOS 18, *)
+        func info(_ url: URL) -> [String: Any]? {
+            guard let source = CGImageSourceCreateWithURL(url as CFURL, nil) else { return nil }
+            return CGImageSourceCopyAuxiliaryDataInfoAtIndex(source, 0, auxiliaryType) as? [String: Any]
+        }
+    }
 
-        guard let gainMap = gradient.outputImage?.cropped(to: CGRect(origin: .zero, size: size)),
-              let space = CGColorSpace(name: CGColorSpace.displayP3)
-        else { throw GenerationError(message: "gain map image could not be built") }
-
-        let context = CIContext()
-        let options: [CIImageRepresentationOption: Any] = [.hdrGainMapImage: gainMap]
-        let data = type == .heic
-            ? context.heifRepresentation(of: base, format: .RGBA8, colorSpace: space, options: options)
-            : context.jpegRepresentation(of: base, colorSpace: space, options: options)
-
-        guard let data else { throw GenerationError(message: "no \(type.identifier) representation") }
-        try data.write(to: url)
-
+    /// `songbird.jpg` as `type` with a gain map in `format`.
+    @available(macOS 15, iOS 18, *)
+    static func gainMapped(_ type: UTType, format: GainMapFormat, in directory: URL) throws -> URL {
+        let url = directory.appendingPathComponent("gain-map-\(format.rawValue)").appendingPathExtension(for: type)
+        try writeGainMapped(CIImage(cgImage: try songbird()), type: type, format: format, to: url)
         return url
     }
 
-    private static func gainMappedAVIF(in directory: URL) throws -> URL {
-        let heic = try gainMapped(.heic, in: directory)
-        let url = directory.appendingPathComponent("gain-map").appendingPathExtension(for: avif)
+    /// `base` as `type`, with a gain map Core Image computes from a brighter copy of it. Core Image has no AVIF
+    /// representation, so an AVIF, like an Apple map, is the HEIC's image, metadata and map copied through ImageIO.
+    @available(macOS 15, iOS 18, *)
+    static func writeGainMapped(_ base: CIImage, type: UTType, format: GainMapFormat, to url: URL) throws {
+        guard let space = CGColorSpace(name: CGColorSpace.displayP3) else { throw GenerationError(message: "no Display P3") }
 
-        guard let source = CGImageSourceCreateWithURL(heic as CFURL, nil),
+        let encoded: UTType = type == avif ? .heic : type
+        let hdr = base.applyingFilter("CIExposureAdjust", parameters: [kCIInputEVKey: 1.5])
+        let options: [CIImageRepresentationOption: Any] = [.hdrImage: hdr]
+        let context = CIContext()
+
+        let data = encoded == .heic
+            ? context.heifRepresentation(of: base, format: .RGBA8, colorSpace: space, options: options)
+            : context.jpegRepresentation(of: base, colorSpace: space, options: options)
+
+        guard let data else { throw GenerationError(message: "no \(encoded.identifier) representation") }
+
+        if type == encoded, format == .iso {
+            try data.write(to: url)
+            return
+        }
+
+        guard let source = CGImageSourceCreateWithData(data as CFData, nil),
               let image = CGImageSourceCreateImageAtIndex(source, 0, nil),
-              let gainMap = CGImageSourceCopyAuxiliaryDataInfoAtIndex(source, 0, kCGImageAuxiliaryDataTypeHDRGainMap),
-              let destination = CGImageDestinationCreateWithURL(url as CFURL, avif.identifier as CFString, 1, nil)
-        else { throw GenerationError(message: "no gain-mapped AVIF") }
+              let gainMap = CGImageSourceCopyAuxiliaryDataInfoAtIndex(source, 0, kCGImageAuxiliaryDataTypeISOGainMap),
+              let destination = CGImageDestinationCreateWithURL(url as CFURL, type.identifier as CFString, 1, nil)
+        else { throw GenerationError(message: "no gain-mapped \(type.identifier)") }
 
         CGImageDestinationAddImageAndMetadata(destination, image, CGImageSourceCopyMetadataAtIndex(source, 0, nil), nil)
-        CGImageDestinationAddAuxiliaryDataInfo(destination, kCGImageAuxiliaryDataTypeHDRGainMap, gainMap)
+        CGImageDestinationAddAuxiliaryDataInfo(destination, format.auxiliaryType, gainMap)
 
-        guard CGImageDestinationFinalize(destination) else { throw GenerationError(message: "AVIF did not encode") }
-
-        return url
+        guard CGImageDestinationFinalize(destination) else { throw GenerationError(message: "\(type.identifier) did not encode") }
     }
 
     /// A PNG whose left half is opaque and right half fully transparent.

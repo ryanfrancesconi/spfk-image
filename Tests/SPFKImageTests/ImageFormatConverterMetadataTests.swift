@@ -200,40 +200,40 @@ final class ImageFormatConverterMetadataTests: BinTestCase {
 
     // MARK: - Gain maps
 
-    @Test(arguments: [UTType.jpeg.identifier, UTType.heic.identifier, "public.avif"])
-    func stripAllKeepsTheGainMap(identifier: String) async throws {
-        let input = try AdjustmentFileFixtures.gainMapped(.heic, in: bin)
-        let output = try await convert(input, to: identifier, .stripAll)
-        let written = try #require(CGImageSourceCreateWithURL(output as CFURL, nil))
+    @Test(arguments: [UTType.jpeg.identifier, UTType.heic.identifier, "public.avif"], AdjustmentFileFixtures.GainMapFormat.allCases)
+    func stripAllKeepsTheGainMap(identifier: String, format: AdjustmentFileFixtures.GainMapFormat) async throws {
+        guard #available(macOS 15, iOS 18, *) else { return }
 
-        #expect(CGImageSourceCopyAuxiliaryDataInfoAtIndex(written, 0, kCGImageAuxiliaryDataTypeHDRGainMap) != nil)
+        let input = try AdjustmentFileFixtures.gainMapped(.heic, format: format, in: bin)
+        let output = try await convert(input, to: identifier, .stripAll)
+
+        #expect(format.info(output) != nil)
     }
 
-    @Test func aResizedJPEGKeepsItsGainMap() async throws {
-        let input = try AdjustmentFileFixtures.gainMapped(.jpeg, in: bin)
-        let output = try await convert(input, to: UTType.jpeg.identifier, .copyAll, maxPixelSize: 400)
-        let written = try #require(CGImageSourceCreateWithURL(output as CFURL, nil))
+    @Test(arguments: AdjustmentFileFixtures.GainMapFormat.allCases)
+    func aResizedJPEGKeepsItsGainMap(format: AdjustmentFileFixtures.GainMapFormat) async throws {
+        guard #available(macOS 15, iOS 18, *) else { return }
 
-        #expect(CGImageSourceCopyAuxiliaryDataInfoAtIndex(written, 0, kCGImageAuxiliaryDataTypeHDRGainMap) != nil)
+        let input = try AdjustmentFileFixtures.gainMapped(.jpeg, format: format, in: bin)
+        let output = try await convert(input, to: UTType.jpeg.identifier, .copyAll, maxPixelSize: 400)
+
+        #expect(format.info(output) != nil)
     }
 
     /// AVIF renders upright, so a rotated source's gain map has to turn with its pixels or it lights the wrong areas.
-    @Test func aRotatedGainMapTurnsWithTheImage() async throws {
-        let input = try ConversionFixtures.rotatedGainMap(orientation: 6, in: bin)
-        let source = try #require(CGImageSourceCreateWithURL(input as CFURL, nil))
-        let sourceMap = try #require(
-            CGImageSourceCopyAuxiliaryDataInfoAtIndex(source, 0, kCGImageAuxiliaryDataTypeHDRGainMap) as? [String: Any]
-        )
+    @Test(arguments: AdjustmentFileFixtures.GainMapFormat.allCases)
+    func aRotatedGainMapTurnsWithTheImage(format: AdjustmentFileFixtures.GainMapFormat) async throws {
+        guard #available(macOS 15, iOS 18, *) else { return }
+
+        let input = try ConversionFixtures.rotatedGainMap(orientation: 6, format: format, in: bin)
+        let sourceMap = try #require(format.info(input))
         let sourceDescription = try #require(sourceMap[kCGImageAuxiliaryDataInfoDataDescription as String] as? [String: Any])
         let sourceWidth = try #require(sourceDescription["Width"] as? Int)
         let sourceHeight = try #require(sourceDescription["Height"] as? Int)
         try #require(sourceWidth != sourceHeight)
 
         let output = try await convert(input, to: "public.avif", .copyAll)
-        let written = try #require(CGImageSourceCreateWithURL(output as CFURL, nil))
-        let writtenMap = try #require(
-            CGImageSourceCopyAuxiliaryDataInfoAtIndex(written, 0, kCGImageAuxiliaryDataTypeHDRGainMap) as? [String: Any]
-        )
+        let writtenMap = try #require(format.info(output))
         let writtenDescription = try #require(writtenMap[kCGImageAuxiliaryDataInfoDataDescription as String] as? [String: Any])
 
         #expect(try readBack(output).orientation == 1)

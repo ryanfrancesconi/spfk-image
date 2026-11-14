@@ -103,11 +103,16 @@ enum ConversionFixtures {
         throw GenerationError(message: "no XMP segment to replace")
     }
 
-    /// ``AdjustmentFileFixtures/gainMapped(_:in:)`` as HEIC, tagged with `orientation` and its pixels and gain map
-    /// left as stored.
-    static func rotatedGainMap(orientation: Int, in directory: URL) throws -> URL {
-        let upright = try AdjustmentFileFixtures.gainMapped(.heic, in: directory)
-        let url = directory.appendingPathComponent("gain-map-\(orientation).heic")
+    /// ``AdjustmentFileFixtures/gainMapped(_:format:in:)`` as HEIC, tagged with `orientation` and its pixels and gain
+    /// map left as stored.
+    @available(macOS 15, iOS 18, *)
+    static func rotatedGainMap(
+        orientation: Int,
+        format: AdjustmentFileFixtures.GainMapFormat,
+        in directory: URL
+    ) throws -> URL {
+        let upright = try AdjustmentFileFixtures.gainMapped(.heic, format: format, in: directory)
+        let url = directory.appendingPathComponent("gain-map-\(format.rawValue)-\(orientation).heic")
 
         guard let source = CGImageSourceCreateWithURL(upright as CFURL, nil),
               let destination = CGImageDestinationCreateWithURL(url as CFURL, UTType.heic.identifier as CFString, 1, nil)

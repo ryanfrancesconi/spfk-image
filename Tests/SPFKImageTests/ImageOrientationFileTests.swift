@@ -66,10 +66,9 @@ final class ImageOrientationFileTests {
         return try #require(image.dataProvider?.data as Data?)
     }
 
-    private func gainMapData(_ url: URL) throws -> Data? {
-        let source = try #require(CGImageSourceCreateWithURL(url as CFURL, nil))
-        let info = CGImageSourceCopyAuxiliaryDataInfoAtIndex(source, 0, kCGImageAuxiliaryDataTypeHDRGainMap) as? [String: Any]
-        return info?[kCGImageAuxiliaryDataInfoData as String] as? Data
+    @available(macOS 15, iOS 18, *)
+    private func gainMapData(_ url: URL, _ format: AdjustmentFileFixtures.GainMapFormat) -> Data? {
+        format.info(url)?[kCGImageAuxiliaryDataInfoData as String] as? Data
     }
 
     /// Whether the image and its gain map display with the same aspect, both oriented by the file's tag.
@@ -98,16 +97,18 @@ final class ImageOrientationFileTests {
         #expect(try Data(contentsOf: source) == bytes)
     }
 
-    @Test(arguments: [UTType.jpeg, .heic])
-    func theRewriteKeepsTheGainMap(type: UTType) throws {
-        let source = try AdjustmentFileFixtures.gainMapped(type, in: directory)
-        let original = try #require(try gainMapData(source))
+    @Test(arguments: [UTType.jpeg, .heic], AdjustmentFileFixtures.GainMapFormat.allCases)
+    func theRewriteKeepsTheGainMap(type: UTType, format: AdjustmentFileFixtures.GainMapFormat) throws {
+        guard #available(macOS 15, iOS 18, *) else { return }
+
+        let source = try AdjustmentFileFixtures.gainMapped(type, format: format, in: directory)
+        let original = try #require(gainMapData(source, format))
         let output = output(for: source)
 
         try OrientationEdit.left.rewriteFile(source: source, destination: output)
 
         #expect(try orientation(output) == OrientationEdit.left.rawValue)
-        #expect(try gainMapData(output) == original)
+        #expect(gainMapData(output, format) == original)
         #expect(try gainMapDisplaysAlignedWithTheImage(output))
     }
 
@@ -163,14 +164,17 @@ final class ImageOrientationFileTests {
         #expect(try captureDate(output) == AdjustmentFileFixtures.captureDate)
     }
 
-    @Test(arguments: [UTType.jpeg, .heic])
-    func theRenderKeepsTheGainMapAligned(type: UTType) async throws {
-        let source = try AdjustmentFileFixtures.gainMapped(type, in: directory)
+    @Test(arguments: [UTType.jpeg, .heic], AdjustmentFileFixtures.GainMapFormat.allCases)
+    func theRenderKeepsTheGainMapAligned(type: UTType, format: AdjustmentFileFixtures.GainMapFormat) async throws {
+        guard #available(macOS 15, iOS 18, *) else { return }
+
+        let source = try AdjustmentFileFixtures.gainMapped(type, format: format, in: directory)
         let output = output(for: source)
 
         try await renderer.renderFile(ImageAdjustmentDescription(light: .init(exposure: 1)), orientation: .right, source: source, destination: output)
 
         #expect(try orientation(output) == OrientationEdit.right.rawValue)
+        #expect(format.info(output) != nil)
         #expect(try gainMapDisplaysAlignedWithTheImage(output))
     }
 }

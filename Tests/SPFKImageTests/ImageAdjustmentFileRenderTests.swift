@@ -61,11 +61,6 @@ final class ImageAdjustmentFileRenderTests {
         return values.compactMap { CGImageMetadataTagCopyValue($0) as? String }.sorted()
     }
 
-    private func hasGainMap(_ url: URL) throws -> Bool {
-        let source = try #require(CGImageSourceCreateWithURL(url as CFURL, nil))
-        return CGImageSourceCopyAuxiliaryDataInfoAtIndex(source, 0, kCGImageAuxiliaryDataTypeHDRGainMap) != nil
-    }
-
     private func decode(_ url: URL) throws -> CGImage {
         let source = try #require(CGImageSourceCreateWithURL(url as CFURL, nil))
         return try #require(CGImageSourceCreateImageAtIndex(source, 0, nil))
@@ -119,9 +114,18 @@ final class ImageAdjustmentFileRenderTests {
         #expect(size.height > size.width, "orientation 6 should display songbird portrait")
     }
 
-    @Test(arguments: [UTType.jpeg, .heic])
-    func gainMapFixturesHaveAGainMap(type: UTType) throws {
-        #expect(try hasGainMap(AdjustmentFileFixtures.gainMapped(type, in: directory)))
+    @Test(arguments: [UTType.jpeg, .heic, AdjustmentFileFixtures.avif], AdjustmentFileFixtures.GainMapFormat.allCases)
+    func gainMapFixturesCarryOnlyTheirOwnFormat(type: UTType, format: AdjustmentFileFixtures.GainMapFormat) async throws {
+        guard #available(macOS 15, iOS 18, *) else { return }
+
+        let directory = directory
+        let url = try await BlockingCallLimiter.shared.run {
+            try AdjustmentFileFixtures.gainMapped(type, format: format, in: directory)
+        }
+
+        for other in AdjustmentFileFixtures.GainMapFormat.allCases {
+            #expect((other.info(url) != nil) == (other == format), "\(other)")
+        }
     }
 
     // MARK: - Pixels
@@ -224,14 +228,19 @@ final class ImageAdjustmentFileRenderTests {
         #expect(try uprightSize(output) == uprightSize(source))
     }
 
-    @Test(arguments: [UTType.jpeg, .heic, AdjustmentFileFixtures.avif])
-    func aGainMapIsCarried(type: UTType) async throws {
-        let source = try await BlockingCallLimiter.shared.run { try AdjustmentFileFixtures.gainMapped(type, in: directory) }
+    @Test(arguments: [UTType.jpeg, .heic, AdjustmentFileFixtures.avif], AdjustmentFileFixtures.GainMapFormat.allCases)
+    func aGainMapIsCarried(type: UTType, format: AdjustmentFileFixtures.GainMapFormat) async throws {
+        guard #available(macOS 15, iOS 18, *) else { return }
+
+        let directory = directory
+        let source = try await BlockingCallLimiter.shared.run {
+            try AdjustmentFileFixtures.gainMapped(type, format: format, in: directory)
+        }
         let output = destination(for: source)
 
         try await renderer.renderFile(brighter, source: source, destination: output)
 
-        #expect(try hasGainMap(output))
+        #expect(format.info(output) != nil)
     }
 
     /// ImageIO reads an AVIF's orientation and cannot write one, so Save turns the pixels instead.

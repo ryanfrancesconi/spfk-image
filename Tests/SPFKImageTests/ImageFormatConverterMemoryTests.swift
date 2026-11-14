@@ -14,7 +14,9 @@ import UniformTypeIdentifiers
 /// A batch of thousands holds no more memory at the end than after its first files.
 @Suite(.tags(.file, .slow, .conversion))
 final class ImageFormatConverterMemoryTests: BinTestCase {
-    /// Photo-sized, so that anything kept per file is large against the noise of the suites running alongside.
+    /// Photo-sized, so that anything kept per file is large against the noise of the suites running alongside. ISO
+    /// only: both formats are carried by the same loop.
+    @available(macOS 15, iOS 18, *)
     private func photoSizedGainMappedHEIC() throws -> URL {
         let url = bin.appendingPathComponent("photo-gain-map.heic")
         let extent = CGRect(x: 0, y: 0, width: 4032, height: 3024)
@@ -24,28 +26,19 @@ final class ImageFormatConverterMemoryTests: BinTestCase {
         checkerboard.color0 = CIColor(red: 0.8, green: 0.5, blue: 0.3)
         checkerboard.color1 = CIColor(red: 0.2, green: 0.3, blue: 0.6)
 
-        let gradient = CIFilter.radialGradient()
-        gradient.center = CGPoint(x: 1008, y: 756)
-        gradient.radius1 = 756
-        gradient.color0 = .white
-        gradient.color1 = .black
+        guard let base = checkerboard.outputImage?.cropped(to: extent) else {
+            throw AdjustmentFileFixtures.GenerationError(message: "no checkerboard")
+        }
 
-        guard let base = checkerboard.outputImage?.cropped(to: extent),
-              let gainMap = gradient.outputImage?.cropped(to: CGRect(x: 0, y: 0, width: 2016, height: 1512)),
-              let space = CGColorSpace(name: CGColorSpace.displayP3),
-              let data = CIContext().heifRepresentation(
-                  of: base, format: .RGBA8, colorSpace: space, options: [.hdrGainMapImage: gainMap]
-              )
-        else { throw AdjustmentFileFixtures.GenerationError(message: "no gain-mapped HEIC") }
-
-        try data.write(to: url)
+        try AdjustmentFileFixtures.writeGainMapped(base, type: .heic, format: .iso, to: url)
         return url
     }
 
     @Test func carryingGainMapsHoldsNoMemoryPerFile() async throws {
+        guard #available(macOS 15, iOS 18, *) else { return }
+
         let input = try photoSizedGainMappedHEIC()
-        let sourceImage = try #require(CGImageSourceCreateWithURL(input as CFURL, nil))
-        try #require(CGImageSourceCopyAuxiliaryDataInfoAtIndex(sourceImage, 0, kCGImageAuxiliaryDataTypeHDRGainMap) != nil)
+        try #require(AdjustmentFileFixtures.GainMapFormat.iso.info(input) != nil)
 
         let options = ImageConversionOptions(format: UTType.heic.identifier)
         let bin = bin

@@ -156,28 +156,31 @@ final class ImageFormatConverterTests: BinTestCase {
         #expect(try displayedSize(converted.output) == displayedSize(input))
     }
 
-    @Test func aGainMapIsCarriedIntoHEIC() async throws {
-        let input = try AdjustmentFileFixtures.gainMapped(.heic, in: bin)
-        let sourceImage = try #require(CGImageSourceCreateWithURL(input as CFURL, nil))
-        try #require(CGImageSourceCopyAuxiliaryDataInfoAtIndex(sourceImage, 0, kCGImageAuxiliaryDataTypeHDRGainMap) != nil)
+    @Test(arguments: AdjustmentFileFixtures.GainMapFormat.allCases)
+    func aGainMapIsCarriedIntoHEIC(format: AdjustmentFileFixtures.GainMapFormat) async throws {
+        guard #available(macOS 15, iOS 18, *) else { return }
 
-        let converted = try await convert(input, to: output("carried", .heic), ImageConversionOptions(format: UTType.heic.identifier))
-        let written = try #require(CGImageSourceCreateWithURL(converted.output as CFURL, nil))
+        let input = try AdjustmentFileFixtures.gainMapped(.heic, format: format, in: bin)
+        try #require(format.info(input) != nil)
 
-        #expect(CGImageSourceCopyAuxiliaryDataInfoAtIndex(written, 0, kCGImageAuxiliaryDataTypeHDRGainMap) != nil)
+        let converted = try await convert(input, to: output("carried-\(format)", .heic), ImageConversionOptions(format: UTType.heic.identifier))
+
+        #expect(format.info(converted.output) != nil)
     }
 
     /// A resize into HEIC stays on the transcode, which carries the map at its own size for the reader to scale.
-    @Test(.tags(.conversion)) func aGainMapIsCarriedIntoAResizedHEIC() async throws {
-        let input = try AdjustmentFileFixtures.gainMapped(.heic, in: bin)
+    @Test(.tags(.conversion), arguments: AdjustmentFileFixtures.GainMapFormat.allCases)
+    func aGainMapIsCarriedIntoAResizedHEIC(format: AdjustmentFileFixtures.GainMapFormat) async throws {
+        guard #available(macOS 15, iOS 18, *) else { return }
+
+        let input = try AdjustmentFileFixtures.gainMapped(.heic, format: format, in: bin)
         let size = try displayedSize(input)
         let limit = max(size.width, size.height) / 2
 
-        let converted = try await convert(input, to: output("resized", .heic), ImageConversionOptions(format: UTType.heic.identifier, maxPixelSize: limit))
-        let written = try #require(CGImageSourceCreateWithURL(converted.output as CFURL, nil))
+        let converted = try await convert(input, to: output("resized-\(format)", .heic), ImageConversionOptions(format: UTType.heic.identifier, maxPixelSize: limit))
 
         #expect(try max(displayedSize(converted.output).width, displayedSize(converted.output).height) == limit)
-        #expect(CGImageSourceCopyAuxiliaryDataInfoAtIndex(written, 0, kCGImageAuxiliaryDataTypeHDRGainMap) != nil)
+        #expect(format.info(converted.output) != nil)
     }
 
     // MARK: - Conflicts
