@@ -189,4 +189,21 @@ final class ImageAdjustmentWhiteBalanceTests {
         #expect(ImageAdjustmentRenderer.whiteBalance(sampling: CGPoint(x: 1.2, y: 0.5), in: image) == nil)
         #expect(ImageAdjustmentRenderer.whiteBalance(sampling: CGPoint(x: 0.5, y: -0.1), in: image) == nil)
     }
+
+    @Test func everyTemperatureAndTintScalesAGrayWithoutDiverging() throws {
+        let gray = try flat(SIMD3(repeating: 0.2))
+        var diverging: [String] = []
+
+        for temperature in stride(from: -1.0, through: 1.0, by: 0.1) {
+            for tint in stride(from: -1.0, through: 1.0, by: 0.1) {
+                let rendered = try pixel(ImageAdjustmentRenderer.temperatureAndTint(gray, temperature: temperature, tint: tint))
+                let gains = rendered / 0.2
+                if gains.min() <= 0.2 || gains.max() > 5 {
+                    diverging.append(String(format: "%.1f, %.1f", temperature, tint))
+                }
+            }
+        }
+
+        #expect(diverging.isEmpty)
+    }
 }

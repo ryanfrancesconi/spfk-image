@@ -46,7 +46,7 @@ final class ImageAdjustmentChainPinTests {
 
         let temperature = CIFilter.temperatureAndTint()
         temperature.inputImage = exposure.outputImage
-        temperature.neutral = CIVector(x: 6500 + a.color.temperature * 3500, y: a.color.tint * 100)
+        temperature.neutral = CIVector(x: 1_000_000 / (1_000_000 / 6500 - a.color.temperature * 80), y: a.color.tint * 100)
         temperature.targetNeutral = CIVector(x: 6500, y: 0)
 
         let highlightShadow = CIFilter.highlightShadowAdjust()

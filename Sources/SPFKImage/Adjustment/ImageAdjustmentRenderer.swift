@@ -159,7 +159,8 @@ public struct ImageAdjustmentRenderer: Sendable {
     static func temperatureAndTint(_ image: CIImage, temperature: Double, tint: Double) -> CIImage {
         let filter = CIFilter.temperatureAndTint()
         filter.inputImage = image
-        filter.neutral = CIVector(x: neutralKelvin + temperature * kelvinPerUnit, y: tint * tintPerUnit)
+        let mired = 1_000_000 / neutralKelvin - temperature * miredPerUnit
+        filter.neutral = CIVector(x: 1_000_000 / mired, y: tint * tintPerUnit)
         filter.targetNeutral = CIVector(x: neutralKelvin, y: 0)
         return filter.outputImage ?? image
     }
@@ -272,7 +273,9 @@ public struct ImageAdjustmentRenderer: Sendable {
 
     /// `CITemperatureAndTint`'s identity white point.
     static let neutralKelvin: CGFloat = 6500
-    static let kelvinPerUnit: CGFloat = 3500
+    /// Temperature moves the white point evenly in mired (10⁶ / kelvin), 4276…13542 K. Linear kelvin
+    /// reaches far enough toward cold that, with Tint toward magenta, the filter's gains diverge.
+    static let miredPerUnit: CGFloat = 80
     static let tintPerUnit: CGFloat = 100
     /// Top of `CISharpenLuminance`'s slider range.
     static let maximumSharpness: Double = 2
