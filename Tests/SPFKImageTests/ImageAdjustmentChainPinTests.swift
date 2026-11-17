@@ -54,9 +54,21 @@ final class ImageAdjustmentChainPinTests {
         highlightShadow.highlightAmount = Float(1 + a.light.highlights)
         highlightShadow.shadowAmount = Float(a.light.shadows)
 
+        let gain = 1 + a.light.contrast * 0.7
+        let contrast = ImageAdjustmentRenderer.preservingRange(highlightShadow.outputImage ?? image) { image in
+            let curve = CIFilter.toneCurve()
+            curve.inputImage = image
+            curve.point0 = CGPoint(x: 0, y: 0)
+            curve.point1 = CGPoint(x: 0.25, y: 0.5 - 0.25 * gain)
+            curve.point2 = CGPoint(x: 0.5, y: 0.5)
+            curve.point3 = CGPoint(x: 0.75, y: 0.5 + 0.25 * gain)
+            curve.point4 = CGPoint(x: 1, y: 1)
+            return curve.outputImage ?? image
+        }
+
         let controls = CIFilter.colorControls()
-        controls.inputImage = highlightShadow.outputImage
-        controls.contrast = Float(pow(2, a.light.contrast))
+        controls.inputImage = contrast
+        controls.contrast = 1
         controls.saturation = Float(1 + a.color.saturation)
         controls.brightness = 0
 

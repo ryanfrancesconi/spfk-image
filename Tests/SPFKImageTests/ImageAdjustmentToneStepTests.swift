@@ -6,7 +6,7 @@ import Testing
 
 @testable import SPFKImage
 
-/// Black point, white point and brightness, measured on flat gray patches.
+/// Black point, white point, brightness and contrast, measured on flat gray patches.
 @Suite
 final class ImageAdjustmentToneStepTests {
     let context = CIContext()
@@ -72,12 +72,26 @@ final class ImageAdjustmentToneStepTests {
         }
     }
 
+    @Test func contrastPivotsAtMidGrayAndHoldsBlackAndWhite() throws {
+        for value in [-1.0, 1] {
+            #expect(abs(try render(gray: 0.5, .init(light: .init(contrast: value))) - 0.5) < 0.01)
+            #expect(try render(gray: 0, .init(light: .init(contrast: value))) < 0.005)
+            #expect(abs(try render(gray: 1, .init(light: .init(contrast: value))) - 1) < 0.005)
+        }
+
+        #expect(abs(try render(gray: 0.25, .init(light: .init(contrast: 1))) - 0.075) < 0.01)
+        #expect(abs(try render(gray: 0.75, .init(light: .init(contrast: 1))) - 0.925) < 0.01)
+        #expect(try render(gray: 0.25, .init(light: .init(contrast: 0.5))) > 0.1)
+        #expect(try render(gray: 0.25, .init(light: .init(contrast: -1))) > 0.35)
+    }
+
     @Test func toneCurvesStayIncreasingAtTheEndsOfTheirRanges() {
         for value in [-1.0, -0.5, 0.5, 1] {
             for curve in [
                 ImageAdjustmentRenderer.blackPointCurve(value),
                 ImageAdjustmentRenderer.whitePointCurve(value),
                 ImageAdjustmentRenderer.brightnessCurve(value),
+                ImageAdjustmentRenderer.contrastCurve(value),
             ] {
                 #expect(zip(curve, curve.dropFirst()).allSatisfy { $0.x < $1.x && $0.y <= $1.y })
             }

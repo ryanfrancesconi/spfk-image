@@ -92,10 +92,14 @@ public struct ImageAdjustmentRenderer: Sendable {
             output = brilliance(output, light.brilliance)
         }
 
-        if light.contrast != 0 || color.saturation != 0 {
+        if light.contrast != 0 {
+            output = toneCurve(output, contrastCurve(light.contrast))
+        }
+
+        if color.saturation != 0 {
             let filter = CIFilter.colorControls()
             filter.inputImage = output
-            filter.contrast = Float(pow(2, light.contrast))
+            filter.contrast = 1
             filter.saturation = Float(1 + color.saturation)
             filter.brightness = 0
             output = filter.outputImage ?? output
@@ -209,6 +213,18 @@ public struct ImageAdjustmentRenderer: Sendable {
         }
     }
 
+    /// Scales the inner points' distance from mid-gray by a gain, in sRGB-encoded values, so mid-gray,
+    /// black and white stay fixed.
+    static func contrastCurve(_ value: Double) -> [CGPoint] {
+        let gain = value > 0
+            ? 1 + value * (maximumContrastGain - 1)
+            : 1 + value * (1 - minimumContrastGain)
+
+        return curvePositions.map { x in
+            x == 0 || x == 1 ? CGPoint(x: x, y: x) : CGPoint(x: x, y: 0.5 + (x - 0.5) * gain)
+        }
+    }
+
     /// Renders `source` with `adjustments`, then `orientation`, into a bitmap in the source's color space
     /// and bit depth.
     ///
@@ -291,6 +307,10 @@ public struct ImageAdjustmentRenderer: Sendable {
     static let maximumWhitePoint: Double = 0.25
     /// How far full brightness moves mid-gray, in sRGB-encoded values.
     static let maximumBrightnessLift: Double = 0.2
+    /// The contrast curve's gain about mid-gray at full positive and full negative contrast. Above 2 the
+    /// curve's quarter point would fall below black.
+    static let maximumContrastGain: Double = 1.7
+    static let minimumContrastGain: Double = 0.4
     /// How far full positive and full negative brilliance move the base at each of
     /// ``curvePositions``, in sRGB-encoded values.
     static let brillianceLift: [Double] = [0, 0.10, 0.14, 0.04, 0]
