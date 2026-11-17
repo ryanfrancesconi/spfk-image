@@ -139,4 +139,24 @@ struct ImageAdjustmentBlackAndWhiteTests {
 
         #expect(try JSONDecoder().decode(ImageAdjustmentDescription.self, from: data) == adjustments)
     }
+
+    // MARK: - Slider tracks
+
+    @Test(arguments: ImageAdjustmentDescription.ColorBand.allCases)
+    func everyTrackStopIsAGrayLighterThanTheLast(_ band: ImageAdjustmentDescription.ColorBand) {
+        let track = ImageAdjustmentRenderer.blackAndWhiteTrack(band)
+
+        #expect(track.count == 25)
+        let grays = track.map(\.x)
+
+        #expect(track.allSatisfy { $0 == SIMD3(repeating: $0.x) })
+        #expect(zip(grays, grays.dropFirst()).allSatisfy { $0 < $1 })
+    }
+
+    @Test func yellowsTrackIsLighterThanBluesAtNoShift() {
+        let yellow = ImageAdjustmentRenderer.blackAndWhiteTrack(.yellow)
+        let blue = ImageAdjustmentRenderer.blackAndWhiteTrack(.blue)
+
+        #expect(yellow[12].x > blue[12].x)
+    }
 }

@@ -48,7 +48,7 @@ extension ImageAdjustmentRenderer {
         shift: ImageAdjustmentDescription.SelectiveColor.Shift,
         stops: Int = 25
     ) -> [SIMD3<Double>] {
-        let reference = rgb(hue: band.centerHue, saturation: selectiveColorTrackSaturation, lightness: 0.5)
+        let reference = rgb(hue: band.centerHue, saturation: bandTrackSaturation, lightness: 0.5)
         let range = band.parameter(component).range
         let count = max(2, stops)
 
@@ -124,9 +124,9 @@ extension ImageAdjustmentRenderer {
     static let maximumSelectiveLuminanceShift: Double = 0.5
     /// The chroma, max − min of sRGB-encoded channels, at which a pixel takes its band's whole shift.
     static let selectiveColorFullChroma: Double = 0.25
-    /// The track's reference saturation: the highest whose full positive shift reaches 1 without
-    /// clamping, so no part of the Saturation track is flat.
-    static let selectiveColorTrackSaturation: Double = 0.5
+    /// The saturation of a band track's reference color: the highest whose full positive Selective Color
+    /// shift reaches 1 without clamping, and colorful enough at lightness 0.5 for Black & White's whole shift.
+    static let bandTrackSaturation: Double = 0.5
     /// The chroma at or below which a pixel takes none. Above one step of the color cube, so a gray's
     /// lookup, which blends the nodes around it, blends only unshifted ones.
     static let selectiveColorMinimumChroma: Double = 0.05

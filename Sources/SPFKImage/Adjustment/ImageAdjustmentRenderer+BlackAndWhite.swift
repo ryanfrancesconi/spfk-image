@@ -44,6 +44,19 @@ extension ImageAdjustmentRenderer {
         return SIMD3(repeating: gray)
     }
 
+    /// The grays `band`'s reference color becomes as its shift moves across its range, from minimum to
+    /// maximum, with every other band at 0. sRGB-encoded, at full Amount.
+    public static func blackAndWhiteTrack(_ band: ImageAdjustmentDescription.ColorBand, stops: Int = 25) -> [SIMD3<Double>] {
+        let reference = rgb(hue: band.centerHue, saturation: bandTrackSaturation, lightness: 0.5)
+        let range = band.blackAndWhite.range
+        let count = max(2, stops)
+
+        return (0 ..< count).map { stop in
+            let value = range.lowerBound + (range.upperBound - range.lowerBound) * Double(stop) / Double(count - 1)
+            return blackAndWhite(reference, shifts: ColorBand.allCases.map { $0 == band ? value : 0 })
+        }
+    }
+
     static func sRGBDecoded(_ value: Double) -> Double {
         value <= 0.04045 ? value / 12.92 : pow((value + 0.055) / 1.055, 2.4)
     }
