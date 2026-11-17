@@ -1,6 +1,7 @@
 // Copyright Ryan Francesconi. All Rights Reserved.
 
 import CoreImage
+import CoreImage.CIFilterBuiltins
 import Foundation
 import SPFKBase
 import SPFKTesting
@@ -127,6 +128,34 @@ final class ImageAdjustmentAutoTests {
         }
 
         #expect(adjustments.levels.isNeutral)
+    }
+
+    @Test(arguments: [0.25, 0.5, 0.75])
+    func autoHighlightsRenderAsTheFilterAmountTheyCameFrom(_ amount: Double) throws {
+        let image = try analysisImage(TestBundleResources.shared.songbird)
+        let filter = CIFilter.highlightShadowAdjust()
+        filter.inputImage = image
+        filter.highlightAmount = Float(amount)
+        filter.shadowAmount = 0
+        let expected = try ImageAdjustmentChainPinTests.floatPixels(
+            try #require(filter.outputImage).cropped(to: image.extent), context: context
+        )
+
+        let adjustments = ImageAdjustmentDescription(
+            light: .init(highlights: ImageAdjustmentRenderer.highlights(forHighlightAmount: amount))
+        )
+        let rendered = try ImageAdjustmentChainPinTests.floatPixels(
+            ImageAdjustmentRenderer.apply(adjustments, to: image), context: context
+        )
+
+        try #require(rendered.count == expected.count)
+        #expect((zip(rendered, expected).map { abs($0 - $1) }.max() ?? 0) < 1e-4)
+    }
+
+    @Test func autoHighlightsBelowTheSliderMinimumClampToIt() {
+        let value = ImageAdjustmentRenderer.highlights(forHighlightAmount: ImageAdjustmentRenderer.minimumHighlightAmount / 2)
+
+        #expect(ImageAdjustmentDescription(light: .init(highlights: value)).light.highlights == -1)
     }
 
     @Test func applyingAutoReplacesOnlyTheFieldsAutoOwns() {

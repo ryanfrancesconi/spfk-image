@@ -85,6 +85,16 @@ final class ImageAdjustmentToneStepTests {
         #expect(try render(gray: 0.25, .init(light: .init(contrast: -1))) > 0.35)
     }
 
+    @Test func positiveHighlightsLiftTheUpperTonesAndHoldBlackAndWhite() throws {
+        let highlights = ImageAdjustmentDescription(light: .init(highlights: 1))
+
+        #expect(abs(try render(gray: 0.75, highlights) - 0.82) < 0.01)
+        #expect(abs(try render(gray: 0.5, highlights) - 0.52) < 0.01)
+        #expect(abs(try render(gray: 0.25, highlights) - 0.25) < 0.01)
+        #expect(try render(gray: 0, highlights) < 0.005)
+        #expect(abs(try render(gray: 1, highlights) - 1) < 0.005)
+    }
+
     @Test func toneCurvesStayIncreasingAtTheEndsOfTheirRanges() {
         for value in [-1.0, -0.5, 0.5, 1] {
             for curve in [
@@ -92,6 +102,7 @@ final class ImageAdjustmentToneStepTests {
                 ImageAdjustmentRenderer.whitePointCurve(value),
                 ImageAdjustmentRenderer.brightnessCurve(value),
                 ImageAdjustmentRenderer.contrastCurve(value),
+                ImageAdjustmentRenderer.highlightsCurve(value),
             ] {
                 #expect(zip(curve, curve.dropFirst()).allSatisfy { $0.x < $1.x && $0.y <= $1.y })
             }

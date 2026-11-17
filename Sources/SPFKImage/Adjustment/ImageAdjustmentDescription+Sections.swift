@@ -8,6 +8,7 @@ extension ImageAdjustmentDescription {
         public var brilliance: Double
         /// Stops (EV).
         public var exposure: Double
+        /// Positive brightens the highlights; negative recovers them.
         public var highlights: Double
         public var shadows: Double
         /// Moves the mid-tones and holds black and white.

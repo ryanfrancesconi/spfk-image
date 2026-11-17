@@ -65,19 +65,17 @@ extension ImageAdjustmentDescription {
         case grain
         case grainSize
 
-        /// Exposure is in stops; the rest are unitless positions. Highlights only go down: Core Image's
-        /// highlight adjustment is at its maximum when neutral. Each levels offset keeps its point
+        /// Exposure is in stops; the rest are unitless positions. Each levels offset keeps its point
         /// inside 0…1.
         public var range: ClosedRange<Double> {
             switch self {
             case .exposure: -3 ... 3
-            case .highlights: -1 ... 0
             case .sepia, .blackAndWhite, .sharpness, .definition, .noiseReduction, .levelsBlack, .grain: 0 ... 1
             case .levelsShadow: -0.25 ... 0.75
             case .levelsMid: -0.5 ... 0.5
             case .levelsHighlight: -0.75 ... 0.25
             case .levelsWhite: -1 ... 0
-            case .brilliance, .contrast, .shadows, .brightness, .blackPoint, .whitePoint, .saturation, .vibrance, .temperature, .tint,
+            case .brilliance, .highlights, .contrast, .shadows, .brightness, .blackPoint, .whitePoint, .saturation, .vibrance, .temperature, .tint,
                  .blackAndWhiteRed, .blackAndWhiteYellow, .blackAndWhiteGreen, .blackAndWhiteCyan, .blackAndWhiteBlue, .blackAndWhiteMagenta,
                  .sharpnessRadius, .vignette, .vignetteRadius, .vignetteSoftness, .grainSize: -1 ... 1
             case .selectiveRedHue, .selectiveRedSaturation, .selectiveRedLuminance,

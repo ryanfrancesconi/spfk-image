@@ -45,7 +45,7 @@ extension ImageAdjustmentRenderer {
 
             case "CIHighlightShadowAdjust":
                 result.light.shadows = number(filter, "inputShadowAmount")
-                result.light.highlights = number(filter, "inputHighlightAmount") - 1
+                result.light.highlights = highlights(forHighlightAmount: number(filter, "inputHighlightAmount"))
 
             default:
                 Log.debug("Auto drops \(filter.name)")

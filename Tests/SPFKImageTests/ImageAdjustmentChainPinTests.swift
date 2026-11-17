@@ -51,7 +51,7 @@ final class ImageAdjustmentChainPinTests {
 
         let highlightShadow = CIFilter.highlightShadowAdjust()
         highlightShadow.inputImage = temperature.outputImage
-        highlightShadow.highlightAmount = Float(1 + a.light.highlights)
+        highlightShadow.highlightAmount = Float(1 + a.light.highlights * 0.75)
         highlightShadow.shadowAmount = Float(a.light.shadows)
 
         let gain = 1 + a.light.contrast * 0.7
