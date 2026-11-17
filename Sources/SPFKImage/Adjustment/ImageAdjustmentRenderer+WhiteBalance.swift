@@ -164,6 +164,59 @@ extension ImageAdjustmentRenderer {
         return whiteBalance(neutralizing: color)
     }
 
+    /// The two values of the Temperature and Tint step.
+    public enum WhiteBalanceComponent: CaseIterable, Sendable {
+        case temperature
+        case tint
+    }
+
+    /// The colors a mid gray takes as `component` moves across its slider range, with the other value
+    /// as given. Rendered through Core Image as the preview is, then clamped to 0…1 as a display shows
+    /// it. sRGB-encoded.
+    public static func whiteBalanceTrack(
+        component: WhiteBalanceComponent,
+        temperature: Double,
+        tint: Double,
+        stops: Int = 25
+    ) -> [SIMD3<Double>] {
+        let count = max(2, stops)
+        guard let srgb = CGColorSpace(name: CGColorSpace.sRGB),
+              let gray = CIColor(red: 0.5, green: 0.5, blue: 0.5, alpha: 1, colorSpace: srgb)
+        else { return [] }
+
+        let range = component == .temperature
+            ? ImageAdjustmentDescription.Parameter.temperature.range
+            : ImageAdjustmentDescription.Parameter.tint.range
+        let source = CIImage(color: gray)
+        var strip = CIImage.empty()
+
+        for stop in 0 ..< count {
+            let value = range.lowerBound + (range.upperBound - range.lowerBound) * Double(stop) / Double(count - 1)
+            let pixel = CGRect(x: stop, y: 0, width: 1, height: 1)
+            let rendered = component == .temperature
+                ? temperatureAndTint(source.cropped(to: pixel), temperature: value, tint: tint)
+                : temperatureAndTint(source.cropped(to: pixel), temperature: temperature, tint: value)
+            strip = rendered.cropped(to: pixel).composited(over: strip)
+        }
+
+        var pixels = [SIMD4<Float>](repeating: .zero, count: count)
+        pixels.withUnsafeMutableBytes { buffer in
+            guard let base = buffer.baseAddress else { return }
+            analysisContext.render(
+                strip,
+                toBitmap: base,
+                rowBytes: count * MemoryLayout<SIMD4<Float>>.stride,
+                bounds: CGRect(x: 0, y: 0, width: count, height: 1),
+                format: .RGBAf,
+                colorSpace: srgb
+            )
+        }
+
+        return pixels.map { pixel in
+            SIMD3(Double(pixel.x), Double(pixel.y), Double(pixel.z)).clamped(lowerBound: .zero, upperBound: .one)
+        }
+    }
+
     /// The first pixel of `image` in linear extended sRGB.
     private static func averagePixel(of image: CIImage) -> SIMD3<Double>? {
         guard let linear = CGColorSpace(name: CGColorSpace.extendedLinearSRGB) else { return nil }
@@ -199,7 +252,7 @@ extension ImageAdjustmentRenderer {
         (value * value).sum().squareRoot()
     }
 
-    /// For the white balance's small renders, which a shared preview context gains nothing from caching.
+    /// For the white balance's small renders and slider tracks, which a shared preview context gains nothing from caching.
     static let analysisContext = CIContext(options: [.cacheIntermediates: false])
 
     /// The longer side, in pixels, the neutral estimate reduces an image to.

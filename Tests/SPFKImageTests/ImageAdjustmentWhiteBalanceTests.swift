@@ -206,4 +206,41 @@ final class ImageAdjustmentWhiteBalanceTests {
 
         #expect(diverging.isEmpty)
     }
+
+    // MARK: - Slider tracks
+
+    @Test func theTemperatureTrackRunsFromBlueThroughGrayToAmber() throws {
+        let track = ImageAdjustmentRenderer.whiteBalanceTrack(component: .temperature, temperature: 0, tint: 0)
+        let first = try #require(track.first)
+        let last = try #require(track.last)
+        let middle = track[track.count / 2]
+
+        #expect(first.z - first.x > 0.1)
+        #expect(last.z - last.x < -0.05)
+        let gray = SIMD3<Double>(repeating: 0.5)
+        let error = (middle - gray).replacing(with: gray - middle, where: middle .< gray).max()
+        #expect(error < 1.0 / 255)
+    }
+
+    @Test func theTintTrackRunsFromGreenToMagenta() throws {
+        let track = ImageAdjustmentRenderer.whiteBalanceTrack(component: .tint, temperature: 0, tint: 0)
+        let first = try #require(track.first)
+        let last = try #require(track.last)
+
+        #expect((first.x + first.z) / 2 - first.y < -0.05)
+        #expect((last.x + last.z) / 2 - last.y > 0.05)
+    }
+
+    @Test func theTemperatureTrackShowsTheCurrentTint() {
+        let track = ImageAdjustmentRenderer.whiteBalanceTrack(component: .temperature, temperature: 0, tint: 1)
+        let middle = track[track.count / 2]
+
+        #expect((middle.x + middle.z) / 2 - middle.y > 0.05)
+    }
+
+    @Test func aTrackIsClampedToWhatADisplayShows() {
+        let track = ImageAdjustmentRenderer.whiteBalanceTrack(component: .temperature, temperature: 0, tint: 1)
+
+        #expect(track.allSatisfy { $0.min() >= 0 && $0.max() <= 1 })
+    }
 }
