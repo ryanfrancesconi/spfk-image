@@ -29,6 +29,12 @@ extension ImageAdjustmentDescription {
 
     /// A tint for each ``ColorGradingRange``, and where the ranges meet.
     public struct ColorGrading: Hashable, Sendable, Codable {
+        /// One of a tint's two values.
+        public enum Component: CaseIterable, Sendable {
+            case hue
+            case saturation
+        }
+
         /// A hue has no effect while its saturation is 0.
         public struct Tint: Hashable, Sendable, Codable {
             public var hue: Double
@@ -37,6 +43,21 @@ extension ImageAdjustmentDescription {
             public init(hue: Double = 0, saturation: Double = 0) {
                 self.hue = hue
                 self.saturation = saturation
+            }
+
+            public subscript(component: Component) -> Double {
+                get {
+                    switch component {
+                    case .hue: hue
+                    case .saturation: saturation
+                    }
+                }
+                set {
+                    switch component {
+                    case .hue: hue = newValue
+                    case .saturation: saturation = newValue
+                    }
+                }
             }
         }
 

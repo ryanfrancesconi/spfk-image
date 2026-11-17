@@ -3,6 +3,7 @@
 import CoreGraphics
 import CoreImage
 import Foundation
+import simd
 @testable import SPFKImage
 import Testing
 
@@ -160,5 +161,47 @@ struct ImageAdjustmentColorGradingTests {
         let data = try JSONEncoder().encode(adjustments)
 
         #expect(try JSONDecoder().decode(ImageAdjustmentDescription.self, from: data) == adjustments)
+    }
+
+    // MARK: - Slider tracks
+
+    private typealias Tint = ImageAdjustmentDescription.ColorGrading.Tint
+
+    private func chroma(_ color: SIMD3<Double>) -> Double {
+        color.max() - color.min()
+    }
+
+    @Test func theHueTrackWrapsAndPassesThroughGreenAtAThird() throws {
+        let track = ImageAdjustmentRenderer.colorGradingTrack(component: .hue, tint: Tint())
+        let first = try #require(track.first)
+        let last = try #require(track.last)
+        let third = track[(track.count - 1) / 3]
+
+        #expect(simd_distance(first, last) < 1e-9)
+        #expect(third.y > third.x && third.y > third.z)
+    }
+
+    @Test func theHueTrackIsColoredWithSaturationAtZero() {
+        let track = ImageAdjustmentRenderer.colorGradingTrack(component: .hue, tint: Tint(hue: 0.5, saturation: 0))
+
+        #expect(track.allSatisfy { abs(chroma($0) - ImageAdjustmentRenderer.maximumColorGradingChroma) < 0.01 })
+    }
+
+    @Test func theSaturationTrackRunsFromGrayToTheHueAtFullStrength() throws {
+        let track = ImageAdjustmentRenderer.colorGradingTrack(component: .saturation, tint: Tint(hue: 1.0 / 3, saturation: 0))
+        let last = try #require(track.last)
+
+        #expect(track.first == SIMD3(repeating: 0.5))
+        #expect(zip(track, track.dropFirst()).allSatisfy { chroma($1) > chroma($0) })
+        #expect(abs(chroma(last) - ImageAdjustmentRenderer.maximumColorGradingChroma) < 0.01)
+        #expect(last.y > last.x && last.y > last.z)
+    }
+
+    @Test(arguments: ImageAdjustmentDescription.ColorGrading.Component.allCases)
+    func aTrackKeepsTheGraysLuma(component: ImageAdjustmentDescription.ColorGrading.Component) {
+        let track = ImageAdjustmentRenderer.colorGradingTrack(component: component, tint: Tint(hue: 0.7, saturation: 0.6))
+
+        #expect(track.count == 25)
+        #expect(track.allSatisfy { abs(($0 * ImageAdjustmentRenderer.luminanceWeights).sum() - 0.5) < 0.01 })
     }
 }
