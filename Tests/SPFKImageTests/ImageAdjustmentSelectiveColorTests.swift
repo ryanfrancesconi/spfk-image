@@ -251,6 +251,56 @@ struct ImageAdjustmentSelectiveColorTests {
         }
     }
 
+    // MARK: - Slider tracks
+
+    private func hsl(_ rgb: SIMD3<Double>) -> (hue: Double, saturation: Double, lightness: Double) {
+        ImageAdjustmentRenderer.hsl(rgb)
+    }
+
+    private func isGray(_ rgb: SIMD3<Double>) -> Bool {
+        rgb.max() - rgb.min() < 1e-9
+    }
+
+    @Test(arguments: [(Band.red, 330.0, 0.0, 30.0), (Band.blue, 210, 240, 270)])
+    func theHueTrackSpansTheBandCenterPlusOrMinusThirtyDegrees(band: Band, first: Double, middle: Double, last: Double) {
+        let track = ImageAdjustmentRenderer.selectiveColorTrack(band, component: .hue, shift: .init(), stops: 25)
+        let hues = track.map { hsl($0).hue }
+
+        func distance(_ a: Double, _ b: Double) -> Double { abs(remainder(a - b, 360)) }
+
+        #expect(distance(hues[0], first) < 1e-6)
+        #expect(distance(hues[12], middle) < 1e-6)
+        #expect(distance(hues[24], last) < 1e-6)
+    }
+
+    @Test func theSaturationTrackRisesFromGrayWithoutReachingTheClamp() {
+        let track = ImageAdjustmentRenderer.selectiveColorTrack(.green, component: .saturation, shift: .init(), stops: 25)
+        let chroma = track.map { $0.max() - $0.min() }
+
+        #expect(isGray(track[0]))
+        for (lower, higher) in zip(chroma, chroma.dropFirst()) {
+            #expect(higher > lower)
+        }
+    }
+
+    @Test func theLuminanceTrackRisesThroughTheReference() {
+        let track = ImageAdjustmentRenderer.selectiveColorTrack(.cyan, component: .luminance, shift: .init(), stops: 25)
+        let lightness = track.map { hsl($0).lightness }
+        let reference = ImageAdjustmentRenderer.rgb(hue: Band.cyan.centerHue, saturation: 0.5, lightness: 0.5)
+
+        for (lower, higher) in zip(lightness, lightness.dropFirst()) {
+            #expect(higher > lower)
+        }
+        #expect(simd_distance(track[12], reference) < 1e-9)
+    }
+
+    @Test func theHueTrackCarriesTheBandsOtherShifts() {
+        let shift = ImageAdjustmentDescription.SelectiveColor.Shift(hue: 0.7, saturation: -1, luminance: 0.4)
+        let track = ImageAdjustmentRenderer.selectiveColorTrack(.yellow, component: .hue, shift: shift, stops: 25)
+
+        #expect(track.allSatisfy(isGray))
+    }
+
     // MARK: - Storage
 
     @Test func selectiveColorRoundTripsThroughCodable() throws {

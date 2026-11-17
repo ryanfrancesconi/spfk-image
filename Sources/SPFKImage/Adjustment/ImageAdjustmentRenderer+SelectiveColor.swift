@@ -40,6 +40,27 @@ extension ImageAdjustmentRenderer {
         return Self.rgb(hue: hue, saturation: saturation, lightness: lightness)
     }
 
+    /// The colors `band`'s reference color takes as `component` moves across its range, from minimum to
+    /// maximum, with `shift`'s other two components applied. sRGB-encoded, as the renderer works.
+    public static func selectiveColorTrack(
+        _ band: ImageAdjustmentDescription.ColorBand,
+        component: ImageAdjustmentDescription.SelectiveColor.Component,
+        shift: ImageAdjustmentDescription.SelectiveColor.Shift,
+        stops: Int = 25
+    ) -> [SIMD3<Double>] {
+        let reference = rgb(hue: band.centerHue, saturation: selectiveColorTrackSaturation, lightness: 0.5)
+        let range = band.parameter(component).range
+        let count = max(2, stops)
+
+        return (0 ..< count).map { stop in
+            var swept = shift
+            swept[component] = range.lowerBound + (range.upperBound - range.lowerBound) * Double(stop) / Double(count - 1)
+
+            let shifts = ColorBand.allCases.map { $0 == band ? SIMD3(swept.hue, swept.saturation, swept.luminance) : .zero }
+            return selectiveColor(reference, shifts: shifts)
+        }
+    }
+
     /// How much a pixel of `hue` belongs to `band`: 1 at the band's center, falling linearly to 0 at
     /// the neighboring band's.
     static func bandWeight(hue: Double, _ band: ColorBand) -> Double {
@@ -103,6 +124,9 @@ extension ImageAdjustmentRenderer {
     static let maximumSelectiveLuminanceShift: Double = 0.5
     /// The chroma, max − min of sRGB-encoded channels, at which a pixel takes its band's whole shift.
     static let selectiveColorFullChroma: Double = 0.25
+    /// The track's reference saturation: the highest whose full positive shift reaches 1 without
+    /// clamping, so no part of the Saturation track is flat.
+    static let selectiveColorTrackSaturation: Double = 0.5
     /// The chroma at or below which a pixel takes none. Above one step of the color cube, so a gray's
     /// lookup, which blends the nodes around it, blends only unshifted ones.
     static let selectiveColorMinimumChroma: Double = 0.05

@@ -72,12 +72,27 @@ extension ImageAdjustmentDescription {
 
         /// Selective Color's hue, saturation and luminance, in that order.
         public var parameters: [Parameter] {
-            [hue, saturation, luminance]
+            SelectiveColor.Component.allCases.map(parameter)
+        }
+
+        public func parameter(_ component: SelectiveColor.Component) -> Parameter {
+            switch component {
+            case .hue: hue
+            case .saturation: saturation
+            case .luminance: luminance
+            }
         }
     }
 
     /// Hue, saturation and luminance shifts for each ``ColorBand``.
     public struct SelectiveColor: Hashable, Sendable, Codable {
+        /// One of a band's three shifts, in ``ColorBand/parameters`` order.
+        public enum Component: CaseIterable, Sendable {
+            case hue
+            case saturation
+            case luminance
+        }
+
         public struct Shift: Hashable, Sendable, Codable {
             public var hue: Double
             public var saturation: Double
@@ -87,6 +102,23 @@ extension ImageAdjustmentDescription {
                 self.hue = hue
                 self.saturation = saturation
                 self.luminance = luminance
+            }
+
+            public subscript(component: Component) -> Double {
+                get {
+                    switch component {
+                    case .hue: hue
+                    case .saturation: saturation
+                    case .luminance: luminance
+                    }
+                }
+                set {
+                    switch component {
+                    case .hue: hue = newValue
+                    case .saturation: saturation = newValue
+                    case .luminance: luminance = newValue
+                    }
+                }
             }
         }
 
