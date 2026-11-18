@@ -206,31 +206,34 @@ public struct ImageAdjustmentRenderer: Sendable {
         }
     }
 
-    /// Renders `source` with `adjustments`, then `orientation`, into a bitmap in the source's color space
-    /// and bit depth.
+    /// Renders `source` cropped by `cropEdit`, then with `adjustments`, then `orientation`, into a
+    /// bitmap in the source's color space and bit depth.
     ///
-    /// With `crop`, only that part of the oriented output renders, in its pixels with the origin at the
-    /// top left, expanded to whole pixels and limited to the output. The adjustments still see the
-    /// whole image, so a crop matches the same region cut from a full render.
+    /// With `region`, only that part of the cropped, oriented output renders, in its pixels with the
+    /// origin at the top left, expanded to whole pixels and limited to the output. The adjustments
+    /// still see the whole kept area, so a region matches the same part cut from a full render.
+    /// `sourceScale` is computed from the uncropped `source`.
     ///
     /// Eager (`deferred: false`), so the cost lands here rather than wherever the image is first drawn.
     public func render(
         _ adjustments: ImageAdjustmentDescription,
         orientation: OrientationEdit = .up,
+        cropEdit: CropEdit = CropEdit(),
         source: CGImage,
         sourceScale: Double = 1,
-        crop: CGRect? = nil
+        region: CGRect? = nil
     ) -> CGImage? {
         autoreleasepool {
-            let adjusted = Self.apply(adjustments, to: CIImage(cgImage: source), sourceScale: sourceScale)
+            let cropped = cropEdit.apply(to: CIImage(cgImage: source))
+            let adjusted = Self.apply(adjustments, to: cropped, sourceScale: sourceScale)
             let output = orientation.apply(to: adjusted)
-            let region = crop.map { Self.coreImageRect(topLeft: $0, in: output.extent) } ?? output.extent
+            let rendered = region.map { Self.coreImageRect(topLeft: $0, in: output.extent) } ?? output.extent
 
-            guard !region.isEmpty else { return nil }
+            guard !rendered.isEmpty else { return nil }
 
             return context.createCGImage(
                 output,
-                from: region,
+                from: rendered,
                 format: source.bitsPerComponent > 8 ? .RGBA16 : .RGBA8,
                 colorSpace: Self.renderColorSpace(for: source),
                 deferred: false

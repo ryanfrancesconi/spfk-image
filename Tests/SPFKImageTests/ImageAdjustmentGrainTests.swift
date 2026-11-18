@@ -38,9 +38,9 @@ struct ImageAdjustmentGrainTests {
         _ adjustments: ImageAdjustmentDescription,
         _ source: CGImage,
         sourceScale: Double = 1,
-        crop: CGRect? = nil
+        region: CGRect? = nil
     ) throws -> CGImage {
-        try #require(ImageAdjustmentRenderer().render(adjustments, source: source, sourceScale: sourceScale, crop: crop))
+        try #require(ImageAdjustmentRenderer().render(adjustments, source: source, sourceScale: sourceScale, region: region))
     }
 
     // MARK: - Tests
@@ -60,19 +60,19 @@ struct ImageAdjustmentGrainTests {
         #expect(try bytes(try render(adjustments, source)) == bytes(try render(adjustments, source)))
     }
 
-    /// The zoomed preview renders a crop, which must show the full render's grain at that spot.
-    @Test func aCropShowsTheFullRendersGrain() throws {
+    /// The zoomed preview renders a region, which must show the full render's grain at that spot.
+    @Test func aRegionShowsTheFullRendersGrain() throws {
         let source = try flat(128)
         let adjustments = ImageAdjustmentDescription(grain: .init(amount: 1, size: 0.5))
         let full = try bytes(try render(adjustments, source))
-        let crop = CGRect(x: 37, y: 101, width: 64, height: 48)
-        let cropped = try bytes(try render(adjustments, source, crop: crop))
+        let region = CGRect(x: 37, y: 101, width: 64, height: 48)
+        let inRegion = try bytes(try render(adjustments, source, region: region))
 
         var mismatches = 0
-        for y in 0 ..< Int(crop.height) {
-            for x in 0 ..< Int(crop.width) {
-                let a = cropped[(y * Int(crop.width) + x) * 4]
-                let b = full[((y + Int(crop.minY)) * 256 + x + Int(crop.minX)) * 4]
+        for y in 0 ..< Int(region.height) {
+            for x in 0 ..< Int(region.width) {
+                let a = inRegion[(y * Int(region.width) + x) * 4]
+                let b = full[((y + Int(region.minY)) * 256 + x + Int(region.minX)) * 4]
                 if a != b { mismatches += 1 }
             }
         }

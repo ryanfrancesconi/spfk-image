@@ -3,6 +3,7 @@
 import CoreImage
 import CoreImage.CIFilterBuiltins
 import Foundation
+import SPFKBase
 
 extension ImageAdjustmentRenderer {
     /// The levels points as `CIToneCurve` points: each ordered input position to its fixed output.
@@ -23,15 +24,15 @@ extension ImageAdjustmentRenderer {
     }
 
     /// The histogram of `source` as the levels step receives it, binned on sRGB-encoded values as the
-    /// levels curve reads them. Nil when Core Image produces no output.
-    public func levelsHistogram(_ adjustments: ImageAdjustmentDescription, source: CGImage) -> ImageHistogram? {
-        histogram(of: source, rendering: Self.levelsInput(of: adjustments))
+    /// levels curve reads them: the kept area of `cropEdit` only. Nil when Core Image produces no output.
+    public func levelsHistogram(_ adjustments: ImageAdjustmentDescription, cropEdit: CropEdit = CropEdit(), source: CGImage) -> ImageHistogram? {
+        histogram(of: source, cropEdit: cropEdit, rendering: Self.levelsInput(of: adjustments))
     }
 
-    /// The histogram of `source` with `partial` applied, binned on sRGB-encoded values.
-    func histogram(of source: CGImage, rendering partial: ImageAdjustmentDescription) -> ImageHistogram? {
+    /// The histogram of `source`'s kept area with `partial` applied, binned on sRGB-encoded values.
+    func histogram(of source: CGImage, cropEdit: CropEdit, rendering partial: ImageAdjustmentDescription) -> ImageHistogram? {
         autoreleasepool {
-            let input = Self.apply(partial, to: CIImage(cgImage: source))
+            let input = Self.apply(partial, to: cropEdit.apply(to: CIImage(cgImage: source)))
 
             let encode = CIFilter.linearToSRGBToneCurve()
             encode.inputImage = input

@@ -18,18 +18,18 @@ final class ImageAdjustmentViewStateTests {
         source = try CGImage.contentsOf(url: TestBundleResources.shared.songbird)
     }
 
-    // MARK: - Crop
+    // MARK: - Region
 
     @Test(arguments: [OrientationEdit.up, .right])
-    func aCropMatchesTheSameRegionOfTheFullRender(orientation: OrientationEdit) throws {
-        // Vignette and brilliance read the whole image's extent, so a crop must not shift them.
+    func aRegionMatchesTheSameRegionOfTheFullRender(orientation: OrientationEdit) throws {
+        // Vignette and brilliance read the whole image's extent, so a region must not shift them.
         let adjustments = ImageAdjustmentDescription(light: .init(brilliance: 0.6, exposure: 0.3), vignette: .init(amount: 0.8))
         let full = try #require(renderer.render(adjustments, orientation: orientation, source: source))
 
-        // Fractional, so the crop expands to whole pixels.
-        let crop = CGRect(x: 101.4, y: 37.6, width: 250.3, height: 180.2)
-        let cropped = try #require(renderer.render(adjustments, orientation: orientation, source: source, crop: crop))
-        let expected = try #require(full.cropping(to: crop.integral))
+        // Fractional, so the region expands to whole pixels.
+        let region = CGRect(x: 101.4, y: 37.6, width: 250.3, height: 180.2)
+        let cropped = try #require(renderer.render(adjustments, orientation: orientation, source: source, region: region))
+        let expected = try #require(full.cropping(to: region.integral))
 
         #expect(cropped.width == expected.width)
         #expect(cropped.height == expected.height)
@@ -38,15 +38,15 @@ final class ImageAdjustmentViewStateTests {
         #expect(difference <= 1)
     }
 
-    @Test func aCropOutsideTheImageRendersNothing() {
-        let crop = CGRect(x: CGFloat(source.width) + 10, y: 0, width: 50, height: 50)
+    @Test func aRegionOutsideTheImageRendersNothing() {
+        let region = CGRect(x: CGFloat(source.width) + 10, y: 0, width: 50, height: 50)
 
-        #expect(renderer.render(ImageAdjustmentDescription(light: .init(exposure: 1)), source: source, crop: crop) == nil)
+        #expect(renderer.render(ImageAdjustmentDescription(light: .init(exposure: 1)), source: source, region: region) == nil)
     }
 
-    @Test func aCropPastAnEdgeIsLimitedToTheImage() throws {
-        let crop = CGRect(x: CGFloat(source.width) - 40, y: -20, width: 100, height: 60)
-        let cropped = try #require(renderer.render(ImageAdjustmentDescription(light: .init(exposure: 1)), source: source, crop: crop))
+    @Test func aRegionPastAnEdgeIsLimitedToTheImage() throws {
+        let region = CGRect(x: CGFloat(source.width) - 40, y: -20, width: 100, height: 60)
+        let cropped = try #require(renderer.render(ImageAdjustmentDescription(light: .init(exposure: 1)), source: source, region: region))
 
         #expect(cropped.width == 40)
         #expect(cropped.height == 40)
