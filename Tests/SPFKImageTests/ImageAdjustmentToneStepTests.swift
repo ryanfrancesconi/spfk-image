@@ -37,6 +37,13 @@ final class ImageAdjustmentToneStepTests {
         #expect(abs(try render(gray: 1, .init(light: .init(blackPoint: value))) - 1) < 0.005)
     }
 
+    @Test func positiveBlackPointHoldsTheMidTones() throws {
+        let blackPoint = ImageAdjustmentDescription(light: .init(blackPoint: 1))
+
+        #expect(abs(try render(gray: 0.5, blackPoint) - 0.45) < 0.015)
+        #expect(abs(try render(gray: 0.75, blackPoint) - 0.73) < 0.015)
+    }
+
     @Test func negativeBlackPointRaisesBlack() throws {
         let floor = try render(gray: 0, .init(light: .init(blackPoint: -1)))
 

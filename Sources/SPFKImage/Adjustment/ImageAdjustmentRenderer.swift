@@ -180,15 +180,19 @@ public struct ImageAdjustmentRenderer: Sendable {
         }
     }
 
-    /// A straight line in sRGB-encoded values. Positive maps `value × maximumBlackPoint` to 0 and
-    /// stretches the rest; negative raises 0 to `−value × maximumBlackPoint`. White stays at 1.
+    /// In sRGB-encoded values. Positive maps `value × maximumBlackPoint` and below to 0, then bends
+    /// back toward identity, lowering the upper points by ``blackPointDrop``; negative is a straight
+    /// line raising 0 to `−value × maximumBlackPoint`. White stays at 1.
     static func blackPointCurve(_ value: Double) -> [CGPoint] {
         let shift = abs(value) * maximumBlackPoint
-        return curvePositions.map { x in
-            value > 0
-                ? CGPoint(x: shift + (1 - shift) * x, y: x)
-                : CGPoint(x: x, y: shift + (1 - shift) * x)
+
+        guard value > 0 else {
+            return curvePositions.map { x in CGPoint(x: x, y: shift + (1 - shift) * x) }
         }
+
+        let upper = zip(curvePositions, blackPointDrop).dropFirst(2).map { x, drop in CGPoint(x: x, y: x - value * drop) }
+        let middle = CGPoint(x: (shift + upper[0].x) / 2, y: upper[0].y / 2)
+        return [CGPoint(x: shift, y: 0), middle] + upper
     }
 
     /// A straight line in sRGB-encoded values. Positive maps `1 − value × maximumWhitePoint` to 1 and
@@ -299,6 +303,9 @@ public struct ImageAdjustmentRenderer: Sendable {
     static let neutralVignetteRadius: CGFloat = 0.75
     /// How far a full black point moves black, in sRGB-encoded values.
     static let maximumBlackPoint: Double = 0.25
+    /// How far full positive black point lowers each of ``curvePositions`` from 0.5 up, in
+    /// sRGB-encoded values.
+    static let blackPointDrop: [Double] = [0, 0, 0.05, 0.02, 0]
     /// How far a full white point moves white, in sRGB-encoded values.
     static let maximumWhitePoint: Double = 0.25
     /// How far full brightness moves mid-gray, in sRGB-encoded values.
