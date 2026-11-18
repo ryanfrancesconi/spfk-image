@@ -7,7 +7,11 @@ import simd
 extension ImageAdjustmentRenderer {
     /// Oklab lightness, a and b of sRGB-encoded `rgb`.
     static func oklab(_ rgb: SIMD3<Double>) -> SIMD3<Double> {
-        let linear = SIMD3(sRGBDecoded(rgb.x), sRGBDecoded(rgb.y), sRGBDecoded(rgb.z))
+        oklab(linear: SIMD3(sRGBDecoded(rgb.x), sRGBDecoded(rgb.y), sRGBDecoded(rgb.z)))
+    }
+
+    /// Oklab lightness, a and b of linear sRGB `linear`, which may lie outside 0…1.
+    static func oklab(linear: SIMD3<Double>) -> SIMD3<Double> {
         let l = cbrt(0.4122214708 * linear.x + 0.5363325363 * linear.y + 0.0514459929 * linear.z)
         let m = cbrt(0.2119034982 * linear.x + 0.6806995451 * linear.y + 0.1073969566 * linear.z)
         let s = cbrt(0.0883024619 * linear.x + 0.2817188376 * linear.y + 0.6299787005 * linear.z)
@@ -40,14 +44,26 @@ extension ImageAdjustmentRenderer {
     }
 
     private static func linearSRGB(lmsRoot: SIMD3<Double>) -> SIMD3<Double> {
-        let lms = lmsRoot * lmsRoot * lmsRoot
-
-        return SIMD3(
-            4.0767416621 * lms.x - 3.3077115913 * lms.y + 0.2309699292 * lms.z,
-            -1.2684380046 * lms.x + 2.6097574011 * lms.y - 0.3413193965 * lms.z,
-            -0.0041960863 * lms.x - 0.7034186147 * lms.y + 1.7076147010 * lms.z
-        )
+        lmsToLinearSRGB * (lmsRoot * lmsRoot * lmsRoot)
     }
+
+    private static let lmsToLinearSRGB = simd_double3x3(rows: [
+        SIMD3(4.0767416621, -3.3077115913, 0.2309699292),
+        SIMD3(-1.2684380046, 2.6097574011, -0.3413193965),
+        SIMD3(-0.0041960863, -0.7034186147, 1.7076147010),
+    ])
+
+    /// Linear Display P3 of linear sRGB, as ColorSync converts between `extendedLinearSRGB` and
+    /// `extendedLinearDisplayP3`. Display P3 shares sRGB's transfer curve.
+    static let linearSRGBToDisplayP3 = simd_double3x3(rows: [
+        SIMD3(0.8224260807, 0.1775570065, 0.0000168917),
+        SIMD3(0.0332198292, 0.9667982459, -0.0000180696),
+        SIMD3(0.0170741770, 0.0723747835, 0.9105510712),
+    ])
+
+    static let displayP3ToLinearSRGB = linearSRGBToDisplayP3.inverse
+
+    private static let lmsToLinearDisplayP3 = linearSRGBToDisplayP3 * lmsToLinearSRGB
 
     /// The sRGB-encoded color at Oklch `lightness`, `chroma` and `hue` (degrees). Lightness is clamped
     /// to 0…1; a color outside sRGB has its chroma reduced until it fits, keeping lightness and hue.
@@ -56,32 +72,52 @@ extension ImageAdjustmentRenderer {
     /// returns. Near blue the colors that fit along a hue are not one interval from gray, so a search
     /// from 0 can stop short of a color already inside.
     static func sRGB(lightness: Double, chroma: Double, hue: Double, insideChroma: Double = 0) -> SIMD3<Double> {
+        fitted(lightness: lightness, chroma: chroma, hue: hue, insideChroma: insideChroma, lmsToLinear: lmsToLinearSRGB)
+    }
+
+    /// ``sRGB(lightness:chroma:hue:insideChroma:)`` fitted to Display P3 instead, Display P3-encoded.
+    static func displayP3(lightness: Double, chroma: Double, hue: Double, insideChroma: Double = 0) -> SIMD3<Double> {
+        fitted(lightness: lightness, chroma: chroma, hue: hue, insideChroma: insideChroma, lmsToLinear: lmsToLinearDisplayP3)
+    }
+
+    /// The color encoded in the space `lmsToLinear` maps cubed LMS roots into.
+    private static func fitted(
+        lightness: Double,
+        chroma: Double,
+        hue: Double,
+        insideChroma: Double,
+        lmsToLinear: simd_double3x3
+    ) -> SIMD3<Double> {
         let lightness = min(1, max(0, lightness))
         let chroma = max(0, chroma)
         let radians = hue * .pi / 180
         let base = lmsRoot(SIMD3(lightness, 0, 0))
         let direction = lmsRoot(SIMD3(0, cos(radians), sin(radians)))
+        let linear = { (chroma: Double) -> SIMD3<Double> in
+            let root = base + chroma * direction
+            return lmsToLinear * (root * root * root)
+        }
 
-        var linear = linearSRGB(lmsRoot: base + chroma * direction)
+        var output = linear(chroma)
 
-        if gamutExcess(linear) > 0 {
+        if gamutExcess(output) > 0 {
             let inside = min(max(0, insideChroma), chroma)
-            var low = (chroma: inside, linear: linearSRGB(lmsRoot: base + inside * direction))
-            var high = (chroma: chroma, linear: linear)
+            var low = (chroma: inside, linear: linear(inside))
+            var high = (chroma: chroma, linear: output)
 
             for _ in 0 ..< gamutSearchSteps {
                 let middle = (low.chroma + high.chroma) / 2
-                let candidate = (chroma: middle, linear: linearSRGB(lmsRoot: base + middle * direction))
+                let candidate = (chroma: middle, linear: linear(middle))
                 if gamutExcess(candidate.linear) > 0 { high = candidate } else { low = candidate }
             }
 
             // The edge lies where the slack inside meets the excess outside.
             let slack = -gamutExcess(low.linear)
             let fraction = slack / (slack + gamutExcess(high.linear))
-            linear = linearSRGB(lmsRoot: base + (low.chroma + (high.chroma - low.chroma) * fraction) * direction)
+            output = linear(low.chroma + (high.chroma - low.chroma) * fraction)
         }
 
-        let clamped = simd_clamp(linear, SIMD3(repeating: 0), SIMD3(repeating: 1))
+        let clamped = simd_clamp(output, SIMD3(repeating: 0), SIMD3(repeating: 1))
         return SIMD3(sRGBEncoded(clamped.x), sRGBEncoded(clamped.y), sRGBEncoded(clamped.z))
     }
 
@@ -91,7 +127,7 @@ extension ImageAdjustmentRenderer {
         max(-linear.min(), linear.max() - 1) - 1e-6
     }
 
-    /// Bisection steps fitting a chroma into sRGB, before a final interpolation.
+    /// Bisection steps fitting a chroma into the gamut, before a final interpolation.
     private static let gamutSearchSteps = 8
 
     // MARK: - sRGB cusps

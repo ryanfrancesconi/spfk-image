@@ -18,15 +18,22 @@ extension ImageAdjustmentRenderer {
             return filter.outputImage ?? image
         }
 
-        return colorCube(image, step: "saturation", values: [amount], nodeTransform: { saturated($0, amount: amount) })
+        return colorCube(image, step: "saturation", values: [amount], space: .displayP3, nodeTransform: { saturated($0, amount: amount) })
     }
 
-    /// `node`'s color with its Oklch chroma scaled by `1 + amount`, holding lightness and hue. A color
-    /// the scale takes outside sRGB stops at its edge, so dull colors gain the most.
+    /// Display P3-encoded `node`'s color with its Oklch chroma scaled by
+    /// `1 + amount × maximumSaturationGain`, holding lightness and hue. A color the scale takes outside
+    /// Display P3 stops at its edge, so dull colors gain the most.
     static func saturated(_ node: ColorCubeNode, amount: Double) -> SIMD3<Double> {
         let chroma = simd_length(SIMD2(node.oklab.y, node.oklab.z))
         guard chroma > 0 else { return node.rgb }
 
-        return sRGB(lightness: node.oklab.x, chroma: chroma * (1 + amount), hue: node.hue, insideChroma: chroma)
+        let target = chroma * (1 + amount * maximumSaturationGain)
+        return displayP3(lightness: node.oklab.x, chroma: target, hue: node.hue, insideChroma: chroma)
     }
+
+    // MARK: - Mapping from slider positions
+
+    /// How much full positive Saturation adds to a color's Oklch chroma, as a multiple of it.
+    static let maximumSaturationGain: Double = 1.6
 }

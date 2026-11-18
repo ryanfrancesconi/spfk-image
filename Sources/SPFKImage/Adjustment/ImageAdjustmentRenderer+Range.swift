@@ -3,6 +3,7 @@
 import CoreImage
 import CoreImage.CIFilterBuiltins
 import Foundation
+import simd
 
 extension ImageAdjustmentRenderer {
     /// `step`'s output plus what clamping `image` to 0…1 removes, so values outside 0…1 (wide-gamut
@@ -13,18 +14,30 @@ extension ImageAdjustmentRenderer {
     /// modes and color cubes do, and keep its input's alpha.
     ///
     /// `image` is read twice, so it renders once into an intermediate; otherwise every step upstream
-    /// is evaluated once per read, doubling at each such step in a chain.
-    static func preservingRange(_ image: CIImage, _ step: (CIImage) -> CIImage) -> CIImage {
+    /// is evaluated once per read, doubling at each such step in a chain. With `.displayP3` the range
+    /// is Display P3's, for a step working in that space; the working space is linear sRGB.
+    static func preservingRange(_ image: CIImage, in space: ColorCubeSpace = .sRGB, _ step: (CIImage) -> CIImage) -> CIImage {
         let image = image.insertingIntermediate(cache: false)
-        let negatedClamp = matrix(
-            image.applyingFilter("CIColorClamp"),
-            r: CIVector(x: -1, y: 0, z: 0, w: 0),
-            g: CIVector(x: 0, y: -1, z: 0, w: 0),
-            b: CIVector(x: 0, y: 0, z: -1, w: 0)
-        )
+        let negatedClamp: CIImage
+
+        switch space {
+        case .sRGB:
+            negatedClamp = matrix(image.applyingFilter("CIColorClamp"), -matrix_identity_double3x3)
+        case .displayP3:
+            let clamped = matrix(image, linearSRGBToDisplayP3).applyingFilter("CIColorClamp")
+            negatedClamp = matrix(clamped, -displayP3ToLinearSRGB)
+        }
 
         let outOfRange = halvingAlpha(sum(image, negatedClamp))
         return halvingAlpha(sum(step(image), outOfRange)).cropped(to: image.extent)
+    }
+
+    /// `image` with its color channels multiplied by `transform`, alpha kept.
+    private static func matrix(_ image: CIImage, _ transform: simd_double3x3) -> CIImage {
+        let row = { (index: Int) in
+            CIVector(x: transform[0][index], y: transform[1][index], z: transform[2][index], w: 0)
+        }
+        return matrix(image, r: row(0), g: row(1), b: row(2))
     }
 
     /// `CIAdditionCompositing` does not clamp, but sums alpha as well as color.
