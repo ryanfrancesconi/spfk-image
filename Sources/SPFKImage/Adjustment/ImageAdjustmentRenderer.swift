@@ -54,10 +54,7 @@ public struct ImageAdjustmentRenderer: Sendable {
         }
 
         if color.vibrance != 0 {
-            let filter = CIFilter.vibrance()
-            filter.inputImage = output
-            filter.amount = Float(color.vibrance)
-            output = filter.outputImage ?? output
+            output = vibrance(output, color.vibrance)
         }
 
         if light.blackPoint != 0 {

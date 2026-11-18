@@ -57,6 +57,93 @@ final class ImageAdjustmentRendererStepTests {
         #expect(try stats(.init(color: .init(vibrance: -1))).meanChannelSpread < neutral.meanChannelSpread)
     }
 
+    // MARK: - Negative vibrance
+
+    /// sRGB-encoded `colors` rendered through `adjustments` as a one-row image, read back sRGB-encoded.
+    private func rendered(_ colors: [SIMD3<Double>], _ adjustments: ImageAdjustmentDescription) throws -> [SIMD3<Double>] {
+        let space = try #require(CGColorSpace(name: CGColorSpace.sRGB))
+        let floats = colors.flatMap { color -> [Float] in [Float(color.x), Float(color.y), Float(color.z), 1] }
+        let image = CIImage(
+            bitmapData: floats.withUnsafeBufferPointer { Data(buffer: $0) },
+            bytesPerRow: colors.count * 16,
+            size: CGSize(width: colors.count, height: 1),
+            format: .RGBAf,
+            colorSpace: space
+        )
+        let linear = try pixels(adjustments, of: image)
+
+        return colors.indices.map { index in
+            let pixel = linear[index * 4 ..< index * 4 + 3].map { ImageAdjustmentRenderer.sRGBEncoded(Double($0)) }
+            return SIMD3(pixel[0], pixel[1], pixel[2])
+        }
+    }
+
+    private static func oklchChroma(_ rgb: SIMD3<Double>) -> Double {
+        let lab = ImageAdjustmentRenderer.oklab(rgb)
+        return (lab.y * lab.y + lab.z * lab.z).squareRoot()
+    }
+
+    /// One HSL hue sweep per (saturation, lightness), a degree apart.
+    private static let hueSweeps: [[SIMD3<Double>]] = [(1, 0.5), (0.8, 0.5), (0.5, 0.5), (0.8, 0.3), (0.8, 0.7)].map { saturation, lightness in
+        (0 ... 360).map { ImageAdjustmentRenderer.rgb(hue: Double($0), saturation: saturation, lightness: lightness) }
+    }
+
+    /// `CIVibrance` at −1 changes a channel by up to 0.06 between neighboring degrees of these sweeps.
+    @Test func negativeVibranceMutesWithoutAStepAcrossHues() throws {
+        for sweep in Self.hueSweeps {
+            let output = try rendered(sweep, .init(color: .init(vibrance: -1)))
+            let largestStep = zip(output, output.dropFirst()).map { previous, next in
+                let step = next - previous
+                return max(step.max(), -step.min())
+            }.max() ?? 0
+            #expect(largestStep < 0.035)
+        }
+    }
+
+    @Test func negativeVibranceHoldsLightnessAndHue() throws {
+        for sweep in Self.hueSweeps {
+            let output = try rendered(sweep, .init(color: .init(vibrance: -1)))
+
+            for (input, muted) in zip(sweep, output) {
+                let before = ImageAdjustmentRenderer.oklab(input)
+                let after = ImageAdjustmentRenderer.oklab(muted)
+                #expect(abs(after.x - before.x) < 0.01)
+                #expect(Self.oklchChroma(muted) < Self.oklchChroma(input))
+            }
+        }
+    }
+
+    @Test func negativeVibranceSparesSkinMoreThanBlue() throws {
+        let skin = SIMD3<Double>(198, 120, 86) / 255
+        let blue = SIMD3<Double>(70, 110, 200) / 255
+        let output = try rendered([skin, blue], .init(color: .init(vibrance: -1)))
+
+        let skinKept = Self.oklchChroma(output[0]) / Self.oklchChroma(skin)
+        let blueKept = Self.oklchChroma(output[1]) / Self.oklchChroma(blue)
+        #expect(skinKept > 0.6)
+        #expect(blueKept < 0.2)
+    }
+
+    @Test func negativeVibranceChangesTheOutputOnlyWhenNonZero() throws {
+        var adjusted = ImageAdjustmentChainPinTests.pinned
+        let base = try pixels(adjusted)
+
+        adjusted.color.vibrance = -0.6
+        #expect(Self.maximumDifference(base, try pixels(adjusted)) > 0.01)
+
+        adjusted.color.vibrance = 0
+        #expect(Self.maximumDifference(base, try pixels(adjusted)) == 0)
+    }
+
+    @Test func positiveVibranceIsCoreImagesFilter() throws {
+        let filter = CIFilter.vibrance()
+        filter.inputImage = input
+        filter.amount = 0.6
+        let reference = try ImageAdjustmentChainPinTests.floatPixels(try #require(filter.outputImage).cropped(to: input.extent), context: context)
+
+        #expect(Self.maximumDifference(reference, try pixels(.init(color: .init(vibrance: 0.6)))) == 0)
+    }
+
     // MARK: - Vignette
 
     /// Mean linear luminance of a corner patch and of the center patch.
