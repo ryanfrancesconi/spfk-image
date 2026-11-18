@@ -52,10 +52,21 @@ final class ImageAdjustmentChainPinTests {
         let highlightShadow = CIFilter.highlightShadowAdjust()
         highlightShadow.inputImage = temperature.outputImage
         highlightShadow.highlightAmount = Float(1 + a.light.highlights * 0.75)
-        highlightShadow.shadowAmount = Float(a.light.shadows)
+        highlightShadow.shadowAmount = 0
+
+        let shadowsCurve = MonotoneCubicInterpolation(
+            x: [0, 0.25, 0.5, 0.75, 1],
+            y: [0, 0.25 + 0.19 * a.light.shadows, 0.5 + 0.12 * a.light.shadows, 0.75, 1]
+        )
+        let shadows = ImageAdjustmentRenderer.colorCube(
+            highlightShadow.outputImage ?? image, step: "pinnedShadows", values: [a.light.shadows]
+        ) { rgb in
+            let peak = rgb.max()
+            return peak > 0 ? rgb * (shadowsCurve.value(at: peak) / peak) : rgb
+        }
 
         let gain = 1 + a.light.contrast * 0.7
-        let contrast = ImageAdjustmentRenderer.preservingRange(highlightShadow.outputImage ?? image) { image in
+        let contrast = ImageAdjustmentRenderer.preservingRange(shadows) { image in
             let curve = CIFilter.toneCurve()
             curve.inputImage = image
             curve.point0 = CGPoint(x: 0, y: 0)

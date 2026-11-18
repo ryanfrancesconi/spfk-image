@@ -95,6 +95,38 @@ final class ImageAdjustmentToneStepTests {
         #expect(abs(try render(gray: 1, highlights) - 1) < 0.005)
     }
 
+    @Test func positiveShadowsLiftTheLowerTonesAndLeaveTheUpperOnes() throws {
+        let shadows = ImageAdjustmentDescription(light: .init(shadows: 1))
+
+        #expect(abs(try render(gray: 0.25, shadows) - 0.44) < 0.01)
+        #expect(abs(try render(gray: 0.5, shadows) - 0.62) < 0.01)
+        #expect(abs(try render(gray: 0.75, shadows) - 0.75) < 0.01)
+        #expect(try render(gray: 0, shadows) < 0.005)
+        #expect(abs(try render(gray: 1, shadows) - 1) < 0.005)
+    }
+
+    @Test func positiveShadowsHoldTheRatioBetweenChannels() throws {
+        let space = try #require(CGColorSpace(name: CGColorSpace.sRGB))
+        let color = try #require(CIColor(red: 0.3, green: 0.12, blue: 0.06, colorSpace: space))
+        let patch = CIImage(color: color).cropped(to: CGRect(x: 0, y: 0, width: 4, height: 4))
+        let pixels = try ImageAdjustmentChainPinTests.floatPixels(
+            ImageAdjustmentRenderer.apply(.init(light: .init(shadows: 1)), to: patch), context: context
+        )
+        let (red, green, blue) = (Self.encode(Double(pixels[0])), Self.encode(Double(pixels[1])), Self.encode(Double(pixels[2])))
+
+        #expect(red > 0.4)
+        #expect(abs(green / red - 0.4) < 0.01)
+        #expect(abs(blue / red - 0.2) < 0.01)
+    }
+
+    @Test func shadowsCurveStaysIncreasing() {
+        for value in [0.5, 1] {
+            let curve = ImageAdjustmentRenderer.shadowsCurve(value)
+            let samples = (0 ... 100).map { curve.value(at: Double($0) / 100) }
+            #expect(zip(samples, samples.dropFirst()).allSatisfy { $0 <= $1 })
+        }
+    }
+
     @Test func toneCurvesStayIncreasingAtTheEndsOfTheirRanges() {
         for value in [-1.0, -0.5, 0.5, 1] {
             for curve in [

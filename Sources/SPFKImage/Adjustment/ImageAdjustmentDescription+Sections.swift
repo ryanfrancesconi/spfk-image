@@ -10,6 +10,7 @@ extension ImageAdjustmentDescription {
         public var exposure: Double
         /// Positive brightens the highlights; negative recovers them.
         public var highlights: Double
+        /// Positive lifts the shadows and leaves the upper tones; negative deepens them.
         public var shadows: Double
         /// Moves the mid-tones and holds black and white.
         public var brightness: Double

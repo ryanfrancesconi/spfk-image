@@ -44,7 +44,7 @@ extension ImageAdjustmentRenderer {
                 result.levels.positions = ImageAdjustmentDescription.Levels.identity.map { inputPosition(of: $0, on: points) }
 
             case "CIHighlightShadowAdjust":
-                result.light.shadows = number(filter, "inputShadowAmount")
+                result.light.shadows = shadows(forShadowAmount: number(filter, "inputShadowAmount"))
                 result.light.highlights = highlights(forHighlightAmount: number(filter, "inputHighlightAmount"))
 
             default:

@@ -152,6 +152,27 @@ final class ImageAdjustmentAutoTests {
         #expect((zip(rendered, expected).map { abs($0 - $1) }.max() ?? 0) < 1e-4)
     }
 
+    /// On a flat quarter gray, across the amounts Auto produces.
+    @Test(arguments: [0.1, 0.2, 0.3])
+    func autoShadowsLiftAQuarterGrayAsTheFilterAmountTheyCameFrom(_ amount: Double) throws {
+        let space = try #require(CGColorSpace(name: CGColorSpace.sRGB))
+        let field = CIImage(color: try #require(CIColor(red: 0.25, green: 0.25, blue: 0.25, colorSpace: space)))
+            .cropped(to: CGRect(x: 0, y: 0, width: 64, height: 64))
+        let filter = CIFilter.highlightShadowAdjust()
+        filter.inputImage = field
+        filter.shadowAmount = Float(amount)
+        filter.highlightAmount = 1
+        let expected = try pixels(try #require(filter.outputImage).cropped(to: field.extent))
+
+        let adjustments = ImageAdjustmentDescription(
+            light: .init(shadows: ImageAdjustmentRenderer.shadows(forShadowAmount: amount))
+        )
+        let rendered = try pixels(ImageAdjustmentRenderer.apply(adjustments, to: field))
+
+        let center = (32 * 64 + 32) * 3
+        #expect(abs(rendered[center] - expected[center]) < 0.035)
+    }
+
     @Test func autoHighlightsBelowTheSliderMinimumClampToIt() {
         let value = ImageAdjustmentRenderer.highlights(forHighlightAmount: ImageAdjustmentRenderer.minimumHighlightAmount / 2)
 

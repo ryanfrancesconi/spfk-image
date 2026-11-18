@@ -76,16 +76,8 @@ public struct ImageAdjustmentRenderer: Sendable {
             output = curves(output, adjustments.curves)
         }
 
-        if light.highlights < 0 || light.shadows != 0 {
-            let filter = CIFilter.highlightShadowAdjust()
-            filter.inputImage = output
-            filter.highlightAmount = Float(highlightAmount(light.highlights))
-            filter.shadowAmount = Float(light.shadows)
-            output = filter.outputImage ?? output
-        }
-
-        if light.highlights > 0 {
-            output = toneCurve(output, highlightsCurve(light.highlights))
+        if light.highlights != 0 || light.shadows != 0 {
+            output = highlightsAndShadows(output, highlights: light.highlights, shadows: light.shadows)
         }
 
         if light.brightness != 0 {
@@ -217,23 +209,6 @@ public struct ImageAdjustmentRenderer: Sendable {
         }
     }
 
-    /// `CIHighlightShadowAdjust`'s highlight amount for negative Highlights, 1 (neutral) down to
-    /// ``minimumHighlightAmount``. Positive Highlights render through ``highlightsCurve(_:)`` instead.
-    static func highlightAmount(_ value: Double) -> Double {
-        1 + min(value, 0) * (1 - minimumHighlightAmount)
-    }
-
-    /// The Highlights value that renders as `CIHighlightShadowAdjust` at highlight `amount`; the
-    /// inverse of ``highlightAmount(_:)``.
-    static func highlights(forHighlightAmount amount: Double) -> Double {
-        (amount - 1) / (1 - minimumHighlightAmount)
-    }
-
-    /// Lifts the upper tones by ``highlightsLift``, so black and white stay fixed.
-    static func highlightsCurve(_ value: Double) -> [CGPoint] {
-        zip(curvePositions, highlightsLift).map { x, lift in CGPoint(x: x, y: x + value * lift) }
-    }
-
     /// Scales the inner points' distance from mid-gray by a gain, in sRGB-encoded values, so mid-gray,
     /// black and white stay fixed.
     static func contrastCurve(_ value: Double) -> [CGPoint] {
@@ -337,6 +312,12 @@ public struct ImageAdjustmentRenderer: Sendable {
     static let minimumHighlightAmount: Double = 0.25
     /// How far full positive Highlights moves each of ``curvePositions``, in sRGB-encoded values.
     static let highlightsLift: [Double] = [0, 0, 0.02, 0.07, 0]
+    /// How far full positive Shadows moves each of ``curvePositions``, in sRGB-encoded values.
+    static let shadowsLift: [Double] = [0, 0.19, 0.12, 0, 0]
+    /// Auto's positive shadow amounts (measured 0.05…0.33) on the Shadows slider. Within 0.03 of the
+    /// filter's lift of a flat quarter gray up to amount 0.3; photos, where the filter lifts more, want
+    /// between 1.3 and 2.
+    static let shadowAmountToSlider: Double = 1.5
     /// How far full positive and full negative brilliance move the base at each of
     /// ``curvePositions``, in sRGB-encoded values.
     static let brillianceLift: [Double] = [0, 0.10, 0.14, 0.04, 0]
