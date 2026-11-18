@@ -36,7 +36,6 @@ extension ImageAdjustmentDescription.Color {
 
 extension ImageAdjustmentDescription.BlackAndWhite {
     mutating func clamp() {
-        clampField(&amount, .blackAndWhite)
         clampField(&red, ImageAdjustmentDescription.ColorBand.red.blackAndWhite)
         clampField(&yellow, ImageAdjustmentDescription.ColorBand.yellow.blackAndWhite)
         clampField(&green, ImageAdjustmentDescription.ColorBand.green.blackAndWhite)

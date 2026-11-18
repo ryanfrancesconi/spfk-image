@@ -30,7 +30,7 @@ extension ImageAdjustmentDescription.Parameter {
         switch self {
         case .brilliance, .exposure, .highlights, .shadows, .brightness, .contrast, .blackPoint, .whitePoint: .light
         case .saturation, .vibrance, .temperature, .tint, .sepia: .color
-        case .blackAndWhite, .blackAndWhiteRed, .blackAndWhiteYellow, .blackAndWhiteGreen, .blackAndWhiteCyan, .blackAndWhiteBlue,
+        case .blackAndWhiteRed, .blackAndWhiteYellow, .blackAndWhiteGreen, .blackAndWhiteCyan, .blackAndWhiteBlue,
              .blackAndWhiteMagenta: .blackAndWhite
         case .levelsBlack, .levelsShadow, .levelsMid, .levelsHighlight, .levelsWhite: .levels
         case .selectiveRedHue, .selectiveRedSaturation, .selectiveRedLuminance,

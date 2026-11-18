@@ -109,7 +109,7 @@ public struct ImageAdjustmentRenderer: Sendable {
             output = selectiveColor(output, adjustments.selectiveColor)
         }
 
-        if adjustments.blackAndWhite.amount != 0 {
+        if adjustments.blackAndWhite.isOn {
             output = blackAndWhite(output, adjustments.blackAndWhite)
         }
 

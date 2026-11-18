@@ -18,7 +18,6 @@ extension ImageAdjustmentDescription {
         case temperature
         case tint
         case sepia
-        case blackAndWhite
         case blackAndWhiteRed
         case blackAndWhiteYellow
         case blackAndWhiteGreen
@@ -70,7 +69,7 @@ extension ImageAdjustmentDescription {
         public var range: ClosedRange<Double> {
             switch self {
             case .exposure: -3 ... 3
-            case .sepia, .blackAndWhite, .sharpness, .definition, .noiseReduction, .levelsBlack, .grain: 0 ... 1
+            case .sepia, .sharpness, .definition, .noiseReduction, .levelsBlack, .grain: 0 ... 1
             case .levelsShadow: -0.25 ... 0.75
             case .levelsMid: -0.5 ... 0.5
             case .levelsHighlight: -0.75 ... 0.25
@@ -105,7 +104,6 @@ extension ImageAdjustmentDescription {
             case .temperature: \.color.temperature
             case .tint: \.color.tint
             case .sepia: \.color.sepia
-            case .blackAndWhite: \.blackAndWhite.amount
             case .blackAndWhiteRed: \.blackAndWhite.red
             case .blackAndWhiteYellow: \.blackAndWhite.yellow
             case .blackAndWhiteGreen: \.blackAndWhite.green

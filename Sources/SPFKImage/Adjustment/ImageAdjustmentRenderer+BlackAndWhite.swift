@@ -5,8 +5,7 @@ import CoreImage.CIFilterBuiltins
 import Foundation
 
 extension ImageAdjustmentRenderer {
-    /// `image` mixed ``ImageAdjustmentDescription/BlackAndWhite/amount`` of the way to its monochrome version,
-    /// in Core Image's linear working space.
+    /// `image` in monochrome, in Core Image's linear working space.
     ///
     /// The cube passes values outside 0…1 through per channel, so its output is reduced to luminance
     /// once more: a gray is unchanged, and a wide-gamut or HDR remainder becomes gray too.
@@ -14,13 +13,7 @@ extension ImageAdjustmentRenderer {
         let shifts = ColorBand.allCases.map { blackAndWhite[$0] }
         let cube = colorCube(image, step: "blackAndWhite", values: shifts) { Self.blackAndWhite($0, shifts: shifts) }
         let row = CIVector(x: luminanceWeights.x, y: luminanceWeights.y, z: luminanceWeights.z, w: 0)
-        let mono = matrix(cube, r: row, g: row, b: row)
-
-        let mix = CIFilter.mix()
-        mix.inputImage = mono
-        mix.backgroundImage = image
-        mix.amount = Float(blackAndWhite.amount)
-        return mix.outputImage ?? image
+        return matrix(cube, r: row, g: row, b: row)
     }
 
     /// The gray for sRGB-encoded `rgb`: its Rec. 709 luminance, moved toward white or black by each
@@ -45,7 +38,7 @@ extension ImageAdjustmentRenderer {
     }
 
     /// The grays `band`'s reference color becomes as its shift moves across its range, from minimum to
-    /// maximum, with every other band at 0. sRGB-encoded, at full Amount.
+    /// maximum, with every other band at 0. sRGB-encoded.
     public static func blackAndWhiteTrack(_ band: ImageAdjustmentDescription.ColorBand, stops: Int = 25) -> [SIMD3<Double>] {
         let reference = rgb(hue: band.centerHue, saturation: bandTrackSaturation, lightness: 0.5)
         let range = band.blackAndWhite.range

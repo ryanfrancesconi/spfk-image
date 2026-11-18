@@ -51,8 +51,8 @@ struct ImageAdjustmentBlackAndWhiteTests {
     ]
     private static let grays: [SIMD3<UInt8>] = [0, 40, 128, 200, 255].map { SIMD3(repeating: $0) }
 
-    private func everyBand(_ value: Double, amount: Double = 1) -> ImageAdjustmentDescription {
-        var adjustments = ImageAdjustmentDescription(blackAndWhite: .init(amount: amount))
+    private func everyBand(_ value: Double, isOn: Bool = true) -> ImageAdjustmentDescription {
+        var adjustments = ImageAdjustmentDescription(blackAndWhite: .init(isOn: isOn))
         for parameter in ImageAdjustmentDescription.ColorBand.allCases.map(\.blackAndWhite) {
             adjustments[parameter] = value
         }
@@ -62,14 +62,14 @@ struct ImageAdjustmentBlackAndWhiteTests {
     // MARK: - Tests
 
     @Test(arguments: [-1.0, 0, 1])
-    func fullAmountRendersEqualChannels(value: Double) throws {
+    func onRendersEqualChannels(value: Double) throws {
         for pixel in try render(everyBand(value), Self.colors) {
             #expect(max(abs(pixel.x - pixel.y), abs(pixel.y - pixel.z)) <= 1, "\(pixel)")
         }
     }
 
-    @Test func zeroAmountIsIdentityWhateverTheBands() throws {
-        #expect(try render(everyBand(1, amount: 0), Self.colors) == render(ImageAdjustmentDescription(), Self.colors))
+    @Test func offIsIdentityWhateverTheBands() throws {
+        #expect(try render(everyBand(1, isOn: false), Self.colors) == render(ImageAdjustmentDescription(), Self.colors))
     }
 
     @Test(arguments: [-1.0, 1])
@@ -117,13 +117,12 @@ struct ImageAdjustmentBlackAndWhiteTests {
         #expect(abs(raised[1].x - neutral[1].x) <= 1)
     }
 
-    @Test func partialAmountLiesBetweenColorAndMono() throws {
-        let color = try render(ImageAdjustmentDescription(), [Self.red])[0]
-        let mono = try render(ImageAdjustmentDescription(blackAndWhite: .init(amount: 1)), [Self.red])[0]
-        let half = try render(ImageAdjustmentDescription(blackAndWhite: .init(amount: 0.5)), [Self.red])[0]
+    @Test func onLeavesNoColorInASaturatedPatch() throws {
+        let saturated: [SIMD3<UInt8>] = [Self.red, SIMD3(0, 255, 0), Self.blue, SIMD3(255, 0, 255), SIMD3(255, 255, 0)]
 
-        #expect(half.x < color.x && half.x > mono.x)
-        #expect(half.y > color.y && half.y < mono.y)
+        for pixel in try render(ImageAdjustmentDescription(blackAndWhite: .init(isOn: true)), saturated) {
+            #expect(pixel.x == pixel.y && pixel.y == pixel.z, "\(pixel)")
+        }
     }
 
     @Test func eachBandOwnsADistinctParameter() {
@@ -133,11 +132,25 @@ struct ImageAdjustmentBlackAndWhiteTests {
 
     @Test func blackAndWhiteRoundTripsThroughCodable() throws {
         let adjustments = ImageAdjustmentDescription(
-            blackAndWhite: .init(amount: 0.7, red: 0.4, yellow: -0.1, cyan: -0.2, magenta: 1)
+            blackAndWhite: .init(isOn: true, red: 0.4, yellow: -0.1, cyan: -0.2, magenta: 1)
         )
         let data = try JSONEncoder().encode(adjustments)
 
         #expect(try JSONDecoder().decode(ImageAdjustmentDescription.self, from: data) == adjustments)
+    }
+
+    /// A preset saved with the Amount slider loads switched off, keeping its bands.
+    @Test func anOldAmountDecodesSwitchedOffWithItsBands() throws {
+        let json = #"{"amount": 0.7, "red": 0.4, "yellow": 0, "green": 0, "cyan": -0.2, "blue": 0, "magenta": 1}"#
+        let decoded = try JSONDecoder().decode(ImageAdjustmentDescription.BlackAndWhite.self, from: Data(json.utf8))
+
+        #expect(decoded == .init(isOn: false, red: 0.4, cyan: -0.2, magenta: 1))
+    }
+
+    @Test func missingBandsDecodeAsNeutral() throws {
+        let decoded = try JSONDecoder().decode(ImageAdjustmentDescription.BlackAndWhite.self, from: Data(#"{"isOn": true}"#.utf8))
+
+        #expect(decoded == .init(isOn: true))
     }
 
     // MARK: - Slider tracks
