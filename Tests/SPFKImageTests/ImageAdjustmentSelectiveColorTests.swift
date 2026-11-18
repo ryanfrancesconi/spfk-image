@@ -104,6 +104,88 @@ struct ImageAdjustmentSelectiveColorTests {
         }
     }
 
+    private func oklch(_ rgb: SIMD3<Double>) -> (lightness: Double, chroma: Double, hue: Double) {
+        let lab = ImageAdjustmentRenderer.oklab(rgb)
+        return (lab.x, simd_length(SIMD2(lab.y, lab.z)), ImageAdjustmentRenderer.oklchHue(lab))
+    }
+
+    private func turn(_ a: Double, _ b: Double) -> Double {
+        remainder(b - a, 360)
+    }
+
+    private func only(_ band: Band, _ shift: SIMD3<Double>) -> [SIMD3<Double>] {
+        Band.allCases.map { $0 == band ? shift : .zero }
+    }
+
+    @Test(arguments: [(SIMD3(0.0, 1, 0), Band.green), (SIMD3(1.0, 0, 0), .red), (SIMD3(0.0, 0, 1), .blue)])
+    func theCenterTurnsByTheFullReach(color: SIMD3<Double>, band: Band) {
+        for direction in [-1.0, 1.0] {
+            let turned = ImageAdjustmentRenderer.selectiveColor(color, shifts: only(band, SIMD3(direction, 0, 0)))
+            let degrees = turn(oklch(color).hue, oklch(turned).hue)
+
+            #expect(abs(degrees - direction * ImageAdjustmentRenderer.maximumSelectiveHueShift) < 1, "\(band) \(direction): \(degrees)")
+        }
+    }
+
+    /// A hue 20 degrees off green's center, as yellow-green foliage is, takes most of a green edit.
+    @Test(arguments: [-20.0, 20])
+    func aHueTwentyDegreesOffTheCenterTakesMostOfTheTurn(offset: Double) {
+        let hue = ImageAdjustmentRenderer.bandCenters[2] + offset
+        let color = ImageAdjustmentRenderer.sRGB(lightness: 0.6, chroma: 0.12, hue: hue)
+        let turned = ImageAdjustmentRenderer.selectiveColor(color, shifts: only(.green, SIMD3(-1, 0, 0)))
+        let degrees = turn(oklch(color).hue, oklch(turned).hue)
+
+        #expect(-degrees > 0.7 * ImageAdjustmentRenderer.maximumSelectiveHueShift, "\(degrees)")
+    }
+
+    @Test func theOppositeHueDoesNotMove() {
+        let hue = ImageAdjustmentRenderer.bandCenters[2] + 180
+        let color = ImageAdjustmentRenderer.sRGB(lightness: 0.6, chroma: 0.15, hue: hue)
+
+        for shift in [SIMD3(1.0, 1, 1), SIMD3(-1.0, -1, -1)] {
+            #expect(ImageAdjustmentRenderer.selectiveColor(color, shifts: only(.green, shift)) == color)
+        }
+    }
+
+    @Test func neighboringBandsOverlap() {
+        let yellow = ImageAdjustmentRenderer.bandCenters[1]
+        let green = ImageAdjustmentRenderer.bandCenters[2]
+
+        #expect(ImageAdjustmentRenderer.bandWeight(hue: yellow, center: green) > 0.3)
+        #expect(ImageAdjustmentRenderer.bandWeight(hue: green, center: green) == 1)
+        #expect(ImageAdjustmentRenderer.bandWeight(hue: green + ImageAdjustmentRenderer.selectiveColorBandWidth, center: green) == 0)
+    }
+
+    @Test(arguments: [-1.0, 1.0])
+    func luminanceMovesADullColorLessThanAVividOne(value: Double) {
+        let vivid = ImageAdjustmentRenderer.rgb(hue: 120, saturation: 1, lightness: 0.4)
+        let dull = ImageAdjustmentRenderer.rgb(hue: 120, saturation: 0.25, lightness: 0.4)
+        let shifts = only(.green, SIMD3(0, 0, value))
+
+        let vividMove = abs(oklch(ImageAdjustmentRenderer.selectiveColor(vivid, shifts: shifts)).lightness - oklch(vivid).lightness)
+        let dullMove = abs(oklch(ImageAdjustmentRenderer.selectiveColor(dull, shifts: shifts)).lightness - oklch(dull).lightness)
+
+        #expect(dullMove > 0.01)
+        #expect(dullMove < 0.5 * vividMove, "dull \(dullMove), vivid \(vividMove)")
+    }
+
+    /// Doubling the chroma of colors already at sRGB's edge keeps their hue: the excess is taken off
+    /// chroma rather than clipped off a channel.
+    @Test func saturationAtTheGamutEdgeKeepsHue() {
+        let shifts = [SIMD3<Double>](repeating: SIMD3(0, 1, 0), count: Band.allCases.count)
+
+        for hue in stride(from: 0.0, to: 360, by: 10) {
+            for lightness in [0.3, 0.5, 0.7] {
+                let color = ImageAdjustmentRenderer.rgb(hue: hue, saturation: 0.9, lightness: lightness)
+                let output = ImageAdjustmentRenderer.selectiveColor(color, shifts: shifts)
+
+                #expect(output.min() >= 0 && output.max() <= 1)
+                #expect(abs(turn(oklch(color).hue, oklch(output).hue)) < 1.5, "HSL \(hue) L \(lightness): \(output)")
+                #expect(oklch(output).chroma >= oklch(color).chroma - 0.002, "HSL \(hue) L \(lightness) lost chroma")
+            }
+        }
+    }
+
     // MARK: - Render
 
     @Test func neutralIsSkippedAndRendersUnchanged() throws {
@@ -138,9 +220,9 @@ struct ImageAdjustmentSelectiveColorTests {
 
         let red = try render(adjustments, [Self.red])[0]
 
-        #expect(red.x > 250)
+        #expect(red.x > 150, "red became \(red)")
         #expect(red.y > 100, "red became \(red)")
-        #expect(red.z < 5)
+        #expect(red.z < 30, "red became \(red)")
     }
 
     @Test(arguments: [(1.0, true), (-1.0, false)])
@@ -149,11 +231,11 @@ struct ImageAdjustmentSelectiveColorTests {
         adjustments.selectiveColor.blue.luminance = value
 
         let output = try render(adjustments, [Self.blue, Self.red])
-        let before = ImageAdjustmentRenderer.hsl(SIMD3(0, 0, 1)).lightness
+        let before = oklch(SIMD3(0, 0, 1)).lightness
         let blue = SIMD3(Double(output[0].x), Double(output[0].y), Double(output[0].z)) / 255
-        let after = ImageAdjustmentRenderer.hsl(blue).lightness
+        let after = oklch(blue).lightness
 
-        #expect(brightens ? after > before + 0.1 : after < before - 0.1, "blue became \(output[0])")
+        #expect(brightens ? after > before + 0.08 : after < before - 0.2, "blue became \(output[0])")
         #expect(difference(output[1], levels(Self.red)) <= 1)
     }
 
@@ -253,40 +335,40 @@ struct ImageAdjustmentSelectiveColorTests {
 
     // MARK: - Slider tracks
 
-    private func hsl(_ rgb: SIMD3<Double>) -> (hue: Double, saturation: Double, lightness: Double) {
-        ImageAdjustmentRenderer.hsl(rgb)
-    }
-
     private func isGray(_ rgb: SIMD3<Double>) -> Bool {
-        rgb.max() - rgb.min() < 1e-9
+        rgb.max() - rgb.min() < 1e-6
     }
 
-    @Test(arguments: [(Band.red, 330.0, 0.0, 30.0), (Band.blue, 210, 240, 270)])
-    func theHueTrackSpansTheBandCenterPlusOrMinusThirtyDegrees(band: Band, first: Double, middle: Double, last: Double) {
+    @Test(arguments: Band.allCases)
+    func theHueTrackSpansTheFullReachEitherSideOfTheReference(band: Band) {
         let track = ImageAdjustmentRenderer.selectiveColorTrack(band, component: .hue, shift: .init(), stops: 25)
-        let hues = track.map { hsl($0).hue }
+        let reference = ImageAdjustmentRenderer.bandReference(band)
+        let reach = ImageAdjustmentRenderer.maximumSelectiveHueShift
 
-        func distance(_ a: Double, _ b: Double) -> Double { abs(remainder(a - b, 360)) }
-
-        #expect(distance(hues[0], first) < 1e-6)
-        #expect(distance(hues[12], middle) < 1e-6)
-        #expect(distance(hues[24], last) < 1e-6)
+        #expect(abs(turn(ImageAdjustmentRenderer.bandCenter(band), oklch(reference).hue)) < 0.5, "\(band)")
+        #expect(simd_distance(track[12], reference) < 1e-9)
+        #expect(abs(turn(oklch(reference).hue, oklch(track[0]).hue) + reach) < 1, "\(band)")
+        #expect(abs(turn(oklch(reference).hue, oklch(track[24]).hue) - reach) < 1, "\(band)")
     }
 
-    @Test func theSaturationTrackRisesFromGrayWithoutReachingTheClamp() {
-        let track = ImageAdjustmentRenderer.selectiveColorTrack(.green, component: .saturation, shift: .init(), stops: 25)
-        let chroma = track.map { $0.max() - $0.min() }
+    /// Chroma rises from gray to the reference and never falls after it. Past the reference sRGB's
+    /// edge can hold it still: cyan's reference is close to the most colorful cyan at its lightness.
+    @Test(arguments: Band.allCases)
+    func theSaturationTrackRisesFromGray(band: Band) {
+        let track = ImageAdjustmentRenderer.selectiveColorTrack(band, component: .saturation, shift: .init(), stops: 25)
+        let chroma = track.map { oklch($0).chroma }
 
         #expect(isGray(track[0]))
         for (lower, higher) in zip(chroma, chroma.dropFirst()) {
-            #expect(higher > lower)
+            #expect(higher > lower - 0.002, "\(band)")
         }
+        #expect(chroma[12] > chroma[6] + 0.02, "\(band): \(chroma)")
     }
 
     @Test func theLuminanceTrackRisesThroughTheReference() {
         let track = ImageAdjustmentRenderer.selectiveColorTrack(.cyan, component: .luminance, shift: .init(), stops: 25)
-        let lightness = track.map { hsl($0).lightness }
-        let reference = ImageAdjustmentRenderer.rgb(hue: Band.cyan.centerHue, saturation: 0.5, lightness: 0.5)
+        let lightness = track.map { oklch($0).lightness }
+        let reference = ImageAdjustmentRenderer.bandReference(.cyan)
 
         for (lower, higher) in zip(lightness, lightness.dropFirst()) {
             #expect(higher > lower)
