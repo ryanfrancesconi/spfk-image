@@ -90,12 +90,7 @@ public struct ImageAdjustmentRenderer: Sendable {
         }
 
         if color.saturation != 0 {
-            let filter = CIFilter.colorControls()
-            filter.inputImage = output
-            filter.contrast = 1
-            filter.saturation = Float(1 + color.saturation)
-            filter.brightness = 0
-            output = filter.outputImage ?? output
+            output = saturation(output, color.saturation)
         }
 
         if detail.definition != 0 {

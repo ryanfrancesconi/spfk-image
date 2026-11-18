@@ -51,7 +51,11 @@ extension ImageAdjustmentRenderer {
 
     /// The sRGB-encoded color at Oklch `lightness`, `chroma` and `hue` (degrees). Lightness is clamped
     /// to 0…1; a color outside sRGB has its chroma reduced until it fits, keeping lightness and hue.
-    static func sRGB(lightness: Double, chroma: Double, hue: Double) -> SIMD3<Double> {
+    ///
+    /// `insideChroma`, a chroma known to fit at this lightness and hue, is the least the reduction
+    /// returns. Near blue the colors that fit along a hue are not one interval from gray, so a search
+    /// from 0 can stop short of a color already inside.
+    static func sRGB(lightness: Double, chroma: Double, hue: Double, insideChroma: Double = 0) -> SIMD3<Double> {
         let lightness = min(1, max(0, lightness))
         let chroma = max(0, chroma)
         let radians = hue * .pi / 180
@@ -61,7 +65,8 @@ extension ImageAdjustmentRenderer {
         var linear = linearSRGB(lmsRoot: base + chroma * direction)
 
         if gamutExcess(linear) > 0 {
-            var low = (chroma: 0.0, linear: linearSRGB(lmsRoot: base))
+            let inside = min(max(0, insideChroma), chroma)
+            var low = (chroma: inside, linear: linearSRGB(lmsRoot: base + inside * direction))
             var high = (chroma: chroma, linear: linear)
 
             for _ in 0 ..< gamutSearchSteps {
