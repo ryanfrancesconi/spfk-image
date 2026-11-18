@@ -33,12 +33,12 @@ extension ImageAdjustmentDescription.Parameter {
         case .blackAndWhiteRed, .blackAndWhiteYellow, .blackAndWhiteGreen, .blackAndWhiteCyan, .blackAndWhiteBlue,
              .blackAndWhiteMagenta: .blackAndWhite
         case .levelsBlack, .levelsShadow, .levelsMid, .levelsHighlight, .levelsWhite: .levels
-        case .selectiveRedHue, .selectiveRedSaturation, .selectiveRedLuminance,
-             .selectiveYellowHue, .selectiveYellowSaturation, .selectiveYellowLuminance,
-             .selectiveGreenHue, .selectiveGreenSaturation, .selectiveGreenLuminance,
-             .selectiveCyanHue, .selectiveCyanSaturation, .selectiveCyanLuminance,
-             .selectiveBlueHue, .selectiveBlueSaturation, .selectiveBlueLuminance,
-             .selectiveMagentaHue, .selectiveMagentaSaturation, .selectiveMagentaLuminance: .selectiveColor
+        case .selectiveRedHue, .selectiveRedSaturation, .selectiveRedLuminance, .selectiveRedRange,
+             .selectiveYellowHue, .selectiveYellowSaturation, .selectiveYellowLuminance, .selectiveYellowRange,
+             .selectiveGreenHue, .selectiveGreenSaturation, .selectiveGreenLuminance, .selectiveGreenRange,
+             .selectiveCyanHue, .selectiveCyanSaturation, .selectiveCyanLuminance, .selectiveCyanRange,
+             .selectiveBlueHue, .selectiveBlueSaturation, .selectiveBlueLuminance, .selectiveBlueRange,
+             .selectiveMagentaHue, .selectiveMagentaSaturation, .selectiveMagentaLuminance, .selectiveMagentaRange: .selectiveColor
         case .colorGradingShadowHue, .colorGradingShadowSaturation, .colorGradingMidtoneHue, .colorGradingMidtoneSaturation,
              .colorGradingHighlightHue, .colorGradingHighlightSaturation, .colorGradingBalance: .colorGrading
         case .sharpness, .sharpnessRadius, .definition, .noiseReduction: .detail

@@ -156,6 +156,38 @@ struct ImageAdjustmentSelectiveColorTests {
         #expect(ImageAdjustmentRenderer.bandWeight(hue: green + ImageAdjustmentRenderer.selectiveColorBandWidth, center: green) == 0)
     }
 
+    /// A green edit on a hue `offset` degrees above green's center, at `range`.
+    private func greenTurn(offset: Double, range: Double) -> Double {
+        let color = ImageAdjustmentRenderer.sRGB(lightness: 0.6, chroma: 0.1, hue: ImageAdjustmentRenderer.bandCenters[2] + offset)
+        let widths = Band.allCases.map { ImageAdjustmentRenderer.bandWidth(range: $0 == .green ? range : 0) }
+        let turned = ImageAdjustmentRenderer.selectiveColor(color, shifts: only(.green, SIMD3(-1, 0, 0)), widths: widths)
+        return turn(oklch(color).hue, oklch(turned).hue)
+    }
+
+    @Test(arguments: [-1.0, 1.0])
+    func rangeKeepsTheCentersTurn(range: Double) {
+        let atZero = greenTurn(offset: 0, range: 0)
+        #expect(atZero < -10)
+        #expect(abs(greenTurn(offset: 0, range: range) - atZero) < 1e-9)
+    }
+
+    @Test func rangeWidensAndNarrowsTheBand() {
+        #expect(greenTurn(offset: 100, range: 0) == 0)
+        #expect(greenTurn(offset: 100, range: 1) < -5)
+        #expect(abs(greenTurn(offset: 30, range: -1)) < 0.25 * abs(greenTurn(offset: 30, range: 0)))
+        #expect(greenTurn(offset: 45, range: -1) == 0)
+    }
+
+    @Test func rangeAloneRendersUnchanged() throws {
+        var adjustments = ImageAdjustmentDescription()
+        for band in Band.allCases {
+            adjustments[band.range] = 1
+        }
+        let colors = [Self.red, Self.blue, SIMD3(40, 200, 90)] + Self.grays
+
+        #expect(try render(adjustments, colors) == colors.map(levels))
+    }
+
     @Test(arguments: [-1.0, 1.0])
     func luminanceMovesADullColorLessThanAVividOne(value: Double) {
         let vivid = ImageAdjustmentRenderer.rgb(hue: 120, saturation: 1, lightness: 0.4)
@@ -389,6 +421,7 @@ struct ImageAdjustmentSelectiveColorTests {
         var adjustments = ImageAdjustmentDescription()
         adjustments.selectiveColor.green.hue = 0.3
         adjustments.selectiveColor.magenta.luminance = -0.7
+        adjustments.selectiveColor.blue.range = 0.4
 
         let data = try JSONEncoder().encode(adjustments)
         let decoded = try JSONDecoder().decode(ImageAdjustmentDescription.self, from: data)
@@ -396,7 +429,14 @@ struct ImageAdjustmentSelectiveColorTests {
         #expect(decoded == adjustments)
     }
 
-    @Test func eachBandOwnsThreeDistinctParameters() {
+    @Test func aShiftSavedWithoutRangeLoadsAtRangeZero() throws {
+        let json = #"{"hue": 0.2, "saturation": -0.1, "luminance": 0.3}"#
+        let decoded = try JSONDecoder().decode(ImageAdjustmentDescription.SelectiveColor.Shift.self, from: Data(json.utf8))
+
+        #expect(decoded == .init(hue: 0.2, saturation: -0.1, luminance: 0.3, range: 0))
+    }
+
+    @Test func eachBandOwnsDistinctParameters() {
         let parameters = Band.allCases.flatMap(\.parameters)
         #expect(Set(parameters).count == parameters.count)
         #expect(Set(parameters) == Set(ImageAdjustmentDescription.Group.selectiveColor.parameters))

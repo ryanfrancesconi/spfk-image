@@ -60,6 +60,7 @@ extension ImageAdjustmentDescription.SelectiveColor.Shift {
         clampField(&hue, band.hue)
         clampField(&saturation, band.saturation)
         clampField(&luminance, band.luminance)
+        clampField(&range, band.range)
     }
 }
 

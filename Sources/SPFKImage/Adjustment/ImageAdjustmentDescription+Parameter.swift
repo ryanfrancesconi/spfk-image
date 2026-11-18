@@ -32,21 +32,27 @@ extension ImageAdjustmentDescription {
         case selectiveRedHue
         case selectiveRedSaturation
         case selectiveRedLuminance
+        case selectiveRedRange
         case selectiveYellowHue
         case selectiveYellowSaturation
         case selectiveYellowLuminance
+        case selectiveYellowRange
         case selectiveGreenHue
         case selectiveGreenSaturation
         case selectiveGreenLuminance
+        case selectiveGreenRange
         case selectiveCyanHue
         case selectiveCyanSaturation
         case selectiveCyanLuminance
+        case selectiveCyanRange
         case selectiveBlueHue
         case selectiveBlueSaturation
         case selectiveBlueLuminance
+        case selectiveBlueRange
         case selectiveMagentaHue
         case selectiveMagentaSaturation
         case selectiveMagentaLuminance
+        case selectiveMagentaRange
         case colorGradingShadowHue
         case colorGradingShadowSaturation
         case colorGradingMidtoneHue
@@ -77,12 +83,12 @@ extension ImageAdjustmentDescription {
             case .brilliance, .highlights, .contrast, .shadows, .brightness, .blackPoint, .whitePoint, .saturation, .vibrance, .temperature, .tint,
                  .blackAndWhiteRed, .blackAndWhiteYellow, .blackAndWhiteGreen, .blackAndWhiteCyan, .blackAndWhiteBlue, .blackAndWhiteMagenta,
                  .sharpnessRadius, .vignette, .vignetteRadius, .vignetteSoftness, .grainSize: -1 ... 1
-            case .selectiveRedHue, .selectiveRedSaturation, .selectiveRedLuminance,
-                 .selectiveYellowHue, .selectiveYellowSaturation, .selectiveYellowLuminance,
-                 .selectiveGreenHue, .selectiveGreenSaturation, .selectiveGreenLuminance,
-                 .selectiveCyanHue, .selectiveCyanSaturation, .selectiveCyanLuminance,
-                 .selectiveBlueHue, .selectiveBlueSaturation, .selectiveBlueLuminance,
-                 .selectiveMagentaHue, .selectiveMagentaSaturation, .selectiveMagentaLuminance: -1 ... 1
+            case .selectiveRedHue, .selectiveRedSaturation, .selectiveRedLuminance, .selectiveRedRange,
+                 .selectiveYellowHue, .selectiveYellowSaturation, .selectiveYellowLuminance, .selectiveYellowRange,
+                 .selectiveGreenHue, .selectiveGreenSaturation, .selectiveGreenLuminance, .selectiveGreenRange,
+                 .selectiveCyanHue, .selectiveCyanSaturation, .selectiveCyanLuminance, .selectiveCyanRange,
+                 .selectiveBlueHue, .selectiveBlueSaturation, .selectiveBlueLuminance, .selectiveBlueRange,
+                 .selectiveMagentaHue, .selectiveMagentaSaturation, .selectiveMagentaLuminance, .selectiveMagentaRange: -1 ... 1
             case .colorGradingShadowHue, .colorGradingShadowSaturation, .colorGradingMidtoneHue, .colorGradingMidtoneSaturation,
                  .colorGradingHighlightHue, .colorGradingHighlightSaturation: 0 ... 1
             case .colorGradingBalance: -1 ... 1
@@ -118,21 +124,27 @@ extension ImageAdjustmentDescription {
             case .selectiveRedHue: \.selectiveColor.red.hue
             case .selectiveRedSaturation: \.selectiveColor.red.saturation
             case .selectiveRedLuminance: \.selectiveColor.red.luminance
+            case .selectiveRedRange: \.selectiveColor.red.range
             case .selectiveYellowHue: \.selectiveColor.yellow.hue
             case .selectiveYellowSaturation: \.selectiveColor.yellow.saturation
             case .selectiveYellowLuminance: \.selectiveColor.yellow.luminance
+            case .selectiveYellowRange: \.selectiveColor.yellow.range
             case .selectiveGreenHue: \.selectiveColor.green.hue
             case .selectiveGreenSaturation: \.selectiveColor.green.saturation
             case .selectiveGreenLuminance: \.selectiveColor.green.luminance
+            case .selectiveGreenRange: \.selectiveColor.green.range
             case .selectiveCyanHue: \.selectiveColor.cyan.hue
             case .selectiveCyanSaturation: \.selectiveColor.cyan.saturation
             case .selectiveCyanLuminance: \.selectiveColor.cyan.luminance
+            case .selectiveCyanRange: \.selectiveColor.cyan.range
             case .selectiveBlueHue: \.selectiveColor.blue.hue
             case .selectiveBlueSaturation: \.selectiveColor.blue.saturation
             case .selectiveBlueLuminance: \.selectiveColor.blue.luminance
+            case .selectiveBlueRange: \.selectiveColor.blue.range
             case .selectiveMagentaHue: \.selectiveColor.magenta.hue
             case .selectiveMagentaSaturation: \.selectiveColor.magenta.saturation
             case .selectiveMagentaLuminance: \.selectiveColor.magenta.luminance
+            case .selectiveMagentaRange: \.selectiveColor.magenta.range
             case .colorGradingShadowHue: \.colorGrading.shadows.hue
             case .colorGradingShadowSaturation: \.colorGrading.shadows.saturation
             case .colorGradingMidtoneHue: \.colorGrading.midtones.hue

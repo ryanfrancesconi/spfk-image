@@ -58,6 +58,18 @@ extension ImageAdjustmentDescription {
             }
         }
 
+        /// How wide Selective Color's band reaches around its center.
+        public var range: Parameter {
+            switch self {
+            case .red: .selectiveRedRange
+            case .yellow: .selectiveYellowRange
+            case .green: .selectiveGreenRange
+            case .cyan: .selectiveCyanRange
+            case .blue: .selectiveBlueRange
+            case .magenta: .selectiveMagentaRange
+            }
+        }
+
         /// How far Black & White lightens or darkens the band's gray.
         public var blackAndWhite: Parameter {
             switch self {
@@ -70,7 +82,7 @@ extension ImageAdjustmentDescription {
             }
         }
 
-        /// Selective Color's hue, saturation and luminance, in that order.
+        /// Selective Color's hue, saturation, luminance and range, in that order.
         public var parameters: [Parameter] {
             SelectiveColor.Component.allCases.map(parameter)
         }
@@ -80,28 +92,49 @@ extension ImageAdjustmentDescription {
             case .hue: hue
             case .saturation: saturation
             case .luminance: luminance
+            case .range: range
             }
         }
     }
 
-    /// Hue, saturation and luminance shifts for each ``ColorBand``.
+    /// Hue, saturation and luminance shifts for each ``ColorBand``, and how wide each band reaches.
     public struct SelectiveColor: Hashable, Sendable, Codable {
-        /// One of a band's three shifts, in ``ColorBand/parameters`` order.
+        /// One of a band's four values, in ``ColorBand/parameters`` order.
         public enum Component: CaseIterable, Sendable {
             case hue
             case saturation
             case luminance
+            case range
         }
 
         public struct Shift: Hashable, Sendable, Codable {
             public var hue: Double
             public var saturation: Double
             public var luminance: Double
+            /// The band's width as a power of two: −1 half as wide, 1 twice as wide. Moves nothing on
+            /// its own.
+            public var range: Double
 
-            public init(hue: Double = 0, saturation: Double = 0, luminance: Double = 0) {
+            public init(hue: Double = 0, saturation: Double = 0, luminance: Double = 0, range: Double = 0) {
                 self.hue = hue
                 self.saturation = saturation
                 self.luminance = luminance
+                self.range = range
+            }
+
+            private enum CodingKeys: String, CodingKey {
+                case hue, saturation, luminance, range
+            }
+
+            /// A missing key takes its default, so a description saved with other fields still loads.
+            public init(from decoder: any Decoder) throws {
+                let c = try decoder.container(keyedBy: CodingKeys.self)
+                self.init(
+                    hue: try c.decodeIfPresent(Double.self, forKey: .hue) ?? 0,
+                    saturation: try c.decodeIfPresent(Double.self, forKey: .saturation) ?? 0,
+                    luminance: try c.decodeIfPresent(Double.self, forKey: .luminance) ?? 0,
+                    range: try c.decodeIfPresent(Double.self, forKey: .range) ?? 0
+                )
             }
 
             public subscript(component: Component) -> Double {
@@ -110,6 +143,7 @@ extension ImageAdjustmentDescription {
                     case .hue: hue
                     case .saturation: saturation
                     case .luminance: luminance
+                    case .range: range
                     }
                 }
                 set {
@@ -117,6 +151,7 @@ extension ImageAdjustmentDescription {
                     case .hue: hue = newValue
                     case .saturation: saturation = newValue
                     case .luminance: luminance = newValue
+                    case .range: range = newValue
                     }
                 }
             }

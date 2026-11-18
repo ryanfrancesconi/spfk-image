@@ -11,26 +11,29 @@ extension ImageAdjustmentRenderer {
         let shifts = ColorBand.allCases.map { band in
             SIMD3(selectiveColor[band].hue, selectiveColor[band].saturation, selectiveColor[band].luminance)
         }
-        let values = shifts.flatMap { [$0.x, $0.y, $0.z] }
+        let widths = ColorBand.allCases.map { bandWidth(range: selectiveColor[$0].range) }
+        let values = shifts.flatMap { [$0.x, $0.y, $0.z] } + widths
 
-        return colorCube(image, step: "selectiveColor", values: values, nodeTransform: { Self.selectiveColor($0, shifts: shifts) })
+        return colorCube(image, step: "selectiveColor", values: values, nodeTransform: { Self.selectiveColor($0, shifts: shifts, widths: widths) })
     }
 
-    static func selectiveColor(_ rgb: SIMD3<Double>, shifts: [SIMD3<Double>]) -> SIMD3<Double> {
-        selectiveColor(ColorCubeNode(rgb), shifts: shifts)
+    static func selectiveColor(_ rgb: SIMD3<Double>, shifts: [SIMD3<Double>], widths: [Double]? = nil) -> SIMD3<Double> {
+        selectiveColor(ColorCubeNode(rgb), shifts: shifts, widths: widths)
     }
 
     /// `node`'s color with each band's hue, saturation and luminance shift, in ``ColorBand`` order,
-    /// weighed by ``bandWeight(hue:center:width:)``. The shift also scales with chroma, from none at
+    /// weighed by ``bandWeight(hue:center:width:)`` at that band's entry in `widths`, or
+    /// ``selectiveColorBandWidth`` when it is nil. The shift also scales with chroma, from none at
     /// ``selectiveColorMinimumChroma`` to all of it at ``selectiveColorFullChroma``, so grays and
     /// near-grays, whose hue is noise, do not move. Luminance scales with chroma again, so a dull
     /// color moves less than a vivid one.
-    static func selectiveColor(_ node: ColorCubeNode, shifts: [SIMD3<Double>]) -> SIMD3<Double> {
+    static func selectiveColor(_ node: ColorCubeNode, shifts: [SIMD3<Double>], widths: [Double]? = nil) -> SIMD3<Double> {
         guard node.chroma > selectiveColorMinimumChroma else { return node.rgb }
 
         var shift = SIMD3<Double>.zero
-        for (center, bandShift) in zip(bandCenters, shifts) where bandShift != .zero {
-            shift += bandWeight(hue: node.hue, center: center) * bandShift
+        for (index, bandShift) in shifts.enumerated() where bandShift != .zero {
+            let width = widths?[index] ?? selectiveColorBandWidth
+            shift += bandWeight(hue: node.hue, center: bandCenters[index], width: width) * bandShift
         }
         shift *= chromaGate(node.chroma, full: selectiveColorFullChroma)
 
@@ -57,7 +60,8 @@ extension ImageAdjustmentRenderer {
     }
 
     /// The colors `band`'s reference color takes as `component` moves across its range, from minimum to
-    /// maximum, with `shift`'s other two components applied. sRGB-encoded, as the renderer works.
+    /// maximum, with `shift`'s other components applied. sRGB-encoded, as the renderer works. Range
+    /// does not change the reference, which sits on the band's center, so its track is one color.
     public static func selectiveColorTrack(
         _ band: ImageAdjustmentDescription.ColorBand,
         component: ImageAdjustmentDescription.SelectiveColor.Component,
@@ -83,6 +87,11 @@ extension ImageAdjustmentRenderer {
         let distance = hue - center
         let ramp = max(0, 1 - abs(distance - 360 * (distance / 360).rounded()) / width)
         return ramp * ramp * (3 - 2 * ramp)
+    }
+
+    /// ``selectiveColorBandWidth`` scaled by `2^range`: half as wide at −1, twice as wide at 1.
+    static func bandWidth(range: Double) -> Double {
+        selectiveColorBandWidth * pow(2, range)
     }
 
     /// The color a band's tracks start from: its HSL center at ``bandTrackSaturation`` and lightness
@@ -161,7 +170,7 @@ extension ImageAdjustmentRenderer {
     static let maximumSelectiveDarkening: Double = 0.35
     /// Oklab lightness a full positive luminance shift adds to a fully colorful pixel.
     static let maximumSelectiveLightening: Double = 0.12
-    /// Oklch degrees from a band's center at which its weight reaches 0.
+    /// Oklch degrees from a band's center at which its weight reaches 0, at Range 0.
     static let selectiveColorBandWidth: Double = 75
     /// The chroma, max − min of sRGB-encoded channels, at which a pixel takes its band's whole shift.
     static let selectiveColorFullChroma: Double = 0.25
