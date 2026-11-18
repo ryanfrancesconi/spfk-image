@@ -3,26 +3,23 @@
 import CoreImage
 import CoreImage.CIFilterBuiltins
 import Foundation
+import simd
 
 extension ImageAdjustmentRenderer {
     /// The Temperature and Tint whose step renders `color` gray, each limited to its slider range, so a
-    /// color beyond reach comes back as the nearest the range allows.
-    ///
-    /// `CITemperatureAndTint`'s math is not public, so this searches it: a damped Newton iteration on
-    /// 1×1 renders of the renderer's own step.
+    /// color beyond reach comes back as the nearest the range allows. A damped Newton search on
+    /// ``whiteBalanceMatrix(temperature:tint:)``.
     public static func whiteBalance(neutralizing color: CIColor) -> (temperature: Double, tint: Double) {
         guard let linear = CGColorSpace(name: CGColorSpace.extendedLinearSRGB),
               let converted = color.colorSpace.name == linear.name ? color : convert(color, to: linear),
               min(converted.red, converted.green, converted.blue) > 0
         else { return (0, 0) }
 
-        let pixel = CIImage(color: converted).cropped(to: CGRect(x: 0, y: 0, width: 1, height: 1))
+        let pixel = SIMD3(Double(converted.red), Double(converted.green), Double(converted.blue))
 
         func residual(_ temperature: Double, _ tint: Double) -> SIMD2<Double>? {
-            let output = temperature == 0 && tint == 0
-                ? pixel
-                : temperatureAndTint(pixel, temperature: temperature, tint: tint)
-            guard let rgb = averagePixel(of: output), rgb.x > 0, rgb.y > 0, rgb.z > 0 else { return nil }
+            let rgb = whiteBalanceMatrix(temperature: temperature, tint: tint) * pixel
+            guard rgb.x > 0, rgb.y > 0, rgb.z > 0 else { return nil }
             return SIMD2(log(rgb.x / rgb.y), log(rgb.z / rgb.y))
         }
 
@@ -34,7 +31,6 @@ extension ImageAdjustmentRenderer {
         for _ in 0 ..< whiteBalanceIterations {
             guard length(current) > whiteBalanceTolerance else { break }
 
-            // Central differences: a one-sided step from 0 lands in the filter's identity zone.
             let h = whiteBalanceDerivativeStep
             guard let tPlus = residual(solution.x + h, solution.y), let tMinus = residual(solution.x - h, solution.y),
                   let nPlus = residual(solution.x, solution.y + h), let nMinus = residual(solution.x, solution.y - h)
@@ -171,8 +167,7 @@ extension ImageAdjustmentRenderer {
     }
 
     /// The colors a mid gray takes as `component` moves across its slider range, with the other value
-    /// as given. Rendered through Core Image as the preview is, then clamped to 0…1 as a display shows
-    /// it. sRGB-encoded.
+    /// as given, clamped to 0…1 as a display shows them. sRGB-encoded.
     public static func whiteBalanceTrack(
         component: WhiteBalanceComponent,
         temperature: Double,
@@ -180,40 +175,18 @@ extension ImageAdjustmentRenderer {
         stops: Int = 25
     ) -> [SIMD3<Double>] {
         let count = max(2, stops)
-        guard let srgb = CGColorSpace(name: CGColorSpace.sRGB),
-              let gray = CIColor(red: 0.5, green: 0.5, blue: 0.5, alpha: 1, colorSpace: srgb)
-        else { return [] }
-
         let range = component == .temperature
             ? ImageAdjustmentDescription.Parameter.temperature.range
             : ImageAdjustmentDescription.Parameter.tint.range
-        let source = CIImage(color: gray)
-        var strip = CIImage.empty()
+        let gray = SIMD3(repeating: sRGBDecoded(0.5))
 
-        for stop in 0 ..< count {
+        return (0 ..< count).map { stop in
             let value = range.lowerBound + (range.upperBound - range.lowerBound) * Double(stop) / Double(count - 1)
-            let pixel = CGRect(x: stop, y: 0, width: 1, height: 1)
-            let rendered = component == .temperature
-                ? temperatureAndTint(source.cropped(to: pixel), temperature: value, tint: tint)
-                : temperatureAndTint(source.cropped(to: pixel), temperature: temperature, tint: value)
-            strip = rendered.cropped(to: pixel).composited(over: strip)
-        }
-
-        var pixels = [SIMD4<Float>](repeating: .zero, count: count)
-        pixels.withUnsafeMutableBytes { buffer in
-            guard let base = buffer.baseAddress else { return }
-            analysisContext.render(
-                strip,
-                toBitmap: base,
-                rowBytes: count * MemoryLayout<SIMD4<Float>>.stride,
-                bounds: CGRect(x: 0, y: 0, width: count, height: 1),
-                format: .RGBAf,
-                colorSpace: srgb
-            )
-        }
-
-        return pixels.map { pixel in
-            SIMD3(Double(pixel.x), Double(pixel.y), Double(pixel.z)).clamped(lowerBound: .zero, upperBound: .one)
+            let transform = component == .temperature
+                ? whiteBalanceMatrix(temperature: value, tint: tint)
+                : whiteBalanceMatrix(temperature: temperature, tint: value)
+            let rgb = (transform * gray).clamped(lowerBound: .zero, upperBound: .one)
+            return SIMD3(sRGBEncoded(rgb.x), sRGBEncoded(rgb.y), sRGBEncoded(rgb.z))
         }
     }
 
@@ -252,7 +225,7 @@ extension ImageAdjustmentRenderer {
         (value * value).sum().squareRoot()
     }
 
-    /// For the white balance's small renders and slider tracks, which a shared preview context gains nothing from caching.
+    /// For the white balance's small renders, which a shared preview context gains nothing from caching.
     static let analysisContext = CIContext(options: [.cacheIntermediates: false])
 
     /// The longer side, in pixels, the neutral estimate reduces an image to.

@@ -44,10 +44,14 @@ final class ImageAdjustmentChainPinTests {
         exposure.inputImage = image
         exposure.ev = Float(a.light.exposure)
 
-        let temperature = CIFilter.temperatureAndTint()
+        // The white-balance matrix at the pinned (0.25, −0.2), rows in linear sRGB.
+        let temperature = CIFilter.colorMatrix()
         temperature.inputImage = exposure.outputImage
-        temperature.neutral = CIVector(x: 1_000_000 / (1_000_000 / 6500 - a.color.temperature * 80), y: a.color.tint * 100)
-        temperature.targetNeutral = CIVector(x: 6500, y: 0)
+        temperature.rVector = CIVector(x: 0.9837137915, y: -0.0496473233, z: 0.0048602319, w: 0)
+        temperature.gVector = CIVector(x: 0.0025790389, y: 1.0301108797, z: 0.0044070193, w: 0)
+        temperature.bVector = CIVector(x: -0.0035134187, y: -0.0165427332, z: 0.8324170052, w: 0)
+        temperature.aVector = CIVector(x: 0, y: 0, z: 0, w: 1)
+        temperature.biasVector = CIVector(x: 0, y: 0, z: 0, w: 0)
 
         let highlightShadow = CIFilter.highlightShadowAdjust()
         highlightShadow.inputImage = temperature.outputImage

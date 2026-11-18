@@ -33,7 +33,7 @@ extension ImageAdjustmentRenderer {
     }
 
     /// `image` with its color channels multiplied by `transform`, alpha kept.
-    private static func matrix(_ image: CIImage, _ transform: simd_double3x3) -> CIImage {
+    static func matrix(_ image: CIImage, _ transform: simd_double3x3) -> CIImage {
         let row = { (index: Int) in
             CIVector(x: transform[0][index], y: transform[1][index], z: transform[2][index], w: 0)
         }

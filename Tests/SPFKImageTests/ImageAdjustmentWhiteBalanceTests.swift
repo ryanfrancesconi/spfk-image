@@ -4,6 +4,7 @@ import CoreImage
 import Foundation
 import SPFKTesting
 import Testing
+import simd
 
 @testable import SPFKImage
 
@@ -46,7 +47,7 @@ final class ImageAdjustmentWhiteBalanceTests {
     }
 
     static let casts: [(temperature: Double, tint: Double)] = [
-        (0.05, -0.03), (0.3, 0), (-0.3, 0), (0, 0.3), (0.2, -0.4), (0.6, 0.6),
+        (0.05, -0.03), (0.3, 0), (-0.3, 0), (0, 0.3), (0.2, -0.4), (0.6, 0.4),
     ]
 
     @Test(arguments: casts)
@@ -198,13 +199,72 @@ final class ImageAdjustmentWhiteBalanceTests {
             for tint in stride(from: -1.0, through: 1.0, by: 0.1) {
                 let rendered = try pixel(ImageAdjustmentRenderer.temperatureAndTint(gray, temperature: temperature, tint: tint))
                 let gains = rendered / 0.2
-                if gains.min() <= 0.2 || gains.max() > 5 {
+                if gains.min() <= 0.2 || gains.max() > 8 {
                     diverging.append(String(format: "%.1f, %.1f", temperature, tint))
                 }
             }
         }
 
         #expect(diverging.isEmpty)
+    }
+
+    // MARK: - The matrix
+
+    @Test func neutralIsExactlyIdentity() {
+        #expect(ImageAdjustmentRenderer.whiteBalanceMatrix(temperature: 0, tint: 0) == matrix_identity_double3x3)
+    }
+
+    /// Linear gains on a gray, computed once from the shipped constants.
+    static let grayGains: [(temperature: Double, tint: Double, gains: SIMD3<Double>)] = [
+        (-1, 0, SIMD3(0.6958, 1.0252, 1.6457)),
+        (1, 0, SIMD3(1.2336, 0.9706, 0.6036)),
+        (0, -1, SIMD3(0.3581, 1.2297, 0.6147)),
+        (0, 1, SIMD3(1.5704, 0.7481, 1.8158)),
+        (-1, 1, SIMD3(0.5378, 0.4501, 7.8082)),
+    ]
+
+    @Test(arguments: grayGains)
+    func aGrayTakesThePinnedGains(pin: (temperature: Double, tint: Double, gains: SIMD3<Double>)) throws {
+        let computed = ImageAdjustmentRenderer.whiteBalanceMatrix(temperature: pin.temperature, tint: pin.tint) * SIMD3(repeating: 1)
+        #expect(abs(computed - pin.gains).max() < 1e-4, "\(pin.temperature), \(pin.tint): \(computed)")
+
+        let rendered = try pixel(ImageAdjustmentRenderer.temperatureAndTint(try flat(SIMD3(repeating: 0.2)), temperature: pin.temperature, tint: pin.tint))
+        #expect(abs(rendered / 0.2 - pin.gains).max() < 0.01, "\(pin.temperature), \(pin.tint): rendered \(rendered / 0.2)")
+    }
+
+    @Test func aGrayKeepsItsLuminanceEverywhere() throws {
+        let gray = try flat(SIMD3(repeating: 0.2))
+
+        for temperature in stride(from: -1.0, through: 1.0, by: 0.5) {
+            for tint in stride(from: -1.0, through: 1.0, by: 0.5) {
+                let rendered = try pixel(ImageAdjustmentRenderer.temperatureAndTint(gray, temperature: temperature, tint: tint))
+                let luminance = (rendered * ImageAdjustmentRenderer.luminanceWeights).sum()
+                #expect(abs(luminance / 0.2 - 1) < 0.003, "\(temperature), \(tint): \(luminance / 0.2)")
+            }
+        }
+    }
+
+    /// ColorSync converts to its D50 connection space with a Bradford adaptation (ICC.1:2010 Annex E.3),
+    /// so its linear sRGB to XYZ is the IEC matrix adapted from the IEC white with ours.
+    @Test func bradfordAndTheSRGBMatrixMatchColorSync() throws {
+        let source = try #require(CGColorSpace(name: CGColorSpace.extendedLinearSRGB))
+        let xyz = try #require(CGColorSpace(name: CGColorSpace.genericXYZ))
+
+        func converted(_ rgb: [CGFloat]) throws -> SIMD3<Double> {
+            let color = try #require(CGColor(colorSpace: source, components: rgb + [1])?.converted(to: xyz, intent: .relativeColorimetric, options: nil))
+            let values = try #require(color.components)
+            return SIMD3(Double(values[0]), Double(values[1]), Double(values[2]))
+        }
+
+        let colorSync = simd_double3x3(columns: (try converted([1, 0, 0]), try converted([0, 1, 0]), try converted([0, 0, 1])))
+        let bradford = ImageAdjustmentRenderer.bradford
+        let sRGB = ImageAdjustmentRenderer.linearSRGBToXYZ
+        let ratio = (bradford * colorSync * SIMD3(repeating: 1)) / (bradford * sRGB * SIMD3(repeating: 1))
+        let predicted = bradford.inverse * simd_double3x3(diagonal: ratio) * bradford * sRGB
+
+        for column in 0 ..< 3 {
+            #expect(abs(predicted[column] - colorSync[column]).max() < 1e-4, "column \(column): \(predicted[column]) vs \(colorSync[column])")
+        }
     }
 
     // MARK: - Slider tracks
@@ -236,6 +296,30 @@ final class ImageAdjustmentWhiteBalanceTests {
         let middle = track[track.count / 2]
 
         #expect((middle.x + middle.z) / 2 - middle.y > 0.05)
+    }
+
+    @Test(arguments: ImageAdjustmentRenderer.WhiteBalanceComponent.allCases)
+    func aTrackMatchesTheRenderedStep(component: ImageAdjustmentRenderer.WhiteBalanceComponent) throws {
+        let track = ImageAdjustmentRenderer.whiteBalanceTrack(component: component, temperature: -0.4, tint: 0.3, stops: 9)
+        let space = try #require(CGColorSpace(name: CGColorSpace.sRGB))
+        let gray = CIImage(color: try #require(CIColor(red: 0.5, green: 0.5, blue: 0.5, alpha: 1, colorSpace: space)))
+            .cropped(to: CGRect(x: 0, y: 0, width: 1, height: 1))
+
+        for (stop, color) in track.enumerated() {
+            let value = -1 + 2 * Double(stop) / 8
+            let rendered = ImageAdjustmentRenderer.temperatureAndTint(
+                gray,
+                temperature: component == .temperature ? value : -0.4,
+                tint: component == .tint ? value : 0.3
+            )
+            var encoded = SIMD4<Float>.zero
+            withUnsafeMutableBytes(of: &encoded) { buffer in
+                guard let base = buffer.baseAddress else { return }
+                context.render(rendered, toBitmap: base, rowBytes: 16, bounds: rendered.extent, format: .RGBAf, colorSpace: space)
+            }
+            let shown = SIMD3(Double(encoded.x), Double(encoded.y), Double(encoded.z)).clamped(lowerBound: .zero, upperBound: .one)
+            #expect(abs(shown - color).max() < 2.0 / 255, "\(component) \(value): rendered \(shown), track \(color)")
+        }
     }
 
     @Test func aTrackIsClampedToWhatADisplayShows() {

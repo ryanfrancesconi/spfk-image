@@ -146,17 +146,6 @@ public struct ImageAdjustmentRenderer: Sendable {
         return filter.outputImage ?? image
     }
 
-    /// The Temperature and Tint step. Within a few kelvin of neutral `CITemperatureAndTint` renders
-    /// its input unchanged.
-    static func temperatureAndTint(_ image: CIImage, temperature: Double, tint: Double) -> CIImage {
-        let filter = CIFilter.temperatureAndTint()
-        filter.inputImage = image
-        let mired = 1_000_000 / neutralKelvin - temperature * miredPerUnit
-        filter.neutral = CIVector(x: 1_000_000 / mired, y: tint * tintPerUnit)
-        filter.targetNeutral = CIVector(x: neutralKelvin, y: 0)
-        return filter.outputImage ?? image
-    }
-
     /// `CIToneCurve` works on sRGB-encoded values and clamps its output to 0…1, so a value outside
     /// 0…1 continues from the curve's end at 0 or 1 (see ``preservingRange(_:_:)``).
     static func toneCurve(_ image: CIImage, _ points: [CGPoint]) -> CIImage {
@@ -279,12 +268,14 @@ public struct ImageAdjustmentRenderer: Sendable {
 
     // MARK: - Mapping from slider positions
 
-    /// `CITemperatureAndTint`'s identity white point.
-    static let neutralKelvin: CGFloat = 6500
-    /// Temperature moves the white point evenly in mired (10⁶ / kelvin), 4276…13542 K. Linear kelvin
-    /// reaches far enough toward cold that, with Tint toward magenta, the filter's gains diverge.
-    static let miredPerUnit: CGFloat = 80
-    static let tintPerUnit: CGFloat = 100
+    /// The white point at neutral Temperature, on the Planckian locus.
+    static let neutralKelvin: Double = 6500
+    /// Temperature moves the white point evenly in mired (10⁶ / kelvin), 4276…13542 K.
+    static let miredPerUnit: Double = 80
+    /// How far full Tint moves the white point off the locus toward magenta and toward green, in CIE
+    /// 1960 (u, v).
+    static let maximumMagentaTintOffset: Double = 0.05
+    static let maximumGreenTintOffset: Double = 0.043
     /// Top of `CISharpenLuminance`'s slider range.
     static let maximumSharpness: Double = 2
     /// `CISharpenLuminance`'s default radius, in full-resolution pixels, used at a neutral sharpness
