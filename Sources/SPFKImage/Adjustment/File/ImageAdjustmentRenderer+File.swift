@@ -4,7 +4,6 @@ import CoreImage
 import Foundation
 import ImageIO
 import SPFKBase
-import UniformTypeIdentifiers
 
 /// What ``ImageAdjustmentRenderer/renderFile(_:orientation:source:destination:quality:stage:)`` is doing. A Core
 /// Image render reports no fraction of its own, so the stage is the only progress it has.
@@ -72,7 +71,7 @@ extension ImageAdjustmentRenderer {
 
             stage?(.verifying)
 
-            try Self.verify(
+            try ImageFileWriting.verify(
                 destination,
                 orientation: expectedOrientation ?? written.orientation,
                 width: written.width,
@@ -109,23 +108,21 @@ extension ImageAdjustmentRenderer {
         guard CGImageSourceGetCount(source) == 1 else { throw ImageAdjustmentRenderError.multipleImages }
 
         // Core Image reads CMYK and indexed sources as RGB, so ImageIO's own properties decide.
-        let colorModel = properties[kCGImagePropertyColorModel as String] as? String
-
-        guard colorModel.map({ $0 == kCGImagePropertyColorModelRGB as String || $0 == kCGImagePropertyColorModelGray as String }) ?? true,
+        guard ImageFileWriting.isRGBOrGray(colorModel: properties[kCGImagePropertyColorModel as String] as? String),
               properties[kCGImagePropertyIsIndexed as String] as? Bool != true
         else { throw ImageAdjustmentRenderError.unsupportedColorModel }
 
         let tag = properties[kCGImagePropertyOrientation as String] as? Int ?? 1
         let geometry = Geometry(orientation: orientation.applied(toFileOrientation: tag), width: width, height: height)
 
-        let type = Self.fileType(for: sourceType as String)
-        let bakesOrientation = geometry.orientation != 1 && !Self.writesOrientation(type)
+        let type = ImageFileWriting.fileType(for: sourceType as String)
+        let bakesOrientation = geometry.orientation != 1 && !ImageFileWriting.writesOrientation(type)
 
         // Unoriented unless baked, so the auxiliary planes copied below stay aligned with it.
         let input = CIImage(cgImageSource: source, index: 0, options: bakesOrientation ? [.applyOrientationProperty: true] : nil)
 
         guard let colorSpace = input.colorSpace,
-              let format = Self.fileFormat(
+              let format = ImageFileWriting.fileFormat(
                   model: colorSpace.model,
                   sixteenBit: (properties[kCGImagePropertyDepth as String] as? Int ?? 8) > 8,
                   alpha: properties[kCGImagePropertyHasAlpha as String] as? Bool ?? false
@@ -232,53 +229,5 @@ extension ImageAdjustmentRenderer {
             metadata, storedWidth: storedWidth, storedHeight: storedHeight, before: before, crop: crop, after: after,
             writtenWidth: written.width, writtenHeight: written.height
         )
-    }
-
-    static func verify(_ url: URL, orientation: Int, width: Int, height: Int) throws {
-        guard let source = CGImageSourceCreateWithURL(url as CFURL, nil),
-              let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [String: Any],
-              properties[kCGImagePropertyOrientation as String] as? Int ?? 1 == orientation,
-              properties[kCGImagePropertyPixelWidth as String] as? Int == width,
-              properties[kCGImagePropertyPixelHeight as String] as? Int == height
-        else { throw ImageAdjustmentRenderError.readBackMismatch }
-    }
-
-    /// Whether ImageIO writes an orientation tag for `typeIdentifier`. It reads AVIF's and never writes one.
-    static func writesOrientation(_ typeIdentifier: String) -> Bool {
-        typeIdentifier != ImageFormatConverter.avifIdentifier
-    }
-
-    /// The source's own type, except `public.heif`, which ImageIO cannot create a destination for.
-    static func fileType(for sourceType: String) -> String {
-        sourceType == UTType.heif.identifier ? UTType.heic.identifier : sourceType
-    }
-
-    /// An 8- or 16-bit bitmap in the source's channel layout, with alpha only when it has alpha.
-    static func fileFormat(model: CGColorSpaceModel, sixteenBit: Bool, alpha: Bool) -> CIFormat? {
-        switch model {
-        case .rgb: sixteenBit ? (alpha ? .RGBA16 : .RGBX16) : (alpha ? .RGBA8 : .RGBX8)
-        case .monochrome: sixteenBit ? (alpha ? .LA16 : .L16) : (alpha ? .LA8 : .L8)
-        default: nil
-        }
-    }
-
-    static var auxiliaryDataTypes: [CFString] {
-        var types: [CFString] = [
-            kCGImageAuxiliaryDataTypeHDRGainMap,
-            kCGImageAuxiliaryDataTypeDepth,
-            kCGImageAuxiliaryDataTypeDisparity,
-            kCGImageAuxiliaryDataTypePortraitEffectsMatte,
-            kCGImageAuxiliaryDataTypeSemanticSegmentationSkinMatte,
-            kCGImageAuxiliaryDataTypeSemanticSegmentationHairMatte,
-            kCGImageAuxiliaryDataTypeSemanticSegmentationTeethMatte,
-            kCGImageAuxiliaryDataTypeSemanticSegmentationGlassesMatte,
-            kCGImageAuxiliaryDataTypeSemanticSegmentationSkyMatte,
-        ]
-
-        if #available(macOS 15, iOS 18, *) {
-            types.append(kCGImageAuxiliaryDataTypeISOGainMap)
-        }
-
-        return types
     }
 }

@@ -70,7 +70,7 @@ final class ImageAdjustmentAutoTests {
     func autoRendersCloseToCoreImagesFilters(url: URL) async throws {
         let image = try analysisImage(url)
 
-        let auto = await ImageAdjustmentRenderer.autoAdjustments(for: image)
+        let auto = await AutoAnalysis.adjustments(for: image)
         let apple = try await appleReference(image, balance: auto)
         let ours = ImageAdjustmentRenderer.apply(auto, to: image)
         let measured = try psnr(pixels(apple), pixels(ours))
@@ -86,10 +86,10 @@ final class ImageAdjustmentAutoTests {
     @Test(arguments: fixtures)
     func analyzingTheBalancedImageIsNoWorse(url: URL) async throws {
         let image = try analysisImage(url)
-        let auto = await ImageAdjustmentRenderer.autoAdjustments(for: image)
+        let auto = await AutoAnalysis.adjustments(for: image)
         let apple = try await pixels(appleReference(image, balance: auto))
 
-        var unbalanced = await ImageAdjustmentRenderer.enhancement(for: image)
+        var unbalanced = await AutoAnalysis.enhancement(for: image)
         unbalanced.color.temperature = auto.color.temperature
         unbalanced.color.tint = auto.color.tint
 
@@ -103,7 +103,7 @@ final class ImageAdjustmentAutoTests {
     @Test func autoFromAFileMatchesItsAnalysisDecodeAndRepeats() async throws {
         let url = TestBundleResources.shared.songbird
         let first = try #require(await ImageAdjustmentRenderer.autoAdjustments(contentsOf: url))
-        let fromImage = await ImageAdjustmentRenderer.autoAdjustments(for: try analysisImage(url))
+        let fromImage = await AutoAnalysis.adjustments(for: try analysisImage(url))
         let again = await ImageAdjustmentRenderer.autoAdjustments(contentsOf: url)
 
         #expect(first == fromImage)
@@ -113,18 +113,18 @@ final class ImageAdjustmentAutoTests {
     @Test func inputPositionInvertsTheCurveBetweenItsPoints() {
         let points = [CGPoint(x: 0.02, y: 0), CGPoint(x: 0.2, y: 0.2), CGPoint(x: 0.4, y: 0.6), CGPoint(x: 0.7, y: 0.8), CGPoint(x: 0.96, y: 1)]
 
-        #expect(ImageAdjustmentRenderer.inputPosition(of: 0, on: points) == 0.02)
-        #expect(abs(ImageAdjustmentRenderer.inputPosition(of: 0.25, on: points) - 0.225) < 1e-9)
-        #expect(abs(ImageAdjustmentRenderer.inputPosition(of: 0.5, on: points) - 0.35) < 1e-9)
-        #expect(abs(ImageAdjustmentRenderer.inputPosition(of: 0.75, on: points) - 0.625) < 1e-9)
-        #expect(abs(ImageAdjustmentRenderer.inputPosition(of: 1, on: points) - 0.96) < 1e-9)
+        #expect(AutoAnalysis.inputPosition(of: 0, on: points) == 0.02)
+        #expect(abs(AutoAnalysis.inputPosition(of: 0.25, on: points) - 0.225) < 1e-9)
+        #expect(abs(AutoAnalysis.inputPosition(of: 0.5, on: points) - 0.35) < 1e-9)
+        #expect(abs(AutoAnalysis.inputPosition(of: 0.75, on: points) - 0.625) < 1e-9)
+        #expect(abs(AutoAnalysis.inputPosition(of: 1, on: points) - 0.96) < 1e-9)
     }
 
     @Test func identityCurveGivesNeutralLevels() {
         let identity = ImageAdjustmentDescription.Levels.identity.map { CGPoint(x: $0, y: $0) }
         var adjustments = ImageAdjustmentDescription()
         adjustments.levels.positions = ImageAdjustmentDescription.Levels.identity.map {
-            ImageAdjustmentRenderer.inputPosition(of: $0, on: identity)
+            AutoAnalysis.inputPosition(of: $0, on: identity)
         }
 
         #expect(adjustments.levels.isNeutral)

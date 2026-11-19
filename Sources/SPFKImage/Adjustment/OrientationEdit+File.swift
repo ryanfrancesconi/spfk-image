@@ -38,7 +38,7 @@ extension OrientationEdit {
         do {
             let geometry = try autoreleasepool { try copy(source: source, destination: destination) }
 
-            try ImageAdjustmentRenderer.verify(
+            try ImageFileWriting.verify(
                 destination, orientation: geometry.orientation, width: geometry.width, height: geometry.height
             )
         } catch {

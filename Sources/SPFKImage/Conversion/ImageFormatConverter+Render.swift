@@ -17,12 +17,10 @@ extension ImageFormatConverter {
         let decoded = source.orientation.apply(to: adjusted)
 
         // Core Image reports a CMYK source as RGB, so ImageIO's color model decides whose space is kept.
-        let colorModel = properties[kCGImagePropertyColorModel as String] as? String
-        let keepsSourceSpace = [kCGImagePropertyColorModelRGB as String, kCGImagePropertyColorModelGray as String]
-            .contains(colorModel ?? kCGImagePropertyColorModelRGB as String)
+        let keepsSourceSpace = ImageFileWriting.isRGBOrGray(colorModel: properties[kCGImagePropertyColorModel as String] as? String)
 
         guard let colorSpace = (keepsSourceSpace ? upright.colorSpace : nil) ?? CGColorSpace(name: CGColorSpace.sRGB),
-              let format = ImageAdjustmentRenderer.fileFormat(
+              let format = ImageFileWriting.fileFormat(
                   model: colorSpace.model,
                   sixteenBit: (properties[kCGImagePropertyDepth as String] as? Int ?? 8) > 8,
                   alpha: properties[kCGImagePropertyHasAlpha as String] as? Bool ?? false

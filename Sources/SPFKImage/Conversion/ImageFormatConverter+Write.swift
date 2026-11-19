@@ -36,10 +36,7 @@ extension ImageFormatConverter {
         }
 
         // A transcode into JPEG or TIFF keeps CMYK as CMYK.
-        if let colorModel,
-           colorModel != kCGImagePropertyColorModelRGB as String,
-           colorModel != kCGImagePropertyColorModelGray as String
-        {
+        if !ImageFileWriting.isRGBOrGray(colorModel: colorModel) {
             return .render
         }
 

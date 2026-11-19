@@ -12,7 +12,7 @@ extension ImageFormatConverter {
     /// The auxiliary images a render carries: every one, or for a crop only the gain maps, since depth
     /// and mattes are dropped rather than cropped.
     static func carriedAuxiliaryTypes(cropped: Bool) -> [CFString] {
-        cropped ? gainMapAuxiliaryTypes : ImageAdjustmentRenderer.auxiliaryDataTypes
+        cropped ? gainMapAuxiliaryTypes : ImageFileWriting.auxiliaryDataTypes
     }
 
     /// `info` with its map turned by `before`, cropped by `crop` and turned by `after`, at the map's own

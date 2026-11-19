@@ -5,11 +5,13 @@ import CoreImage.CIFilterBuiltins
 import Foundation
 import simd
 
-extension ImageAdjustmentRenderer {
+/// The Temperature and Tint that neutralize a color, and the colors Auto White Balance and the
+/// eyedropper read from an image to find one.
+enum WhiteBalanceAnalysis {
     /// The Temperature and Tint whose step renders `color` gray, each limited to its slider range, so a
     /// color beyond reach comes back as the nearest the range allows. A damped Newton search on
-    /// ``WhiteBalanceStep/matrix(temperature:tint:)``.
-    public static func whiteBalance(neutralizing color: CIColor) -> (temperature: Double, tint: Double) {
+    /// `WhiteBalanceStep.matrix(temperature:tint:)`.
+    static func balance(neutralizing color: CIColor) -> (temperature: Double, tint: Double) {
         guard let linear = CGColorSpace(name: CGColorSpace.extendedLinearSRGB),
               let converted = color.colorSpace.name == linear.name ? color : convert(color, to: linear),
               min(converted.red, converted.green, converted.blue) > 0
@@ -28,10 +30,10 @@ extension ImageAdjustmentRenderer {
         var solution = SIMD2<Double>(0, 0)
         guard var current = residual(0, 0) else { return (0, 0) }
 
-        for _ in 0 ..< whiteBalanceIterations {
-            guard length(current) > whiteBalanceTolerance else { break }
+        for _ in 0 ..< iterations {
+            guard length(current) > tolerance else { break }
 
-            let h = whiteBalanceDerivativeStep
+            let h = derivativeStep
             guard let tPlus = residual(solution.x + h, solution.y), let tMinus = residual(solution.x - h, solution.y),
                   let nPlus = residual(solution.x, solution.y + h), let nMinus = residual(solution.x, solution.y - h)
             else { break }
@@ -70,13 +72,13 @@ extension ImageAdjustmentRenderer {
 
     /// The average color of `image`'s near-gray pixels, skipping clipped and near-black ones, or nil
     /// when too few are near gray to say what gray is.
-    public static func neutralEstimate(of image: CIImage) -> CIColor? {
+    static func neutralEstimate(of image: CIImage) -> CIColor? {
         let longer = max(image.extent.width, image.extent.height)
         guard longer > 0, let linear = CGColorSpace(name: CGColorSpace.extendedLinearSRGB) else { return nil }
 
         let filter = CIFilter.lanczosScaleTransform()
         filter.inputImage = image
-        filter.scale = Float(min(1, whiteBalanceAnalysisSize / longer))
+        filter.scale = Float(min(1, analysisSize / longer))
         filter.aspectRatio = 1
         guard let reduced = filter.outputImage else { return nil }
 
@@ -104,8 +106,8 @@ extension ImageAdjustmentRenderer {
         for pixel in pixels {
             let rgb = SIMD3(Double(pixel.x), Double(pixel.y), Double(pixel.z))
             let high = rgb.max()
-            guard high < whiteBalanceClipLevel, high > whiteBalanceDarkLevel,
-                  (high - rgb.min()) / high < whiteBalanceNeutralChroma
+            guard high < clipLevel, high > darkLevel,
+                  (high - rgb.min()) / high < neutralChroma
             else { continue }
 
             sum += rgb
@@ -118,32 +120,28 @@ extension ImageAdjustmentRenderer {
         return CIColor(red: mean.x, green: mean.y, blue: mean.z, alpha: 1, colorSpace: linear)
     }
 
-    /// Temperature and Tint neutralizing `image`'s near-gray pixels; neutral when it has too few.
-    /// Every other field is neutral.
+    /// Auto White Balance: Temperature and Tint neutralizing `image`'s near-gray pixels; neutral when it
+    /// has too few. Every other field is neutral.
     ///
     /// `image` is the unadjusted source: the analysis must not see the Temperature and Tint it replaces.
-    public static func autoWhiteBalance(for image: CIImage) -> ImageAdjustmentDescription {
+    static func adjustments(for image: CIImage) -> ImageAdjustmentDescription {
         var result = ImageAdjustmentDescription()
         guard let color = neutralEstimate(of: image) else { return result }
 
-        let balance = whiteBalance(neutralizing: color)
-        result.color.temperature = balance.temperature
-        result.color.tint = balance.tint
+        let neutral = balance(neutralizing: color)
+        result.color.temperature = neutral.temperature
+        result.color.tint = neutral.tint
         return result
     }
 
-    /// Temperature and Tint making the ``whiteBalanceSampleSize`` square around `point` gray, or nil when
-    /// the point is outside `image`.
-    ///
-    /// `point` is in unit coordinates of `image` with the origin at the top left. `image` is the
-    /// unadjusted source as shown, oriented: only Exposure renders before the temperature step, and it
-    /// does not move hue.
-    public static func whiteBalance(sampling point: CGPoint, in image: CIImage) -> (temperature: Double, tint: Double)? {
+    /// Temperature and Tint making the ``sampleSize`` square around `point` gray, or nil when the point
+    /// is outside `image`. `point` is in unit coordinates of `image` with the origin at the top left.
+    static func balance(sampling point: CGPoint, in image: CIImage) -> (temperature: Double, tint: Double)? {
         let extent = image.extent
         guard (0 ... 1).contains(point.x), (0 ... 1).contains(point.y), !extent.isEmpty else { return nil }
 
         let center = CGPoint(x: extent.minX + point.x * extent.width, y: extent.maxY - point.y * extent.height)
-        let side = whiteBalanceSampleSize
+        let side = sampleSize
         let area = CGRect(x: center.x - side / 2, y: center.y - side / 2, width: side, height: side)
             .integral
             .intersection(extent)
@@ -157,37 +155,7 @@ extension ImageAdjustmentRenderer {
               let color = CIColor(red: rgb.x, green: rgb.y, blue: rgb.z, alpha: 1, colorSpace: linear)
         else { return nil }
 
-        return whiteBalance(neutralizing: color)
-    }
-
-    /// The two values of the Temperature and Tint step.
-    public enum WhiteBalanceComponent: CaseIterable, Sendable {
-        case temperature
-        case tint
-    }
-
-    /// The colors a mid gray takes as `component` moves across its slider range, with the other value
-    /// as given, clamped to 0…1 as a display shows them. sRGB-encoded.
-    public static func whiteBalanceTrack(
-        component: WhiteBalanceComponent,
-        temperature: Double,
-        tint: Double,
-        stops: Int = 25
-    ) -> [SIMD3<Double>] {
-        let count = max(2, stops)
-        let range = component == .temperature
-            ? ImageAdjustmentDescription.Parameter.temperature.range
-            : ImageAdjustmentDescription.Parameter.tint.range
-        let gray = SIMD3(repeating: ColorMath.sRGBDecoded(0.5))
-
-        return (0 ..< count).map { stop in
-            let value = range.lowerBound + (range.upperBound - range.lowerBound) * Double(stop) / Double(count - 1)
-            let transform = component == .temperature
-                ? WhiteBalanceStep.matrix(temperature: value, tint: tint)
-                : WhiteBalanceStep.matrix(temperature: temperature, tint: value)
-            let rgb = (transform * gray).clamped(lowerBound: .zero, upperBound: .one)
-            return SIMD3(ColorMath.sRGBEncoded(rgb.x), ColorMath.sRGBEncoded(rgb.y), ColorMath.sRGBEncoded(rgb.z))
-        }
+        return balance(neutralizing: color)
     }
 
     /// The first pixel of `image` in linear extended sRGB.
@@ -229,19 +197,19 @@ extension ImageAdjustmentRenderer {
     static let analysisContext = CIContext(options: [.cacheIntermediates: false])
 
     /// The longer side, in pixels, the neutral estimate reduces an image to.
-    static let whiteBalanceAnalysisSize: CGFloat = 256
+    static let analysisSize: CGFloat = 256
     /// A pixel counts as near gray when its channels spread less than this fraction of the brightest.
-    static let whiteBalanceNeutralChroma: Double = 0.3
+    static let neutralChroma: Double = 0.3
     /// Linear values at or above this are taken as clipped, and at or below the dark level as noise.
-    static let whiteBalanceClipLevel: Double = 0.95
-    static let whiteBalanceDarkLevel: Double = 0.02
+    static let clipLevel: Double = 0.95
+    static let darkLevel: Double = 0.02
     /// The share of pixels that must be near gray for an estimate.
     static let minimumNeutralFraction: Double = 0.01
     /// The eyedropper's square, in pixels of the image it samples.
-    public static let whiteBalanceSampleSize: CGFloat = 5
-    static let whiteBalanceIterations = 12
-    static let whiteBalanceTolerance: Double = 1e-5
-    static let whiteBalanceDerivativeStep: Double = 0.02
+    static let sampleSize: CGFloat = 5
+    static let iterations = 12
+    static let tolerance: Double = 1e-5
+    static let derivativeStep: Double = 0.02
 }
 
 extension Double {

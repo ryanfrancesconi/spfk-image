@@ -55,7 +55,7 @@ final class ImageAdjustmentWhiteBalanceTests {
         let gray = try flat(SIMD3(0.2, 0.2, 0.2))
         let cast = try pixel(WhiteBalanceStep.apply(gray, temperature: cast.temperature, tint: cast.tint))
 
-        let balance = ImageAdjustmentRenderer.whiteBalance(neutralizing: try color(cast))
+        let balance = WhiteBalanceAnalysis.balance(neutralizing: try color(cast))
         let corrected = try pixel(
             WhiteBalanceStep.apply(try flat(cast), temperature: balance.temperature, tint: balance.tint)
         )
@@ -67,21 +67,21 @@ final class ImageAdjustmentWhiteBalanceTests {
         let gray = try flat(SIMD3(0.2, 0.2, 0.2))
         let warm = try pixel(WhiteBalanceStep.apply(gray, temperature: 0.3, tint: 0.3))
 
-        let balance = ImageAdjustmentRenderer.whiteBalance(neutralizing: try color(warm))
+        let balance = WhiteBalanceAnalysis.balance(neutralizing: try color(warm))
 
         #expect(balance.temperature < 0)
         #expect(balance.tint < 0)
     }
 
     @Test func grayNeedsNoBalance() throws {
-        let balance = ImageAdjustmentRenderer.whiteBalance(neutralizing: try color(SIMD3(0.3, 0.3, 0.3)))
+        let balance = WhiteBalanceAnalysis.balance(neutralizing: try color(SIMD3(0.3, 0.3, 0.3)))
 
         #expect(abs(balance.temperature) < 0.005)
         #expect(abs(balance.tint) < 0.005)
     }
 
     @Test func colorBeyondReachStaysInRange() throws {
-        let balance = ImageAdjustmentRenderer.whiteBalance(neutralizing: try color(SIMD3(0.05, 0.4, 0.05)))
+        let balance = WhiteBalanceAnalysis.balance(neutralizing: try color(SIMD3(0.05, 0.4, 0.05)))
 
         #expect(Parameter.temperature.range.contains(balance.temperature))
         #expect(Parameter.tint.range.contains(balance.tint))
@@ -89,7 +89,7 @@ final class ImageAdjustmentWhiteBalanceTests {
     }
 
     @Test func blackHasNoBalance() throws {
-        let balance = ImageAdjustmentRenderer.whiteBalance(neutralizing: try color(SIMD3(0, 0, 0)))
+        let balance = WhiteBalanceAnalysis.balance(neutralizing: try color(SIMD3(0, 0, 0)))
 
         #expect(balance.temperature == 0 && balance.tint == 0)
     }
@@ -107,22 +107,22 @@ final class ImageAdjustmentWhiteBalanceTests {
 
     @Test func autoWhiteBalanceOpposesAnAddedCast() throws {
         let image = try fixture()
-        let base = ImageAdjustmentRenderer.autoWhiteBalance(for: image)
+        let base = WhiteBalanceAnalysis.adjustments(for: image)
 
         let warm = WhiteBalanceStep.apply(image, temperature: 0.3, tint: 0.3).cropped(to: image.extent)
-        let warmResult = ImageAdjustmentRenderer.autoWhiteBalance(for: warm)
+        let warmResult = WhiteBalanceAnalysis.adjustments(for: warm)
         #expect(warmResult.color.temperature < base.color.temperature - 0.02, "\(base.color.temperature) → \(warmResult.color.temperature)")
         #expect(warmResult.color.tint < base.color.tint - 0.02, "\(base.color.tint) → \(warmResult.color.tint)")
 
         let cool = WhiteBalanceStep.apply(image, temperature: -0.3, tint: -0.3).cropped(to: image.extent)
-        let coolResult = ImageAdjustmentRenderer.autoWhiteBalance(for: cool)
+        let coolResult = WhiteBalanceAnalysis.adjustments(for: cool)
         #expect(coolResult.color.temperature > base.color.temperature + 0.02, "\(base.color.temperature) → \(coolResult.color.temperature)")
         #expect(coolResult.color.tint > base.color.tint + 0.02, "\(base.color.tint) → \(coolResult.color.tint)")
         print("Auto white balance on sharksandwich: base \(base.color.temperature), \(base.color.tint); +0.3/+0.3 cast \(warmResult.color.temperature), \(warmResult.color.tint); −0.3/−0.3 cast \(coolResult.color.temperature), \(coolResult.color.tint)")
     }
 
     @Test func autoWhiteBalanceSetsOnlyTemperatureAndTint() throws {
-        let auto = ImageAdjustmentRenderer.autoWhiteBalance(for: try fixture())
+        let auto = WhiteBalanceAnalysis.adjustments(for: try fixture())
 
         #expect(Set(Parameter.allCases.filter { auto[$0] != 0 }).isSubset(of: Parameter.autoWhiteBalance))
         #expect(auto.curves == .identity)
@@ -131,8 +131,8 @@ final class ImageAdjustmentWhiteBalanceTests {
     @Test func saturatedImageHasNoNeutralEstimate() throws {
         let red = try flat(SIMD3(0.6, 0.1, 0.05), size: 64)
 
-        #expect(ImageAdjustmentRenderer.neutralEstimate(of: red) == nil)
-        #expect(ImageAdjustmentRenderer.autoWhiteBalance(for: red) == ImageAdjustmentDescription())
+        #expect(WhiteBalanceAnalysis.neutralEstimate(of: red) == nil)
+        #expect(WhiteBalanceAnalysis.adjustments(for: red) == ImageAdjustmentDescription())
     }
 
     @Test func neutralEstimateIgnoresSaturatedAndClippedPixels() throws {
@@ -141,7 +141,7 @@ final class ImageAdjustmentWhiteBalanceTests {
         let white = try flat(SIMD3(1, 1, 1), size: 64).transformed(by: CGAffineTransform(translationX: 128, y: 0))
         let image = white.composited(over: red.composited(over: gray))
 
-        let estimate = try #require(ImageAdjustmentRenderer.neutralEstimate(of: image))
+        let estimate = try #require(WhiteBalanceAnalysis.neutralEstimate(of: image))
 
         #expect(abs(estimate.red - 0.3) < 0.01)
         #expect(abs(estimate.green - 0.32) < 0.01)

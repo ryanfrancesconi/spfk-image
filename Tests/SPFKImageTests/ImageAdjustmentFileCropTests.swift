@@ -172,7 +172,7 @@ final class ImageAdjustmentFileCropTests {
         let uncropped = strings(ImageFormatConverter.carriedAuxiliaryTypes(cropped: false))
 
         #expect(cropped == strings(ImageFormatConverter.gainMapAuxiliaryTypes))
-        #expect(uncropped == strings(ImageAdjustmentRenderer.auxiliaryDataTypes))
+        #expect(uncropped == strings(ImageFileWriting.auxiliaryDataTypes))
         #expect(!cropped.contains(kCGImageAuxiliaryDataTypeDisparity as String))
         #expect(uncropped.contains(kCGImageAuxiliaryDataTypeDisparity as String))
     }
