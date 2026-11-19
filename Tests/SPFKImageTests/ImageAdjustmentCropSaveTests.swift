@@ -78,11 +78,31 @@ final class ImageAdjustmentCropSaveTests {
         return Double(total) / Double(count)
     }
 
+    /// The file's orientation tag, 1 when it carries none.
+    private func orientationTag(of url: URL) throws -> Int {
+        let source = try #require(CGImageSourceCreateWithURL(url as CFURL, nil))
+        let properties = try #require(CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [String: Any])
+
+        return properties[kCGImagePropertyOrientation as String] as? Int ?? 1
+    }
+
+    /// The lowest ``meanDifference(_:_:width:height:dx:dy:)`` over every shift of up to a pixel.
+    private func bestMeanDifference(_ a: [UInt8], _ b: [UInt8], width: Int, height: Int) -> Double {
+        var best = Double.infinity
+
+        for dy in -1 ... 1 {
+            for dx in -1 ... 1 {
+                best = min(best, meanDifference(a, b, width: width, height: height, dx: dx, dy: dy))
+            }
+        }
+
+        return best
+    }
+
     @Test(arguments: OrientationEdit.allCases, crops)
     func previewSaveAndConvertShowTheSamePicture(tag: OrientationEdit, crop: CropEdit) async throws {
         let source = try AdjustmentFileFixtures.asymmetric(.tiff, orientation: tag.rawValue, in: directory)
-        try #require(try CGImageSourceCreateWithURL(source as CFURL, nil)
-            .flatMap { CGImageSourceCopyPropertiesAtIndex($0, 0, nil) as? [String: Any] }?[kCGImagePropertyOrientation as String] as? Int ?? 1 == tag.rawValue)
+        try #require(try orientationTag(of: source) == tag.rawValue)
 
         let upright = try uprightDecode(source)
 
@@ -107,9 +127,7 @@ final class ImageAdjustmentCropSaveTests {
                 let first = try bytes(image)
                 let second = try bytes(preview)
                 let unshifted = meanDifference(first, second, width: image.width, height: image.height)
-                let best = [-1, 0, 1].flatMap { dy in [-1, 0, 1].map { dx in (dx, dy) } }
-                    .map { meanDifference(first, second, width: image.width, height: image.height, dx: $0.0, dy: $0.1) }
-                    .min() ?? .infinity
+                let best = bestMeanDifference(first, second, width: image.width, height: image.height)
                 #expect(best < Self.tolerance, "\(label): \(best), unshifted \(unshifted)")
             }
         }
