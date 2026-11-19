@@ -23,7 +23,9 @@ extension ImageFormatConverter {
             scheme: source.options.metadata,
             size: PixelSize(width: image.width, height: image.height),
             type: encoder.type
-        )
+        ) { metadata in
+            remapRegions(metadata, properties: properties, written: PixelSize(width: image.width, height: image.height))
+        }
 
         let data = try encoder.encode(
             ImageFileEncoderInput(image: image, quality: source.options.quality, exif: metadata.exif, xmp: metadata.xmp)
@@ -32,13 +34,14 @@ extension ImageFormatConverter {
         try data.write(to: url)
     }
 
-    /// The source's metadata as an EXIF block and an XMP packet, stating orientation 1 and `size`.
+    /// The source's metadata as an EXIF block and an XMP packet, stating orientation 1 and `size`, after `fit`.
     static func encoderMetadata(
         _ imageSource: CGImageSource,
         index: Int,
         scheme: ImageMetadataCopyScheme,
         size: PixelSize,
-        type: UTType
+        type: UTType,
+        fit: (CGMutableImageMetadata) -> Void = { _ in }
     ) throws -> (exif: Data?, xmp: Data?) {
         guard scheme != .stripAll,
               let sourceMetadata = CGImageSourceCopyMetadataAtIndex(imageSource, index, nil),
@@ -60,6 +63,8 @@ extension ImageFormatConverter {
         if scheme == .copyAllExceptLocation {
             removeLocation(from: metadata)
         }
+
+        fit(metadata)
 
         guard let xmp = CGImageMetadataCreateXMPData(metadata, nil) as Data? else {
             throw ImageConversionError.encodeFailed(type.identifier)

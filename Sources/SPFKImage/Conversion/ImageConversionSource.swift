@@ -19,13 +19,17 @@ public struct ImageConversionSource: Sendable {
     /// A pending rotation or mirror rendered into the output, after ``adjustments``.
     public var orientation: OrientationEdit
 
+    /// A pending crop rendered into the output, in the displayed picture before ``adjustments``.
+    public var crop: CropEdit
+
     public init(
         input: URL,
         output: URL,
         options: ImageConversionOptions,
         originalInput: URL? = nil,
         adjustments: ImageAdjustmentDescription? = nil,
-        orientation: OrientationEdit = .up
+        orientation: OrientationEdit = .up,
+        crop: CropEdit = CropEdit()
     ) {
         self.input = input
         self.output = output
@@ -33,6 +37,7 @@ public struct ImageConversionSource: Sendable {
         self.originalInput = originalInput
         self.adjustments = adjustments
         self.orientation = orientation
+        self.crop = crop
     }
 
     var hasAdjustments: Bool {
@@ -41,11 +46,21 @@ public struct ImageConversionSource: Sendable {
 
     /// Whether the output needs a decode: neither a transcode nor a rewrap can take a pending edit.
     var rendersEdits: Bool {
-        hasAdjustments || !orientation.isIdentity
+        hasAdjustments || !orientation.isIdentity || !crop.isIdentity
     }
 
     /// The orientation the output displays with, from the source's own tag and ``orientation``.
     func displayedOrientation(fileOrientation: Int) -> Int {
         orientation.applied(toFileOrientation: fileOrientation)
+    }
+
+    /// The size the output displays at before any resize: the upright picture, cropped, then turned.
+    func displayedSize(width: Int, height: Int, fileOrientation: Int) -> ImageFormatConverter.PixelSize {
+        let upright = ImageFormatConverter.displayedSize(width: width, height: height, orientation: fileOrientation)
+        let kept = crop.keptPixelSize(imageWidth: upright.width, imageHeight: upright.height)
+
+        return orientation.swapsDimensions
+            ? ImageFormatConverter.PixelSize(width: kept.height, height: kept.width)
+            : ImageFormatConverter.PixelSize(width: kept.width, height: kept.height)
     }
 }

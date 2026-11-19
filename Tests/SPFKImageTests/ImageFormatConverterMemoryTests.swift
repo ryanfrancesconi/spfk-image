@@ -17,7 +17,7 @@ final class ImageFormatConverterMemoryTests: BinTestCase {
     /// Photo-sized, so that anything kept per file is large against the noise of the suites running alongside. ISO
     /// only: both formats are carried by the same loop.
     @available(macOS 15, iOS 18, *)
-    private func photoSizedGainMappedHEIC() throws -> URL {
+    static func photoSizedGainMappedHEIC(in bin: URL) throws -> URL {
         let url = bin.appendingPathComponent("photo-gain-map.heic")
         let extent = CGRect(x: 0, y: 0, width: 4032, height: 3024)
 
@@ -37,7 +37,7 @@ final class ImageFormatConverterMemoryTests: BinTestCase {
     @Test func carryingGainMapsHoldsNoMemoryPerFile() async throws {
         guard #available(macOS 15, iOS 18, *) else { return }
 
-        let input = try photoSizedGainMappedHEIC()
+        let input = try Self.photoSizedGainMappedHEIC(in: bin)
         try #require(AdjustmentFileFixtures.GainMapFormat.iso.info(input) != nil)
 
         let options = ImageConversionOptions(format: UTType.heic.identifier)
@@ -46,6 +46,28 @@ final class ImageFormatConverterMemoryTests: BinTestCase {
         let grown = try await retainedMemoryMB(warmUp: 16, measured: 60, width: 8) { index in
             let output = bin.appendingPathComponent("out-\(index).heic")
             let source = ImageConversionSource(input: input, output: output, options: options)
+            _ = try await ImageFormatConverter(source: source).convert()
+            try FileManager.default.removeItem(at: output)
+        }
+
+        #expect(grown < 100, "grew \(Int(grown)) MB over 60 files")
+    }
+
+    /// 4:5 with 5° of straighten: each map now passes through a Core Image render per file.
+    static let photoCrop = CropEdit.largestCentered(aspect: 4.0 / 5, imageWidth: 4032, imageHeight: 3024, straighten: 5)
+
+    @Test func croppingGainMapsHoldsNoMemoryPerFile() async throws {
+        guard #available(macOS 15, iOS 18, *) else { return }
+
+        let input = try Self.photoSizedGainMappedHEIC(in: bin)
+        try #require(AdjustmentFileFixtures.GainMapFormat.iso.info(input) != nil)
+
+        let options = ImageConversionOptions(format: UTType.heic.identifier)
+        let bin = bin
+
+        let grown = try await retainedMemoryMB(warmUp: 16, measured: 60, width: 8) { index in
+            let output = bin.appendingPathComponent("cropped-\(index).heic")
+            let source = ImageConversionSource(input: input, output: output, options: options, crop: Self.photoCrop)
             _ = try await ImageFormatConverter(source: source).convert()
             try FileManager.default.removeItem(at: output)
         }

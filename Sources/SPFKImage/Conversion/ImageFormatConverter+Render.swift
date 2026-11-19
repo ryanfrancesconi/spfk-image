@@ -4,14 +4,16 @@ import CoreImage
 import CoreImage.CIFilterBuiltins
 import Foundation
 import ImageIO
+import SPFKBase
 import UniformTypeIdentifiers
 
 extension ImageFormatConverter {
-    /// Decodes upright, applies the source's adjustments and orientation at full size and scales to `size`, in the
-    /// source's color space when it is RGB or gray and sRGB otherwise.
+    /// Decodes upright, applies the source's crop, adjustments and orientation at full size and scales to `size`,
+    /// in the source's color space when it is RGB or gray and sRGB otherwise.
     func renderedImage(_ imageSource: CGImageSource, index: Int, properties: [String: Any], size: PixelSize?) throws -> CGImage {
         let upright = CIImage(cgImageSource: imageSource, index: index, options: [.applyOrientationProperty: true])
-        let adjusted = source.adjustments.map { ImageAdjustmentRenderer.apply($0, to: upright) } ?? upright
+        let cropped = source.crop.apply(to: upright)
+        let adjusted = source.adjustments.map { ImageAdjustmentRenderer.apply($0, to: cropped) } ?? cropped
         let decoded = source.orientation.apply(to: adjusted)
 
         // Core Image reports a CMYK source as RGB, so ImageIO's color model decides whose space is kept.
@@ -84,6 +86,7 @@ extension ImageFormatConverter {
                 CGImageMetadataSetValueMatchingImageProperty(
                     metadata, kCGImagePropertyTIFFDictionary, kCGImagePropertyTIFFOrientation, 1 as CFNumber
                 )
+                fitMetadata(metadata, properties: properties, written: PixelSize(width: cgImage.width, height: cgImage.height))
             }
 
             if source.options.metadata == .copyAllExceptLocation {
@@ -100,11 +103,49 @@ extension ImageFormatConverter {
             Self.addGainMaps(
                 from: imageSource,
                 index: index,
-                orientation: source.displayedOrientation(fileOrientation: properties[kCGImagePropertyOrientation as String] as? Int ?? 1),
+                before: Self.fileOrientation(properties),
+                crop: source.crop,
+                orientation: source.orientation,
                 to: destination
             )
         }
 
         guard CGImageDestinationFinalize(destination) else { throw ImageConversionError.encodeFailed(type.identifier) }
+    }
+
+    static func fileOrientation(_ properties: [String: Any]) -> OrientationEdit {
+        OrientationEdit(rawValue: properties[kCGImagePropertyOrientation as String] as? Int ?? 1) ?? .up
+    }
+
+    /// The written size in EXIF when it differs from the source's displayed size, and the face regions moved
+    /// with the pixels whenever they were turned or cropped.
+    func fitMetadata(_ metadata: CGMutableImageMetadata, properties: [String: Any], written: PixelSize) {
+        guard let width = properties[kCGImagePropertyPixelWidth as String] as? Int,
+              let height = properties[kCGImagePropertyPixelHeight as String] as? Int
+        else { return }
+
+        let before = Self.fileOrientation(properties)
+        let displayed = Self.displayedSize(width: width, height: height, orientation: source.displayedOrientation(fileOrientation: before.rawValue))
+
+        if written != displayed {
+            Self.setPixelDimensions(metadata, width: written.width, height: written.height)
+        }
+
+        remapRegions(metadata, properties: properties, written: written)
+    }
+
+    /// The face regions moved with pixels that were drawn upright from a tagged file, cropped or turned.
+    func remapRegions(_ metadata: CGMutableImageMetadata, properties: [String: Any], written: PixelSize) {
+        let before = Self.fileOrientation(properties)
+
+        guard let width = properties[kCGImagePropertyPixelWidth as String] as? Int,
+              let height = properties[kCGImagePropertyPixelHeight as String] as? Int,
+              !before.isIdentity || !source.crop.isIdentity || !source.orientation.isIdentity
+        else { return }
+
+        Self.remapRegions(
+            metadata, storedWidth: width, storedHeight: height, before: before, crop: source.crop, after: source.orientation,
+            writtenWidth: written.width, writtenHeight: written.height
+        )
     }
 }
