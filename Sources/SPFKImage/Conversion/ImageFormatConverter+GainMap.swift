@@ -2,6 +2,7 @@
 
 import Foundation
 import ImageIO
+import SPFKBase
 
 extension ImageFormatConverter {
     /// 'L008', one 8-bit component: the layout of every gain map measured, Apple's and ISO's.
@@ -17,12 +18,19 @@ extension ImageFormatConverter {
         return types
     }
 
-    /// Adds each gain map, laid out as `orientation` displays it. A map smaller than the image is left to the
-    /// reader to scale, as it is in the source.
-    static func addGainMaps(from imageSource: CGImageSource, index: Int, orientation: Int, to destination: CGImageDestination) {
+    /// Adds each gain map, turned by `before`, cropped by `crop` and laid out as `orientation` displays it.
+    /// A map smaller than the image is left to the reader to scale, as it is in the source.
+    static func addGainMaps(
+        from imageSource: CGImageSource,
+        index: Int,
+        before: OrientationEdit = .up,
+        crop: CropEdit = CropEdit(),
+        orientation: OrientationEdit,
+        to destination: CGImageDestination
+    ) {
         for type in gainMapAuxiliaryTypes {
             guard let info = CGImageSourceCopyAuxiliaryDataInfoAtIndex(imageSource, index, type) as? [String: Any],
-                  let oriented = orientedAuxiliaryData(info, orientation: orientation)
+                  let oriented = transformedAuxiliaryData(info, before: before, crop: crop, after: orientation)
             else { continue }
 
             CGImageDestinationAddAuxiliaryDataInfo(destination, type, oriented as CFDictionary)

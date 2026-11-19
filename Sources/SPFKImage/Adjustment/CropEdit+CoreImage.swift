@@ -6,7 +6,7 @@ import SPFKBase
 
 extension CropEdit {
     /// The kept region of `image`, an upright decode at any scale, axis-aligned and of
-    /// ``pixelSize(imageWidth:imageHeight:)``, its extent moved to the origin. The crop is first
+    /// ``keptPixelSize(imageWidth:imageHeight:)``, its extent moved to the origin. The crop is first
     /// ``contained(imageWidth:imageHeight:)``, so nothing outside the picture is sampled.
     public func apply(to image: CIImage) -> CIImage {
         guard !isIdentity else { return image }
@@ -17,7 +17,7 @@ extension CropEdit {
         guard imageWidth > 0, imageHeight > 0 else { return image }
 
         let crop = contained(imageWidth: imageWidth, imageHeight: imageHeight)
-        let size = crop.pixelSize(imageWidth: imageWidth, imageHeight: imageHeight)
+        let size = keptPixelSize(imageWidth: imageWidth, imageHeight: imageHeight)
         let topLeftCenter = crop.pixelCenter(imageWidth: imageWidth, imageHeight: imageHeight)
         let center = CGPoint(x: extent.minX + topLeftCenter.x, y: extent.maxY - topLeftCenter.y)
 

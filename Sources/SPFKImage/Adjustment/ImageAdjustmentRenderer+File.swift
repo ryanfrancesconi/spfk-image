@@ -20,16 +20,18 @@ extension ImageAdjustmentRenderer {
 
     /// Renders `adjustments` into a new file at `destination`, in the source's own format.
     ///
-    /// Adjusts the source's unoriented pixels and writes them with its metadata, its orientation tag with
-    /// `orientation` performed, and every auxiliary image (gain maps, depth, mattes) carried unchanged.
-    /// A format that cannot store an orientation (AVIF) is written upright, with orientation 1, and its gain maps
-    /// turned to match. `destination` must not exist, and exists afterwards only if this returns; `source` is never
-    /// written.
+    /// Crops and adjusts the source's unoriented pixels and writes them with its metadata, its orientation tag
+    /// with `orientation` performed, and every auxiliary image (gain maps, depth, mattes) carried unchanged, or
+    /// for a crop, the gain maps cropped and the rest dropped. `crop` is in the displayed picture, before
+    /// `orientation`. A format that cannot store an orientation (AVIF) is written upright, with orientation 1,
+    /// and its gain maps turned to match. `destination` must not exist, and exists afterwards only if this
+    /// returns; `source` is never written.
     /// `stage` is called as each stage begins, and not after a throw. Waits for a ``BlockingCallLimiter`` slot,
     /// since an AV1 encode blocks its thread.
     public func renderFile(
         _ adjustments: ImageAdjustmentDescription,
         orientation: OrientationEdit = .up,
+        crop: CropEdit = CropEdit(),
         source: URL,
         destination: URL,
         quality: Double = defaultFileQuality,
@@ -39,8 +41,8 @@ extension ImageAdjustmentRenderer {
             try Task.checkCancellation()
 
             try renderFile(
-                adjustments, orientation: orientation, source: source, destination: destination, quality: quality,
-                expectedOrientation: nil, stage: stage
+                adjustments, orientation: orientation, crop: crop, source: source, destination: destination,
+                quality: quality, expectedOrientation: nil, stage: stage
             )
         }
     }
@@ -49,6 +51,7 @@ extension ImageAdjustmentRenderer {
     func renderFile(
         _ adjustments: ImageAdjustmentDescription,
         orientation: OrientationEdit = .up,
+        crop: CropEdit = CropEdit(),
         source: URL,
         destination: URL,
         quality: Double,
@@ -62,8 +65,8 @@ extension ImageAdjustmentRenderer {
         do {
             let written = try autoreleasepool {
                 try write(
-                    adjustments, orientation: orientation, source: source, destination: destination, quality: quality,
-                    stage: stage
+                    adjustments, orientation: orientation, crop: crop, source: source, destination: destination,
+                    quality: quality, stage: stage
                 )
             }
 
@@ -90,6 +93,7 @@ extension ImageAdjustmentRenderer {
     private func write(
         _ adjustments: ImageAdjustmentDescription,
         orientation: OrientationEdit,
+        crop: CropEdit,
         source url: URL,
         destination: URL,
         quality: Double,
@@ -111,11 +115,8 @@ extension ImageAdjustmentRenderer {
               properties[kCGImagePropertyIsIndexed as String] as? Bool != true
         else { throw ImageAdjustmentRenderError.unsupportedColorModel }
 
-        let geometry = Geometry(
-            orientation: orientation.applied(toFileOrientation: properties[kCGImagePropertyOrientation as String] as? Int ?? 1),
-            width: width,
-            height: height
-        )
+        let tag = properties[kCGImagePropertyOrientation as String] as? Int ?? 1
+        let geometry = Geometry(orientation: orientation.applied(toFileOrientation: tag), width: width, height: height)
 
         let type = Self.fileType(for: sourceType as String)
         let bakesOrientation = geometry.orientation != 1 && !Self.writesOrientation(type)
@@ -133,13 +134,21 @@ extension ImageAdjustmentRenderer {
 
         stage?(.rendering)
 
+        // Baked, the input is the upright decode the crop is drawn on; otherwise the crop is mapped to the stored pixels.
+        let stored = bakesOrientation ? crop : crop.unoriented(fileOrientation: tag)
+        let kept = stored.apply(to: input)
+        let written = Self.writtenSize(
+            kept: stored.keptPixelSize(imageWidth: Int(input.extent.width), imageHeight: Int(input.extent.height)),
+            turnedBy: bakesOrientation ? orientation : .up
+        )
+
         let rendered = bakesOrientation
-            ? orientation.apply(to: Self.apply(adjustments, to: input).cropped(to: input.extent))
-            : Self.apply(adjustments, to: input)
+            ? orientation.apply(to: Self.apply(adjustments, to: kept).cropped(to: kept.extent))
+            : Self.apply(adjustments, to: kept)
 
         guard let image = context.createCGImage(
             rendered,
-            from: bakesOrientation ? rendered.extent : input.extent,
+            from: bakesOrientation ? rendered.extent : kept.extent,
             format: format,
             colorSpace: colorSpace,
             deferred: false
@@ -155,6 +164,8 @@ extension ImageAdjustmentRenderer {
             kCGImagePropertyOrientation: bakesOrientation ? 1 : geometry.orientation,
         ]
 
+        let fileTag = OrientationEdit(rawValue: tag) ?? .up
+
         if bakesOrientation {
             let metadata = CGImageSourceCopyMetadataAtIndex(source, 0, nil).flatMap { CGImageMetadataCreateMutableCopy($0) }
 
@@ -162,16 +173,28 @@ extension ImageAdjustmentRenderer {
                 CGImageMetadataSetValueMatchingImageProperty(
                     metadata, kCGImagePropertyTIFFDictionary, kCGImagePropertyTIFFOrientation, 1 as CFNumber
                 )
+                Self.fitMetadata(
+                    metadata, storedWidth: width, storedHeight: height, before: fileTag, crop: crop, after: orientation, written: written
+                )
             }
 
             CGImageDestinationAddImageAndMetadata(output, image, metadata, options as CFDictionary)
 
             // Depth and mattes are left out: they would no longer line up with the turned pixels.
-            ImageFormatConverter.addGainMaps(from: source, index: 0, orientation: geometry.orientation, to: output)
+            ImageFormatConverter.addGainMaps(from: source, index: 0, before: fileTag, crop: crop, orientation: orientation, to: output)
+        } else if !stored.isIdentity {
+            let metadata = CGImageSourceCopyMetadataAtIndex(source, 0, nil).flatMap { CGImageMetadataCreateMutableCopy($0) }
+
+            if let metadata {
+                Self.fitMetadata(metadata, storedWidth: width, storedHeight: height, before: .up, crop: stored, after: .up, written: written)
+            }
+
+            CGImageDestinationAddImageAndMetadata(output, image, metadata, options as CFDictionary)
+            ImageFormatConverter.addGainMaps(from: source, index: 0, crop: stored, orientation: .up, to: output)
         } else {
             CGImageDestinationAddImageAndMetadata(output, image, CGImageSourceCopyMetadataAtIndex(source, 0, nil), options as CFDictionary)
 
-            for auxiliaryType in Self.auxiliaryDataTypes {
+            for auxiliaryType in ImageFormatConverter.carriedAuxiliaryTypes(cropped: false) {
                 guard let info = CGImageSourceCopyAuxiliaryDataInfoAtIndex(source, 0, auxiliaryType) else { continue }
                 CGImageDestinationAddAuxiliaryDataInfo(output, auxiliaryType, info)
             }
@@ -181,10 +204,34 @@ extension ImageAdjustmentRenderer {
 
         guard CGImageDestinationFinalize(output) else { throw ImageAdjustmentRenderError.encodeFailed }
 
-        guard bakesOrientation else { return geometry }
+        return Geometry(orientation: bakesOrientation ? 1 : geometry.orientation, width: written.width, height: written.height)
+    }
 
-        let displayed = ImageFormatConverter.displayedSize(width: width, height: height, orientation: geometry.orientation)
-        return Geometry(orientation: 1, width: displayed.width, height: displayed.height)
+    /// The written size: the kept size, swapped when `orientation` turns it a quarter.
+    private static func writtenSize(kept: (width: Int, height: Int), turnedBy orientation: OrientationEdit) -> ImageFormatConverter.PixelSize {
+        orientation.swapsDimensions
+            ? ImageFormatConverter.PixelSize(width: kept.height, height: kept.width)
+            : ImageFormatConverter.PixelSize(width: kept.width, height: kept.height)
+    }
+
+    /// The written size in EXIF when cropped, and the face regions moved with the pixels.
+    private static func fitMetadata(
+        _ metadata: CGMutableImageMetadata,
+        storedWidth: Int,
+        storedHeight: Int,
+        before: OrientationEdit,
+        crop: CropEdit,
+        after: OrientationEdit,
+        written: ImageFormatConverter.PixelSize
+    ) {
+        if !crop.isIdentity {
+            ImageFormatConverter.setPixelDimensions(metadata, width: written.width, height: written.height)
+        }
+
+        ImageFormatConverter.remapRegions(
+            metadata, storedWidth: storedWidth, storedHeight: storedHeight, before: before, crop: crop, after: after,
+            writtenWidth: written.width, writtenHeight: written.height
+        )
     }
 
     static func verify(_ url: URL, orientation: Int, width: Int, height: Int) throws {

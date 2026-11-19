@@ -143,6 +143,56 @@ final class ImageAdjustmentCropTests {
         #expect(plain == identity)
     }
 
+    /// SplitMix64, so the random crops below are the same every run.
+    private struct SeededGenerator: RandomNumberGenerator {
+        var state: UInt64
+
+        mutating func next() -> UInt64 {
+            state &+= 0x9E37_79B9_7F4A_7C15
+            var z = state
+            z = (z ^ (z >> 30)) &* 0xBF58_476D_1CE4_E5B9
+            z = (z ^ (z >> 27)) &* 0x94D0_49BB_1331_11EB
+            return z ^ (z >> 31)
+        }
+    }
+
+    /// Contained or not, on odd and even sizes, the render's size is the size rule's.
+    @Test(arguments: [(200, 100), (201, 133), (97, 160)])
+    func theKeptExtentIsTheKeptPixelSize(width: Int, height: Int) throws {
+        let input = CIImage(color: .gray).cropped(to: CGRect(x: 0, y: 0, width: width, height: height))
+        var generator = SeededGenerator(state: UInt64(width * 1000 + height))
+
+        for _ in 0 ..< 40 {
+            let crop = CropEdit(
+                centerX: .random(in: -0.4 ... 0.4, using: &generator),
+                centerY: .random(in: -0.4 ... 0.4, using: &generator),
+                width: .random(in: 0.05 ... 1, using: &generator),
+                height: .random(in: 0.05 ... 1, using: &generator),
+                straighten: .random(in: -45 ... 45, using: &generator)
+            )
+            guard !crop.isIdentity else { continue }
+
+            let extent = crop.apply(to: input).extent
+            let size = crop.keptPixelSize(imageWidth: width, imageHeight: height)
+
+            #expect(extent == CGRect(x: 0, y: 0, width: size.width, height: size.height), "\(crop)")
+        }
+    }
+
+    /// The pin for every uncropped save: passing an identity crop changes nothing in the file.
+    @Test(arguments: [UTType.jpeg, .heic])
+    func anIdentityCropSavesByteIdenticalToNone(type: UTType) async throws {
+        let source = try AdjustmentFileFixtures.tagged(type, orientation: 6, in: directory)
+        let plain = directory.appendingPathComponent("plain").appendingPathExtension(for: type)
+        let identity = directory.appendingPathComponent("identity").appendingPathExtension(for: type)
+        let adjustments = ImageAdjustmentDescription(light: .init(exposure: 0.4))
+
+        try await renderer.renderFile(adjustments, orientation: .right, source: source, destination: plain)
+        try await renderer.renderFile(adjustments, orientation: .right, crop: CropEdit(aspect: .square), source: source, destination: identity)
+
+        #expect(try Data(contentsOf: plain) == Data(contentsOf: identity))
+    }
+
     // MARK: - Straighten
 
     /// `CIStraightenFilter` turns the picture and scales it to fill its own extent, which is a centered

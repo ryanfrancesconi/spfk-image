@@ -2,6 +2,7 @@
 
 import Foundation
 import ImageIO
+import SPFKBase
 import Testing
 
 @testable import SPFKImage
@@ -66,5 +67,48 @@ struct ImageFormatConverterGainMapTests {
 
         #expect(ImageFormatConverter.orientedAuxiliaryData(other, orientation: 6) == nil)
         #expect(ImageFormatConverter.orientedAuxiliaryData(other, orientation: 1) != nil)
+    }
+
+    // MARK: - Crop
+
+    @Test(arguments: OrientationEdit.allCases)
+    func anIdentityCropIsTheByteReorder(orientation: OrientationEdit) throws {
+        let map = info(pixelFormat: ImageFormatConverter.oneComponent8PixelFormat)
+
+        for before in OrientationEdit.allCases {
+            let transformed = try #require(ImageFormatConverter.transformedAuxiliaryData(map, before: before, crop: CropEdit(), after: orientation))
+            let reordered = try #require(
+                ImageFormatConverter.orientedAuxiliaryData(map, orientation: orientation.applied(toFileOrientation: before.rawValue))
+            )
+
+            #expect(transformed[kCGImageAuxiliaryDataInfoData as String] as? Data == reordered[kCGImageAuxiliaryDataInfoData as String] as? Data)
+        }
+    }
+
+    @Test func aCroppedMapDescribesItsData() throws {
+        let width = 64
+        let height = 48
+        let map: [String: Any] = [
+            kCGImageAuxiliaryDataInfoData as String: Data((0 ..< width * height).map { UInt8($0 % 251) }),
+            kCGImageAuxiliaryDataInfoDataDescription as String: [
+                "Width": width, "Height": height, "BytesPerRow": width, "PixelFormat": ImageFormatConverter.oneComponent8PixelFormat,
+            ] as [String: Any],
+        ]
+        let crop = CropEdit(centerX: 0.1, width: 0.5, height: 0.4, straighten: 7)
+
+        let transformed = try #require(ImageFormatConverter.transformedAuxiliaryData(map, before: .up, crop: crop, after: .right))
+        let description = try #require(transformed[kCGImageAuxiliaryDataInfoDataDescription as String] as? [String: Any])
+        let data = try #require(transformed[kCGImageAuxiliaryDataInfoData as String] as? Data)
+        let kept = crop.keptPixelSize(imageWidth: width, imageHeight: height)
+
+        #expect(description["Width"] as? Int == kept.height)
+        #expect(description["Height"] as? Int == kept.width)
+        #expect(description["BytesPerRow"] as? Int == kept.height)
+        #expect(data.count == kept.width * kept.height)
+    }
+
+    @Test func aCroppedMapInAnotherLayoutIsDropped() {
+        let crop = CropEdit(width: 0.5, height: 0.5)
+        #expect(ImageFormatConverter.transformedAuxiliaryData(info(pixelFormat: 0x4C30_3130), before: .up, crop: crop, after: .up) == nil)
     }
 }
