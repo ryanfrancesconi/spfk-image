@@ -71,6 +71,56 @@ final class ImageAdjustmentDescriptionTests {
         #expect(description.detail.sharpness == Parameter.sharpness.range.upperBound)
     }
 
+    @Test(arguments: ImageAdjustmentDescription.Group.allCases, [100.0, -100.0])
+    func initClampsEverySection(group: ImageAdjustmentDescription.Group, value: Double) {
+        let description = Self.description(holding: value, throughout: group)
+
+        for parameter in group.parameters {
+            let expected = value > 0 ? parameter.range.upperBound : parameter.range.lowerBound
+            #expect(description[parameter] == expected, "\(parameter)")
+        }
+    }
+
+    /// `value` in every field of `group`'s section, passed to `init` unclamped. Curves has no
+    /// parameters.
+    private static func description(
+        holding v: Double,
+        throughout group: ImageAdjustmentDescription.Group
+    ) -> ImageAdjustmentDescription {
+        typealias SelectiveColor = ImageAdjustmentDescription.SelectiveColor
+        typealias ColorGrading = ImageAdjustmentDescription.ColorGrading
+
+        switch group {
+        case .light:
+            return .init(light: .init(
+                brilliance: v, exposure: v, highlights: v, shadows: v,
+                brightness: v, contrast: v, blackPoint: v, whitePoint: v
+            ))
+        case .color:
+            return .init(color: .init(saturation: v, vibrance: v, temperature: v, tint: v, sepia: v))
+        case .blackAndWhite:
+            return .init(blackAndWhite: .init(red: v, yellow: v, green: v, cyan: v, blue: v, magenta: v))
+        case .curves:
+            return .init()
+        case .levels:
+            return .init(levels: .init(black: v, shadow: v, mid: v, highlight: v, white: v))
+        case .selectiveColor:
+            let shift = SelectiveColor.Shift(hue: v, saturation: v, luminance: v, range: v)
+            return .init(selectiveColor: .init(
+                red: shift, yellow: shift, green: shift, cyan: shift, blue: shift, magenta: shift
+            ))
+        case .colorGrading:
+            let tint = ColorGrading.Tint(hue: v, saturation: v)
+            return .init(colorGrading: .init(shadows: tint, midtones: tint, highlights: tint, balance: v))
+        case .detail:
+            return .init(detail: .init(sharpness: v, sharpnessRadius: v, definition: v, noiseReduction: v))
+        case .vignette:
+            return .init(vignette: .init(amount: v, radius: v, softness: v))
+        case .grain:
+            return .init(grain: .init(amount: v, size: v))
+        }
+    }
+
     @Test func initTurnsNonFiniteValuesNeutral() {
         let description = ImageAdjustmentDescription(
             light: .init(exposure: .nan),
