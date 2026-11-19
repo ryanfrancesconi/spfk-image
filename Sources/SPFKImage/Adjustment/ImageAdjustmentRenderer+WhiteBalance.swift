@@ -178,7 +178,7 @@ extension ImageAdjustmentRenderer {
         let range = component == .temperature
             ? ImageAdjustmentDescription.Parameter.temperature.range
             : ImageAdjustmentDescription.Parameter.tint.range
-        let gray = SIMD3(repeating: sRGBDecoded(0.5))
+        let gray = SIMD3(repeating: ColorMath.sRGBDecoded(0.5))
 
         return (0 ..< count).map { stop in
             let value = range.lowerBound + (range.upperBound - range.lowerBound) * Double(stop) / Double(count - 1)
@@ -186,7 +186,7 @@ extension ImageAdjustmentRenderer {
                 ? whiteBalanceMatrix(temperature: value, tint: tint)
                 : whiteBalanceMatrix(temperature: temperature, tint: value)
             let rgb = (transform * gray).clamped(lowerBound: .zero, upperBound: .one)
-            return SIMD3(sRGBEncoded(rgb.x), sRGBEncoded(rgb.y), sRGBEncoded(rgb.z))
+            return SIMD3(ColorMath.sRGBEncoded(rgb.x), ColorMath.sRGBEncoded(rgb.y), ColorMath.sRGBEncoded(rgb.z))
         }
     }
 

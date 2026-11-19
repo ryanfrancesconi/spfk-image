@@ -39,31 +39,31 @@ extension ImageAdjustmentRenderer {
     /// The ratio is taken on the image clamped to 0…1 and what lies outside is carried over, since
     /// `lp′` is clamped while `lp` is not and an HDR highlight would otherwise be pulled to white.
     private static func localTone(_ image: CIImage, curve: [CGPoint], detailGain: Double) -> CIImage {
-        preservingRange(image) { image in
+        CIArithmetic.preservingRange(image) { image in
             localToneInRange(image.applyingFilter("CIColorClamp"), curve: curve, detailGain: detailGain)
         }
     }
 
     private static func localToneInRange(_ image: CIImage, curve: [CGPoint], detailGain: Double) -> CIImage {
         let extent = image.extent
-        let luminance = encode(rec709Luminance(image))
+        let luminance = CIArithmetic.encodedSRGB(CIArithmetic.rec709Luminance(image))
         let base = edgeAwareBase(luminance)
-        let curved = encode(toneCurve(decode(base), curve))
+        let curved = CIArithmetic.encodedSRGB(toneCurve(CIArithmetic.decodedSRGB(base), curve))
 
         // 0.5 + (lp − base) / 2 stays inside 0…1; lp′ is clamped to it.
-        let halfDetail = add(scale(luminance, 0.5), scale(base, -0.5, bias: 0.5))
-        let adjusted = add(curved, scale(halfDetail, 2 * detailGain, bias: -detailGain))
+        let halfDetail = CIArithmetic.add(CIArithmetic.scale(luminance, 0.5), CIArithmetic.scale(base, -0.5, bias: 0.5))
+        let adjusted = CIArithmetic.add(curved, CIArithmetic.scale(halfDetail, 2 * detailGain, bias: -detailGain))
 
         // CIDivideBlendMode returns min(1, background / input), so a quarter of the ratio is taken,
         // which keeps ratios up to 4.
-        let quarterRatio = scale(luminance, 1, bias: ratioFloor).applyingFilter(
+        let quarterRatio = CIArithmetic.scale(luminance, 1, bias: ratioFloor).applyingFilter(
             "CIDivideBlendMode",
-            parameters: [kCIInputBackgroundImageKey: scale(adjusted, 0.25, bias: ratioFloor / 4)]
+            parameters: [kCIInputBackgroundImageKey: CIArithmetic.scale(adjusted, 0.25, bias: ratioFloor / 4)]
         )
-        let product = scale(quarterRatio, 4).applyingFilter(
-            "CIMultiplyCompositing", parameters: [kCIInputBackgroundImageKey: encode(image)]
+        let product = CIArithmetic.scale(quarterRatio, 4).applyingFilter(
+            "CIMultiplyCompositing", parameters: [kCIInputBackgroundImageKey: CIArithmetic.encodedSRGB(image)]
         )
-        return decode(product).cropped(to: extent)
+        return CIArithmetic.decodedSRGB(product).cropped(to: extent)
     }
 
     /// `CIGuidedFilter` upsamples an input smaller than its guide along the guide's edges, and passes one
@@ -87,50 +87,6 @@ extension ImageAdjustmentRenderer {
             "inputEpsilon": localToneEpsilon,
         ])?.outputImage ?? luminance
         let red = CIVector(x: 1, y: 0, z: 0, w: 0)
-        return matrix(guided.cropped(to: extent), r: red, g: red, b: red)
-    }
-
-    // MARK: - Arithmetic
-
-    private static func rec709Luminance(_ image: CIImage) -> CIImage {
-        let weights = CIVector(x: luminanceWeights.x, y: luminanceWeights.y, z: luminanceWeights.z, w: 0)
-        return matrix(image, r: weights, g: weights, b: weights)
-    }
-
-    private static func scale(_ image: CIImage, _ factor: Double, bias: Double = 0) -> CIImage {
-        matrix(
-            image,
-            r: CIVector(x: factor, y: 0, z: 0, w: 0),
-            g: CIVector(x: 0, y: factor, z: 0, w: 0),
-            b: CIVector(x: 0, y: 0, z: factor, w: 0),
-            bias: bias
-        )
-    }
-
-    static func matrix(_ image: CIImage, r: CIVector, g: CIVector, b: CIVector, bias: Double = 0) -> CIImage {
-        let filter = CIFilter.colorMatrix()
-        filter.inputImage = image
-        filter.rVector = r
-        filter.gVector = g
-        filter.bVector = b
-        filter.aVector = CIVector(x: 0, y: 0, z: 0, w: 1)
-        filter.biasVector = CIVector(x: bias, y: bias, z: bias, w: 0)
-        return filter.outputImage ?? image
-    }
-
-    /// Clamps the sum to 0…1.
-    private static func add(_ image: CIImage, _ background: CIImage) -> CIImage {
-        let filter = CIFilter.linearDodgeBlendMode()
-        filter.inputImage = image
-        filter.backgroundImage = background
-        return filter.outputImage ?? image
-    }
-
-    private static func encode(_ image: CIImage) -> CIImage {
-        image.applyingFilter("CILinearToSRGBToneCurve")
-    }
-
-    private static func decode(_ image: CIImage) -> CIImage {
-        image.applyingFilter("CISRGBToneCurveToLinear")
+        return CIArithmetic.matrix(guided.cropped(to: extent), r: red, g: red, b: red)
     }
 }

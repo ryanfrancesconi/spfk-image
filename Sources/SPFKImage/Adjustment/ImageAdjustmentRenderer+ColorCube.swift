@@ -43,7 +43,7 @@ extension ImageAdjustmentRenderer {
     }
 
     private static func colorCube(_ image: CIImage, data: Data, space: ColorCubeSpace = .sRGB) -> CIImage {
-        preservingRange(image, in: space) { image in
+        CIArithmetic.preservingRange(image, in: space) { image in
             let filter = CIFilter.colorCubeWithColorSpace()
             filter.inputImage = image
             filter.cubeDimension = Float(colorCubeDimension)
@@ -162,21 +162,21 @@ struct ColorCubeNode: Sendable {
 
     /// A Display P3-encoded color.
     init(displayP3 rgb: SIMD3<Double>) {
-        self.init(rgb, linearSRGB: ImageAdjustmentRenderer.displayP3ToLinearSRGB * Self.decoded(rgb))
+        self.init(rgb, linearSRGB: ColorMath.displayP3ToLinearSRGB * Self.decoded(rgb))
     }
 
     private init(_ rgb: SIMD3<Double>, linearSRGB: SIMD3<Double>) {
         self.rgb = rgb
-        oklab = ImageAdjustmentRenderer.oklab(linear: linearSRGB)
-        hue = ImageAdjustmentRenderer.oklchHue(oklab)
+        oklab = ColorMath.oklab(linear: linearSRGB)
+        hue = ColorMath.oklchHue(oklab)
         chroma = rgb.max() - rgb.min()
     }
 
     private static func decoded(_ rgb: SIMD3<Double>) -> SIMD3<Double> {
         SIMD3(
-            ImageAdjustmentRenderer.sRGBDecoded(rgb.x),
-            ImageAdjustmentRenderer.sRGBDecoded(rgb.y),
-            ImageAdjustmentRenderer.sRGBDecoded(rgb.z)
+            ColorMath.sRGBDecoded(rgb.x),
+            ColorMath.sRGBDecoded(rgb.y),
+            ColorMath.sRGBDecoded(rgb.z)
         )
     }
 }

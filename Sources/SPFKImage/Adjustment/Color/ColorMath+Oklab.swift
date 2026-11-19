@@ -4,7 +4,7 @@ import Foundation
 import simd
 
 /// Oklab conversions, from Björn Ottosson, "A perceptual color space for image processing" (2020).
-extension ImageAdjustmentRenderer {
+extension ColorMath {
     /// Oklab lightness, a and b of sRGB-encoded `rgb`.
     static func oklab(_ rgb: SIMD3<Double>) -> SIMD3<Double> {
         oklab(linear: SIMD3(sRGBDecoded(rgb.x), sRGBDecoded(rgb.y), sRGBDecoded(rgb.z)))
@@ -52,16 +52,6 @@ extension ImageAdjustmentRenderer {
         SIMD3(-1.2684380046, 2.6097574011, -0.3413193965),
         SIMD3(-0.0041960863, -0.7034186147, 1.7076147010),
     ])
-
-    /// Linear Display P3 of linear sRGB, as ColorSync converts between `extendedLinearSRGB` and
-    /// `extendedLinearDisplayP3`. Display P3 shares sRGB's transfer curve.
-    static let linearSRGBToDisplayP3 = simd_double3x3(rows: [
-        SIMD3(0.8224260807, 0.1775570065, 0.0000168917),
-        SIMD3(0.0332198292, 0.9667982459, -0.0000180696),
-        SIMD3(0.0170741770, 0.0723747835, 0.9105510712),
-    ])
-
-    static let displayP3ToLinearSRGB = linearSRGBToDisplayP3.inverse
 
     private static let lmsToLinearDisplayP3 = linearSRGBToDisplayP3 * lmsToLinearSRGB
 

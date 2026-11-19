@@ -37,26 +37,26 @@ final class ImageAdjustmentSaturationTests {
     }
 
     private static func linear(_ rgb: SIMD3<Double>) -> SIMD3<Double> {
-        SIMD3(ImageAdjustmentRenderer.sRGBDecoded(rgb.x), ImageAdjustmentRenderer.sRGBDecoded(rgb.y), ImageAdjustmentRenderer.sRGBDecoded(rgb.z))
+        SIMD3(ColorMath.sRGBDecoded(rgb.x), ColorMath.sRGBDecoded(rgb.y), ColorMath.sRGBDecoded(rgb.z))
     }
 
     private static func chroma(_ linear: SIMD3<Double>) -> Double {
-        let lab = ImageAdjustmentRenderer.oklab(linear: linear)
+        let lab = ColorMath.oklab(linear: linear)
         return (lab.y * lab.y + lab.z * lab.z).squareRoot()
     }
 
     private static func hue(_ linear: SIMD3<Double>) -> Double {
-        ImageAdjustmentRenderer.oklchHue(ImageAdjustmentRenderer.oklab(linear: linear))
+        ColorMath.oklchHue(ColorMath.oklab(linear: linear))
     }
 
     private static func isInDisplayP3(_ linear: SIMD3<Double>) -> Bool {
-        let p3 = ImageAdjustmentRenderer.linearSRGBToDisplayP3 * linear
+        let p3 = ColorMath.linearSRGBToDisplayP3 * linear
         return p3.min() > -0.002 && p3.max() < 1.002
     }
 
     /// sRGB-encoded HSL hue sweeps, a degree apart.
     private static func sweep(saturation: Double, lightness: Double) -> [SIMD3<Double>] {
-        (0 ..< 360).map { ImageAdjustmentRenderer.rgb(hue: Double($0), saturation: saturation, lightness: lightness) }
+        (0 ..< 360).map { ColorMath.rgb(hue: Double($0), saturation: saturation, lightness: lightness) }
     }
 
     private static let primaries: [SIMD3<Double>] = [
@@ -70,7 +70,7 @@ final class ImageAdjustmentSaturationTests {
         for primary in Self.primaries {
             let color = try #require(CGColor(colorSpace: source, components: [primary.x, primary.y, primary.z, 1]))
             let converted = try #require(color.converted(to: target, intent: .relativeColorimetric, options: nil)?.components)
-            let ours = ImageAdjustmentRenderer.linearSRGBToDisplayP3 * primary
+            let ours = ColorMath.linearSRGBToDisplayP3 * primary
             #expect(abs(ours.x - converted[0]) < 1e-6 && abs(ours.y - converted[1]) < 1e-6 && abs(ours.z - converted[2]) < 1e-6)
         }
     }
@@ -81,7 +81,7 @@ final class ImageAdjustmentSaturationTests {
         let gains = zip(Self.primaries.map(Self.linear), output).map { Self.chroma($1) / Self.chroma($0) }
 
         for (input, saturated) in zip(Self.primaries.map(Self.linear), output) {
-            #expect(abs(ImageAdjustmentRenderer.oklab(linear: saturated).x - ImageAdjustmentRenderer.oklab(linear: input).x) < 0.02)
+            #expect(abs(ColorMath.oklab(linear: saturated).x - ColorMath.oklab(linear: input).x) < 0.02)
             #expect(Self.isInDisplayP3(saturated))
         }
         #expect(gains.allSatisfy { $0 > 0.99 })
@@ -124,7 +124,7 @@ final class ImageAdjustmentSaturationTests {
         for (original, saturated) in zip(input, output) {
             #expect(Self.isInDisplayP3(saturated))
             #expect(Self.chroma(saturated) > Self.chroma(original) - 0.01)
-            #expect(abs(ImageAdjustmentRenderer.oklab(linear: saturated).x - ImageAdjustmentRenderer.oklab(linear: original).x) < 0.02)
+            #expect(abs(ColorMath.oklab(linear: saturated).x - ColorMath.oklab(linear: original).x) < 0.02)
         }
     }
 

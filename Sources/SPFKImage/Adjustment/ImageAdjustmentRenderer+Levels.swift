@@ -34,21 +34,10 @@ extension ImageAdjustmentRenderer {
         autoreleasepool {
             let input = Self.apply(partial, to: cropEdit.apply(to: CIImage(cgImage: source)))
 
-            let encode = CIFilter.linearToSRGBToneCurve()
-            encode.inputImage = input
-            guard let encoded = encode.outputImage else { return nil }
+            let encoded = CIArithmetic.encodedSRGB(input)
 
-            let luma = CIFilter.colorMatrix()
-            luma.inputImage = encoded
-            let weights = CIVector(x: 0.2126, y: 0.7152, z: 0.0722, w: 0)
-            luma.rVector = weights
-            luma.gVector = weights
-            luma.bVector = weights
-            luma.aVector = CIVector(x: 0, y: 0, z: 0, w: 1)
-
-            guard let lumaImage = luma.outputImage,
-                  let rgb = bins(of: encoded, extent: input.extent),
-                  let luminance = bins(of: lumaImage, extent: input.extent)
+            guard let rgb = bins(of: encoded, extent: input.extent),
+                  let luminance = bins(of: CIArithmetic.rec709Luminance(encoded), extent: input.extent)
             else { return nil }
 
             return ImageHistogram(

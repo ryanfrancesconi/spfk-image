@@ -73,19 +73,19 @@ final class ImageAdjustmentRendererStepTests {
         let linear = try pixels(adjustments, of: image)
 
         return colors.indices.map { index in
-            let pixel = linear[index * 4 ..< index * 4 + 3].map { ImageAdjustmentRenderer.sRGBEncoded(Double($0)) }
+            let pixel = linear[index * 4 ..< index * 4 + 3].map { ColorMath.sRGBEncoded(Double($0)) }
             return SIMD3(pixel[0], pixel[1], pixel[2])
         }
     }
 
     private static func oklchChroma(_ rgb: SIMD3<Double>) -> Double {
-        let lab = ImageAdjustmentRenderer.oklab(rgb)
+        let lab = ColorMath.oklab(rgb)
         return (lab.y * lab.y + lab.z * lab.z).squareRoot()
     }
 
     /// One HSL hue sweep per (saturation, lightness), a degree apart.
     private static let hueSweeps: [[SIMD3<Double>]] = [(1, 0.5), (0.8, 0.5), (0.5, 0.5), (0.8, 0.3), (0.8, 0.7)].map { saturation, lightness in
-        (0 ... 360).map { ImageAdjustmentRenderer.rgb(hue: Double($0), saturation: saturation, lightness: lightness) }
+        (0 ... 360).map { ColorMath.rgb(hue: Double($0), saturation: saturation, lightness: lightness) }
     }
 
     /// `CIVibrance` at −1 changes a channel by up to 0.06 between neighboring degrees of these sweeps.
@@ -105,8 +105,8 @@ final class ImageAdjustmentRendererStepTests {
             let output = try rendered(sweep, .init(color: .init(vibrance: -1)))
 
             for (input, muted) in zip(sweep, output) {
-                let before = ImageAdjustmentRenderer.oklab(input)
-                let after = ImageAdjustmentRenderer.oklab(muted)
+                let before = ColorMath.oklab(input)
+                let after = ColorMath.oklab(muted)
                 #expect(abs(after.x - before.x) < 0.01)
                 #expect(Self.oklchChroma(muted) < Self.oklchChroma(input))
             }

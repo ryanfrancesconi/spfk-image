@@ -21,8 +21,8 @@ extension ImageAdjustmentRenderer {
     static func colorGradingTint(hue: Double, saturation: Double) -> SIMD3<Double> {
         guard saturation > 0 else { return .zero }
 
-        let color = rgb(hue: hue * 360, saturation: 1, lightness: 0.5)
-        let luma = (color * luminanceWeights).sum()
+        let color = ColorMath.rgb(hue: hue * 360, saturation: 1, lightness: 0.5)
+        let luma = (color * ColorMath.luminanceWeights).sum()
         return (color - SIMD3(repeating: luma)) * saturation * maximumColorGradingChroma
     }
 
@@ -31,7 +31,7 @@ extension ImageAdjustmentRenderer {
     /// to 1 and positive balance favors highlights. The sum is shortened just enough to stay in 0…1,
     /// which keeps luma and hue and leaves black and white untouched.
     static func colorGrading(_ rgb: SIMD3<Double>, tints: [SIMD3<Double>], balance: Double) -> SIMD3<Double> {
-        let luma = min(max((rgb * luminanceWeights).sum(), 0), 1)
+        let luma = min(max((rgb * ColorMath.luminanceWeights).sum(), 0), 1)
         let t = pow(luma, pow(2, -balance))
         let weights = [(1 - t) * (1 - t), 2 * t * (1 - t), t * t]
 

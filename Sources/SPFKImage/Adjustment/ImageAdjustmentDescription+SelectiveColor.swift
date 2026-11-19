@@ -13,7 +13,8 @@ extension ImageAdjustmentDescription {
         case blue
         case magenta
 
-        /// The band's center, in degrees around the HSL hue circle.
+        /// The band's center, in degrees around the HSL hue circle. The renderer weighs pixels by the
+        /// Oklch hue of this center at full saturation instead (`HueBands.centers`).
         public var centerHue: Double {
             switch self {
             case .red: 0

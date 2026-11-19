@@ -238,7 +238,7 @@ final class ImageAdjustmentWhiteBalanceTests {
         for temperature in stride(from: -1.0, through: 1.0, by: 0.5) {
             for tint in stride(from: -1.0, through: 1.0, by: 0.5) {
                 let rendered = try pixel(ImageAdjustmentRenderer.temperatureAndTint(gray, temperature: temperature, tint: tint))
-                let luminance = (rendered * ImageAdjustmentRenderer.luminanceWeights).sum()
+                let luminance = (rendered * ColorMath.luminanceWeights).sum()
                 #expect(abs(luminance / 0.2 - 1) < 0.003, "\(temperature), \(tint): \(luminance / 0.2)")
             }
         }

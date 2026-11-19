@@ -29,7 +29,7 @@ extension ImageAdjustmentRenderer {
         guard chroma > 0 else { return node.rgb }
 
         let target = chroma * (1 + amount * maximumSaturationGain)
-        return displayP3(lightness: node.oklab.x, chroma: target, hue: node.hue, insideChroma: chroma)
+        return ColorMath.displayP3(lightness: node.oklab.x, chroma: target, hue: node.hue, insideChroma: chroma)
     }
 
     // MARK: - Mapping from slider positions

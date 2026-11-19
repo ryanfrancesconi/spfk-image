@@ -70,7 +70,7 @@ final class ImageAdjustmentChainPinTests {
         }
 
         let gain = 1 + a.light.contrast * 0.7
-        let contrast = ImageAdjustmentRenderer.preservingRange(shadows) { image in
+        let contrast = CIArithmetic.preservingRange(shadows) { image in
             let curve = CIFilter.toneCurve()
             curve.inputImage = image
             curve.point0 = CGPoint(x: 0, y: 0)

@@ -88,11 +88,11 @@ struct ImageAdjustmentBlackAndWhiteTests {
         for (color, pixel) in zip(Self.colors, rendered) {
             let srgb = SIMD3(Double(color.x), Double(color.y), Double(color.z)) / 255
             let linear = SIMD3(
-                ImageAdjustmentRenderer.sRGBDecoded(srgb.x),
-                ImageAdjustmentRenderer.sRGBDecoded(srgb.y),
-                ImageAdjustmentRenderer.sRGBDecoded(srgb.z)
+                ColorMath.sRGBDecoded(srgb.x),
+                ColorMath.sRGBDecoded(srgb.y),
+                ColorMath.sRGBDecoded(srgb.z)
             )
-            let expected = 255 * ImageAdjustmentRenderer.sRGBEncoded((linear * ImageAdjustmentRenderer.luminanceWeights).sum())
+            let expected = 255 * ColorMath.sRGBEncoded((linear * ColorMath.luminanceWeights).sum())
             #expect(abs(Double(pixel.x) - expected) <= 3, "\(color) → \(pixel.x), expected \(expected)")
         }
     }

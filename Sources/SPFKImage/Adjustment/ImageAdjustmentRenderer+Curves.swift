@@ -12,11 +12,11 @@ extension ImageAdjustmentRenderer {
     /// `CIColorCurves` works on sRGB-encoded values only when given this space; without it, on linear.
     private static let curvesColorSpace = CGColorSpace(name: CGColorSpace.sRGB)
 
-    /// A value outside 0…1 continues from the curve's end at 0 or 1 (see ``preservingRange(_:_:)``).
+    /// A value outside 0…1 continues from the curve's end at 0 or 1 (see ``CIArithmetic.preservingRange(_:_:)``).
     static func curves(_ image: CIImage, _ curves: ImageToneCurves) -> CIImage {
         let data = curvesTable(curves).withUnsafeBufferPointer { Data(buffer: $0) }
 
-        return preservingRange(image) { image in
+        return CIArithmetic.preservingRange(image) { image in
             let filter = CIFilter.colorCurves()
             filter.inputImage = image
             filter.curvesData = data

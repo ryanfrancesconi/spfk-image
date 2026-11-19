@@ -45,7 +45,7 @@ struct ImageAdjustmentColorGradingTests {
     }
 
     private func luma(_ rgb: SIMD3<Double>) -> Double {
-        (rgb * ImageAdjustmentRenderer.luminanceWeights).sum()
+        (rgb * ColorMath.luminanceWeights).sum()
     }
 
     private func grading(
@@ -202,6 +202,6 @@ struct ImageAdjustmentColorGradingTests {
         let track = ImageAdjustmentRenderer.colorGradingTrack(component: component, tint: Tint(hue: 0.7, saturation: 0.6))
 
         #expect(track.count == 25)
-        #expect(track.allSatisfy { abs(($0 * ImageAdjustmentRenderer.luminanceWeights).sum() - 0.5) < 0.01 })
+        #expect(track.allSatisfy { abs(($0 * ColorMath.luminanceWeights).sum() - 0.5) < 0.01 })
     }
 }

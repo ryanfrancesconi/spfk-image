@@ -9,7 +9,7 @@ import simd
 extension ImageAdjustmentRenderer {
     /// The Temperature and Tint step. Does not clamp, so wide-gamut and HDR values pass through.
     static func temperatureAndTint(_ image: CIImage, temperature: Double, tint: Double) -> CIImage {
-        matrix(image, whiteBalanceMatrix(temperature: temperature, tint: tint))
+        CIArithmetic.matrix(image, whiteBalanceMatrix(temperature: temperature, tint: tint))
     }
 
     /// The linear sRGB matrix of the Temperature and Tint step, exactly identity at (0, 0).
@@ -28,7 +28,7 @@ extension ImageAdjustmentRenderer {
         let toCone = bradford * linearSRGBToXYZ
         let adaptation = toCone.inverse * simd_double3x3(diagonal: targetCone / sourceCone) * toCone
 
-        return adaptation * (1 / simd_dot(luminanceWeights, adaptation * SIMD3(repeating: 1)))
+        return adaptation * (1 / simd_dot(ColorMath.luminanceWeights, adaptation * SIMD3(repeating: 1)))
     }
 
     /// CIE 1960 UCS (u, v) of a blackbody at `kelvin`, valid from 1000 to 15000 K. Krystek, "An
@@ -56,7 +56,7 @@ extension ImageAdjustmentRenderer {
         return SIMD3(x / y, 1, (1 - x - y) / y)
     }
 
-    /// IEC 61966-2-1. Its middle row is ``luminanceWeights``.
+    /// IEC 61966-2-1. Its middle row is ``ColorMath/luminanceWeights``.
     static let linearSRGBToXYZ = simd_double3x3(rows: [
         SIMD3(0.4124, 0.3576, 0.1805),
         SIMD3(0.2126, 0.7152, 0.0722),

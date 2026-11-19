@@ -34,20 +34,14 @@ extension ImageAdjustmentRenderer {
         centered.biasVector = CIVector(x: offset, y: offset, z: offset, w: 0)
         let noise = centered.outputImage
 
-        return preservingRange(image) { image in
-            let encode = CIFilter.linearToSRGBToneCurve()
-            encode.inputImage = image
-
+        return CIArithmetic.preservingRange(image) { image in
             let overlay = CIFilter.overlayBlendMode()
             overlay.inputImage = noise
-            overlay.backgroundImage = encode.outputImage
-
-            let decode = CIFilter.sRGBToneCurveToLinear()
-            decode.inputImage = overlay.outputImage
+            overlay.backgroundImage = CIArithmetic.encodedSRGB(image)
 
             // The overlay of opaque noise is opaque; the source's own alpha is put back.
             let alpha = CIFilter.blendWithAlphaMask()
-            alpha.inputImage = decode.outputImage
+            alpha.inputImage = overlay.outputImage.map(CIArithmetic.decodedSRGB)
             alpha.backgroundImage = CIImage.empty()
             alpha.maskImage = image
 

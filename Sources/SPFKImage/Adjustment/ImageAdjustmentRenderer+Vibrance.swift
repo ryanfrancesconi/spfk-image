@@ -25,10 +25,10 @@ extension ImageAdjustmentRenderer {
         let chroma = simd_length(SIMD2(node.oklab.y, node.oklab.z))
         guard chroma > 0 else { return node.rgb }
 
-        let skin = bandWeight(hue: node.hue, center: vibranceSkinHue, width: vibranceSkinWidth)
+        let skin = HueBands.weight(hue: node.hue, center: vibranceSkinHue, width: vibranceSkinWidth)
         let scale = 1 + amount * (1 - vibranceResidual) * (1 - vibranceSkinProtection * skin)
 
-        return sRGB(lightness: node.oklab.x, chroma: chroma * scale, hue: node.hue)
+        return ColorMath.sRGB(lightness: node.oklab.x, chroma: chroma * scale, hue: node.hue)
     }
 
     // MARK: - Mapping from slider positions
