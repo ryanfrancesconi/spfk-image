@@ -6,7 +6,7 @@ import SPFKBase
 import UniformTypeIdentifiers
 
 extension CGImage {
-    /// Supports .png, .jpeg, .heif, and .tiff
+    /// Supports .png, .jpeg and .tiff, none of which blocks its thread on other threads' work.
     public func export(utType: UTType, to url: URL) throws {
         let ciContext = CIContext()
         let ciImage = CIImage(cgImage: self)
@@ -21,9 +21,6 @@ extension CGImage {
 
         case .jpeg:
             try ciContext.writeJPEGRepresentation(of: ciImage, to: url, colorSpace: colorSpace)
-
-        case .heif:
-            try ciContext.writeHEIFRepresentation(of: ciImage, to: url, format: .RGBA8, colorSpace: colorSpace)
 
         case .tiff:
             try ciContext.writeTIFFRepresentation(of: ciImage, to: url, format: .RGBA8, colorSpace: colorSpace)
