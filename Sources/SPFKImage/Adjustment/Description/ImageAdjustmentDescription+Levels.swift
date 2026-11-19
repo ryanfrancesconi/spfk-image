@@ -64,5 +64,13 @@ extension ImageAdjustmentDescription {
 
         /// The closest two neighboring points can sit.
         public static let minimumGap: Double = 0.01
+
+        mutating func clamp() {
+            clampField(&black, .levelsBlack)
+            clampField(&shadow, .levelsShadow)
+            clampField(&mid, .levelsMid)
+            clampField(&highlight, .levelsHighlight)
+            clampField(&white, .levelsWhite)
+        }
     }
 }

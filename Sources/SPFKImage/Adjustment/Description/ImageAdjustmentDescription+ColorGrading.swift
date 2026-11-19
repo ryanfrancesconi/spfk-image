@@ -59,6 +59,11 @@ extension ImageAdjustmentDescription {
                     }
                 }
             }
+
+            mutating func clamp(_ range: ColorGradingRange) {
+                clampField(&hue, range.hue)
+                clampField(&saturation, range.saturation)
+            }
         }
 
         public var shadows: Tint
@@ -96,6 +101,13 @@ extension ImageAdjustmentDescription {
                 case .highlights: highlights = newValue
                 }
             }
+        }
+
+        mutating func clamp() {
+            shadows.clamp(.shadows)
+            midtones.clamp(.midtones)
+            highlights.clamp(.highlights)
+            clampField(&balance, .colorGradingBalance)
         }
     }
 }
