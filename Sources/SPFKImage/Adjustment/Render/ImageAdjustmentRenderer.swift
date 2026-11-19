@@ -1,7 +1,6 @@
 // Copyright Ryan Francesconi. All Rights Reserved. Revision History at https://github.com/ryanfrancesconi/spfk-image
 
 import CoreImage
-import CoreImage.CIFilterBuiltins
 import Foundation
 import SPFKBase
 
@@ -33,34 +32,11 @@ public struct ImageAdjustmentRenderer: Sendable {
         let adjustments = adjustments.effective
         guard !adjustments.isEmpty else { return image }
 
-        let light = adjustments.light
-        let color = adjustments.color
-        let detail = adjustments.detail
-        var output = image
+        let frame = RenderFrame(extent: image.extent, sourceScale: sourceScale, grainSeed: grainSeed)
 
-        output = NoiseReductionStep.apply(output, detail.noiseReduction, sourceScale: sourceScale)
-        output = ExposureStep.apply(output, light.exposure)
-        output = WhiteBalanceStep.apply(output, temperature: color.temperature, tint: color.tint)
-        output = VibranceStep.apply(output, color.vibrance)
-        output = BlackPointStep.apply(output, light.blackPoint)
-        output = WhitePointStep.apply(output, light.whitePoint)
-        output = LevelsStep.apply(output, adjustments.levels)
-        output = CurvesStep.apply(output, adjustments.curves)
-        output = HighlightsShadowsStep.apply(output, highlights: light.highlights, shadows: light.shadows)
-        output = BrightnessStep.apply(output, light.brightness)
-        output = BrillianceStep.apply(output, light.brilliance)
-        output = ContrastStep.apply(output, light.contrast)
-        output = SaturationStep.apply(output, color.saturation)
-        output = DefinitionStep.apply(output, detail.definition)
-        output = SelectiveColorStep.apply(output, adjustments.selectiveColor)
-        output = BlackAndWhiteStep.apply(output, adjustments.blackAndWhite)
-        output = ColorGradingStep.apply(output, adjustments.colorGrading)
-        output = SepiaStep.apply(output, color.sepia)
-        output = SharpnessStep.apply(output, detail.sharpness, radius: detail.sharpnessRadius, sourceScale: sourceScale)
-        output = VignetteStep.apply(output, adjustments.vignette, extent: image.extent)
-        output = GrainStep.apply(output, adjustments.grain, origin: image.extent.origin, sourceScale: sourceScale, seed: grainSeed)
-
-        return output.cropped(to: image.extent)
+        return RenderStep.allCases
+            .reduce(image) { output, step in step.apply(output, adjustments, frame) }
+            .cropped(to: image.extent)
     }
 
     /// Renders `source` cropped by `cropEdit`, then with `adjustments`, then `orientation`, into a

@@ -1,11 +1,10 @@
 // Copyright Ryan Francesconi. All Rights Reserved. Revision History at https://github.com/ryanfrancesconi/spfk-image
 
+import CoreImage
 import Foundation
 
-/// The renderer's steps, in the order ``ImageAdjustmentRenderer/apply(_:to:sourceScale:grainSeed:)``
-/// runs them. Each case has one `<Name>Step` type.
-///
-/// `apply` spells its calls out instead of iterating these, since it runs per video frame.
+/// The renderer's steps. ``ImageAdjustmentRenderer/apply(_:to:sourceScale:grainSeed:)`` runs them in
+/// case order. Each case has one `<Name>Step` type.
 enum RenderStep: CaseIterable, Sendable {
     case noiseReduction
     case exposure
@@ -59,6 +58,39 @@ enum RenderStep: CaseIterable, Sendable {
         case .sharpness: .parameters([.sharpness, .sharpnessRadius])
         case .vignette: .group(.vignette)
         case .grain: .group(.grain)
+        }
+    }
+
+    /// `image` through this step, reading what ``reads`` names from `adjustments`.
+    func apply(_ image: CIImage, _ adjustments: ImageAdjustmentDescription, _ frame: RenderFrame) -> CIImage {
+        let light = adjustments.light
+        let color = adjustments.color
+        let detail = adjustments.detail
+
+        return switch self {
+        case .noiseReduction: NoiseReductionStep.apply(image, detail.noiseReduction, sourceScale: frame.sourceScale)
+        case .exposure: ExposureStep.apply(image, light.exposure)
+        case .whiteBalance: WhiteBalanceStep.apply(image, temperature: color.temperature, tint: color.tint)
+        case .vibrance: VibranceStep.apply(image, color.vibrance)
+        case .blackPoint: BlackPointStep.apply(image, light.blackPoint)
+        case .whitePoint: WhitePointStep.apply(image, light.whitePoint)
+        case .levels: LevelsStep.apply(image, adjustments.levels)
+        case .curves: CurvesStep.apply(image, adjustments.curves)
+        case .highlightsShadows: HighlightsShadowsStep.apply(image, highlights: light.highlights, shadows: light.shadows)
+        case .brightness: BrightnessStep.apply(image, light.brightness)
+        case .brilliance: BrillianceStep.apply(image, light.brilliance)
+        case .contrast: ContrastStep.apply(image, light.contrast)
+        case .saturation: SaturationStep.apply(image, color.saturation)
+        case .definition: DefinitionStep.apply(image, detail.definition)
+        case .selectiveColor: SelectiveColorStep.apply(image, adjustments.selectiveColor)
+        case .blackAndWhite: BlackAndWhiteStep.apply(image, adjustments.blackAndWhite)
+        case .colorGrading: ColorGradingStep.apply(image, adjustments.colorGrading)
+        case .sepia: SepiaStep.apply(image, color.sepia)
+        case .sharpness:
+            SharpnessStep.apply(image, detail.sharpness, radius: detail.sharpnessRadius, sourceScale: frame.sourceScale)
+        case .vignette: VignetteStep.apply(image, adjustments.vignette, extent: frame.extent)
+        case .grain:
+            GrainStep.apply(image, adjustments.grain, origin: frame.extent.origin, sourceScale: frame.sourceScale, seed: frame.grainSeed)
         }
     }
 

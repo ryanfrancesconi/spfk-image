@@ -7,8 +7,8 @@ import Testing
 
 @testable import SPFKImage
 
-/// Ties the body of `ImageAdjustmentRenderer.apply` to `RenderStep.allCases`, which the Levels and
-/// Curves histogram inputs are derived from.
+/// `ImageAdjustmentRenderer.apply` renders in `RenderStep.allCases` order, which the Levels and Curves
+/// histogram inputs are derived from, and each step renders from what its `reads` names.
 @Suite(.tags(.file))
 final class ImageAdjustmentRenderOrderingTests {
     typealias Description = ImageAdjustmentDescription
