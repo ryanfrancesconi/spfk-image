@@ -10,6 +10,22 @@ extension OrientationEdit {
     /// no destination for WebP, JPEG XL or DNG.
     public static let losslessRewriteTypes: Set<UTType> = [.jpeg, .heic, .png, .tiff]
 
+    /// Whether ``rewriteFile(source:destination:)`` can perform this edit on `url`. ImageIO gives a HEIC
+    /// carrying an ISO gain map no orientation but upright, so any other is written by a render instead.
+    /// True for a file that cannot be read: the rewrite reports that itself.
+    public func rewritesLosslessly(contentsOf url: URL) -> Bool {
+        guard #available(macOS 15, iOS 18, *),
+              let data = try? Data(contentsOf: url, options: .mappedIfSafe),
+              let source = CGImageSourceCreateWithData(data as CFData, nil),
+              CGImageSourceGetType(source) == UTType.heic.identifier as CFString,
+              let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [String: Any]
+        else { return true }
+
+        let orientation = applied(toFileOrientation: properties[kCGImagePropertyOrientation as String] as? Int ?? 1)
+
+        return orientation == 1 || CGImageSourceCopyAuxiliaryDataInfoAtIndex(source, 0, kCGImageAuxiliaryDataTypeISOGainMap) == nil
+    }
+
     /// Copies `source` to `destination` with only its orientation tag changed, this edit performed on it.
     ///
     /// The encoded image, metadata and auxiliary images are copied as they are. `destination` must not

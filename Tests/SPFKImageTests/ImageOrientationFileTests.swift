@@ -105,6 +105,18 @@ final class ImageOrientationFileTests {
         let original = try #require(gainMapData(source, format))
         let output = output(for: source)
 
+        // ImageIO refuses to turn a HEIC carrying an ISO gain map: a render writes that one.
+        let isRefused = type == .heic && format == .iso
+        #expect(OrientationEdit.left.rewritesLosslessly(contentsOf: source) == !isRefused)
+        #expect(OrientationEdit.up.rewritesLosslessly(contentsOf: source))
+
+        guard !isRefused else {
+            #expect(throws: ImageAdjustmentRenderError.self) {
+                try OrientationEdit.left.rewriteFile(source: source, destination: output)
+            }
+            return
+        }
+
         try OrientationEdit.left.rewriteFile(source: source, destination: output)
 
         #expect(try orientation(output) == OrientationEdit.left.rawValue)
@@ -162,6 +174,21 @@ final class ImageOrientationFileTests {
 
         #expect(try orientation(output) == OrientationEdit.flippedRight.applied(toFileOrientation: start))
         #expect(try captureDate(output) == AdjustmentFileFixtures.captureDate)
+    }
+
+    /// What Save does for a rotation the file cannot take as a tag rewrite.
+    @Test(arguments: AdjustmentFileFixtures.GainMapFormat.allCases)
+    func aRenderWithNoAdjustmentTurnsAGainMappedHEIC(format: AdjustmentFileFixtures.GainMapFormat) async throws {
+        guard #available(macOS 15, iOS 18, *) else { return }
+
+        let source = try await AdjustmentFileFixtures.gainMapped(.heic, format: format, in: directory)
+        let output = output(for: source)
+
+        try await renderer.renderFile(ImageAdjustmentDescription(), orientation: .left, source: source, destination: output)
+
+        #expect(try orientation(output) == OrientationEdit.left.rawValue)
+        #expect(format.info(output) != nil)
+        #expect(try gainMapDisplaysAlignedWithTheImage(output))
     }
 
     @Test(arguments: [UTType.jpeg, .heic], AdjustmentFileFixtures.GainMapFormat.allCases)
