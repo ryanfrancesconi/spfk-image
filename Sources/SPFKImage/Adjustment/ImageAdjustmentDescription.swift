@@ -7,9 +7,7 @@ import Foundation
 /// Values are slider positions rather than Core Image parameters, so retuning the renderer's mapping
 /// never changes stored data. Each is clamped to its ``Parameter/range`` on construction, decoding and
 /// assignment, a non-finite value becomes neutral, and neutral is 0 for every parameter. The renderer
-/// applies them in a fixed order: noise reduction, exposure, temperature and tint, vibrance, black point,
-/// white point, levels, curves, highlights and shadows, brightness, brilliance, contrast and saturation,
-/// definition, selective color, black and white, color grading, sepia, sharpness, vignette, grain.
+/// applies them in a fixed order, the case order of its internal `RenderStep`.
 ///
 /// A ``bypassed`` section keeps its values but renders as neutral (see ``effective``).
 public struct ImageAdjustmentDescription: Hashable, Sendable, Codable {

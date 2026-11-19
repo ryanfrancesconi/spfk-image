@@ -10,12 +10,12 @@ extension ImageAdjustmentRenderer {
     /// levels curve receives. Leaves out noise reduction, which smooths the image without moving its
     /// tones.
     public static func levelsInput(of adjustments: ImageAdjustmentDescription) -> ImageAdjustmentDescription {
-        let effective = adjustments.effective
+        histogramInput(to: .levels, of: adjustments)
+    }
 
-        return ImageAdjustmentDescription(
-            light: .init(exposure: effective.light.exposure, blackPoint: effective.light.blackPoint, whitePoint: effective.light.whitePoint),
-            color: .init(vibrance: effective.color.vibrance, temperature: effective.color.temperature, tint: effective.color.tint)
-        )
+    /// What renders before `step`, without noise reduction.
+    static func histogramInput(to step: RenderStep, of adjustments: ImageAdjustmentDescription) -> ImageAdjustmentDescription {
+        adjustments.rendering(only: RenderStep.steps(before: step).filter { $0 != .noiseReduction })
     }
 
     /// The histogram of `source` as the levels step receives it, binned on sRGB-encoded values as the

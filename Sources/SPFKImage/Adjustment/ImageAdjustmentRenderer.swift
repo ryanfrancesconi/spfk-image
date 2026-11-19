@@ -17,8 +17,8 @@ public struct ImageAdjustmentRenderer: Sendable {
         self.context = context
     }
 
-    /// `image` with `adjustments` applied in the order the description documents, cropped to the input's
-    /// extent. Lazy: nothing renders until the result is drawn.
+    /// `image` with `adjustments` applied in `RenderStep` order, cropped to the input's extent. Lazy:
+    /// nothing renders until the result is drawn.
     ///
     /// `sourceScale` is `image`'s size relative to the full-resolution source (see
     /// ``sourceScale(of:fullWidth:fullHeight:)``), so a filter sized in pixels looks the same on a

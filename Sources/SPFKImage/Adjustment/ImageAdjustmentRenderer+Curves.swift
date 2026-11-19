@@ -8,9 +8,7 @@ import SPFKBase
 extension ImageAdjustmentRenderer {
     /// The part of `adjustments` that renders before the curves step: the levels input and levels.
     public static func curvesInput(of adjustments: ImageAdjustmentDescription) -> ImageAdjustmentDescription {
-        var input = levelsInput(of: adjustments)
-        input.levels = adjustments.effective.levels
-        return input
+        histogramInput(to: .curves, of: adjustments)
     }
 
     /// The histogram of `source` as the curves step receives it, binned on sRGB-encoded values as the
