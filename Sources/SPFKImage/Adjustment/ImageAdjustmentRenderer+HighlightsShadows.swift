@@ -6,7 +6,7 @@ import Foundation
 
 extension ImageAdjustmentRenderer {
     /// Negative values through `CIHighlightShadowAdjust`; positive Highlights through a tone curve,
-    /// then positive Shadows through ``liftShadows(_:_:)``.
+    /// then positive Shadows through ``ShadowsTransform``.
     static func highlightsAndShadows(_ image: CIImage, highlights: Double, shadows: Double) -> CIImage {
         var output = image
 
@@ -23,7 +23,7 @@ extension ImageAdjustmentRenderer {
         }
 
         if shadows > 0 {
-            output = liftShadows(output, shadows)
+            output = ColorCube.apply(ShadowsTransform(shadows), to: output)
         }
 
         return output
@@ -50,18 +50,6 @@ extension ImageAdjustmentRenderer {
     /// lift of a quarter gray. Negative amounts render through the filter unchanged.
     static func shadows(forShadowAmount amount: Double) -> Double {
         amount > 0 ? amount * shadowAmountToSlider : amount
-    }
-
-    /// Moves each pixel's brightest channel along ``shadowsCurve(_:)`` and scales the other two by the
-    /// same ratio, so hue holds and no channel passes 1.
-    static func liftShadows(_ image: CIImage, _ value: Double) -> CIImage {
-        let curve = shadowsCurve(value)
-
-        return colorCube(image, step: "shadows", values: [value]) { rgb in
-            let peak = rgb.max()
-            guard peak > 0 else { return rgb }
-            return rgb * (curve.value(at: peak) / peak)
-        }
     }
 
     /// Lifts the lower tones by ``shadowsLift``, so black and white stay fixed.

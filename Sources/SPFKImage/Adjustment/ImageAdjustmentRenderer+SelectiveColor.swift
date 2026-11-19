@@ -8,55 +8,7 @@ extension ImageAdjustmentRenderer {
     typealias ColorBand = ImageAdjustmentDescription.ColorBand
 
     static func selectiveColor(_ image: CIImage, _ selectiveColor: ImageAdjustmentDescription.SelectiveColor) -> CIImage {
-        let shifts = ColorBand.allCases.map { band in
-            SIMD3(selectiveColor[band].hue, selectiveColor[band].saturation, selectiveColor[band].luminance)
-        }
-        let widths = ColorBand.allCases.map { HueBands.width(range: selectiveColor[$0].range) }
-        let values = shifts.flatMap { [$0.x, $0.y, $0.z] } + widths
-
-        return colorCube(image, step: "selectiveColor", values: values, nodeTransform: { Self.selectiveColor($0, shifts: shifts, widths: widths) })
-    }
-
-    static func selectiveColor(_ rgb: SIMD3<Double>, shifts: [SIMD3<Double>], widths: [Double]? = nil) -> SIMD3<Double> {
-        selectiveColor(ColorCubeNode(rgb), shifts: shifts, widths: widths)
-    }
-
-    /// `node`'s color with each band's hue, saturation and luminance shift, in ``ColorBand`` order,
-    /// weighed by ``HueBands/weight(hue:center:width:)`` at that band's entry in `widths`, or
-    /// ``HueBands/defaultWidth`` when it is nil. The shift also scales with chroma, from none at
-    /// ``HueBands/minimumChroma`` to all of it at ``selectiveColorFullChroma``, so grays and
-    /// near-grays, whose hue is noise, do not move. Luminance scales with chroma again, so a dull
-    /// color moves less than a vivid one.
-    static func selectiveColor(_ node: ColorCubeNode, shifts: [SIMD3<Double>], widths: [Double]? = nil) -> SIMD3<Double> {
-        guard node.chroma > HueBands.minimumChroma else { return node.rgb }
-
-        var shift = SIMD3<Double>.zero
-        for (index, bandShift) in shifts.enumerated() where bandShift != .zero {
-            let width = widths?[index] ?? HueBands.defaultWidth
-            shift += HueBands.weight(hue: node.hue, center: HueBands.centers[index], width: width) * bandShift
-        }
-        shift *= HueBands.chromaGate(node.chroma, full: selectiveColorFullChroma)
-
-        guard shift != .zero else { return node.rgb }
-
-        var lightness = node.oklab.x
-        var chroma = simd_length(SIMD2(node.oklab.y, node.oklab.z))
-        let hue = node.hue + shift.x * maximumSelectiveHueShift
-
-        // A turned color takes its share of the new hue's most colorful sRGB color, and part of the
-        // way toward that color's lightness: yellow held at its own lightness has no orange to become.
-        if shift.x != 0 {
-            let from = ColorMath.sRGBCusp(hue: node.hue)
-            let to = ColorMath.sRGBCusp(hue: hue)
-            let share = chroma / from.y
-            lightness += selectiveHueLightnessShare * share * (to.x - from.x)
-            chroma = share * to.y
-        }
-
-        chroma *= max(0, 1 + shift.y)
-        lightness += shift.z * node.chroma * (shift.z > 0 ? maximumSelectiveLightening : maximumSelectiveDarkening)
-
-        return ColorMath.sRGB(lightness: lightness, chroma: chroma, hue: hue)
+        ColorCube.apply(SelectiveColorTransform(selectiveColor), to: image)
     }
 
     /// The colors `band`'s reference color takes as `component` moves across its range, from minimum to
@@ -77,7 +29,7 @@ extension ImageAdjustmentRenderer {
             swept[component] = range.lowerBound + (range.upperBound - range.lowerBound) * Double(stop) / Double(count - 1)
 
             let shifts = ColorBand.allCases.map { $0 == band ? SIMD3(swept.hue, swept.saturation, swept.luminance) : .zero }
-            return selectiveColor(reference, shifts: shifts)
+            return SelectiveColorTransform(shifts: shifts)(reference)
         }
     }
 

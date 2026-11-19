@@ -62,12 +62,9 @@ final class ImageAdjustmentChainPinTests {
             x: [0, 0.25, 0.5, 0.75, 1],
             y: [0, 0.25 + 0.19 * a.light.shadows, 0.5 + 0.12 * a.light.shadows, 0.75, 1]
         )
-        let shadows = ImageAdjustmentRenderer.colorCube(
-            highlightShadow.outputImage ?? image, step: "pinnedShadows", values: [a.light.shadows]
-        ) { rgb in
-            let peak = rgb.max()
-            return peak > 0 ? rgb * (shadowsCurve.value(at: peak) / peak) : rgb
-        }
+        let shadows = ColorCube.apply(
+            PinnedShadows(shadows: a.light.shadows, curve: shadowsCurve), to: highlightShadow.outputImage ?? image
+        )
 
         let gain = 1 + a.light.contrast * 0.7
         let contrast = CIArithmetic.preservingRange(shadows) { image in
@@ -116,5 +113,23 @@ final class ImageAdjustmentChainPinTests {
                 return Array(UnsafeBufferPointer(start: start?.assumingMemoryBound(to: Float.self), count: rowFloats))
             }
         }
+    }
+}
+
+/// The reference chain's positive Shadows: the brightest channel along `curve`, the others scaled
+/// with it.
+private struct PinnedShadows: ColorCubeTransform {
+    let shadows: Double
+    let curve: MonotoneCubicInterpolation
+
+    /// Equal when `shadows` is: the reference chain builds `curve` from it.
+    static func == (lhs: Self, rhs: Self) -> Bool {
+        lhs.shadows == rhs.shadows
+    }
+
+    func callAsFunction(_ node: ColorCubeNode) -> SIMD3<Double> {
+        let rgb = node.rgb
+        let peak = rgb.max()
+        return peak > 0 ? rgb * (curve.value(at: peak) / peak) : rgb
     }
 }

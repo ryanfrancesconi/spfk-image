@@ -3,10 +3,9 @@
 import CoreImage
 import CoreImage.CIFilterBuiltins
 import Foundation
-import simd
 
 extension ImageAdjustmentRenderer {
-    /// The Saturation step: ``saturated(_:amount:)`` through a color cube for positive `amount`,
+    /// The Saturation step: ``SaturationTransform`` through a color cube for positive `amount`,
     /// `CIColorControls` for negative.
     static func saturation(_ image: CIImage, _ amount: Double) -> CIImage {
         guard amount > 0 else {
@@ -18,18 +17,7 @@ extension ImageAdjustmentRenderer {
             return filter.outputImage ?? image
         }
 
-        return colorCube(image, step: "saturation", values: [amount], space: .displayP3, nodeTransform: { saturated($0, amount: amount) })
-    }
-
-    /// Display P3-encoded `node`'s color with its Oklch chroma scaled by
-    /// `1 + amount × maximumSaturationGain`, holding lightness and hue. A color the scale takes outside
-    /// Display P3 stops at its edge, so dull colors gain the most.
-    static func saturated(_ node: ColorCubeNode, amount: Double) -> SIMD3<Double> {
-        let chroma = simd_length(SIMD2(node.oklab.y, node.oklab.z))
-        guard chroma > 0 else { return node.rgb }
-
-        let target = chroma * (1 + amount * maximumSaturationGain)
-        return ColorMath.displayP3(lightness: node.oklab.x, chroma: target, hue: node.hue, insideChroma: chroma)
+        return ColorCube.apply(SaturationTransform(amount: amount), to: image)
     }
 
     // MARK: - Mapping from slider positions

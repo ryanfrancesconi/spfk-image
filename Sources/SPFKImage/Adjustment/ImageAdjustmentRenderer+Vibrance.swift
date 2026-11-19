@@ -3,10 +3,9 @@
 import CoreImage
 import CoreImage.CIFilterBuiltins
 import Foundation
-import simd
 
 extension ImageAdjustmentRenderer {
-    /// The Vibrance step: `CIVibrance` for positive `amount`, ``mutedVibrance(_:amount:)`` through a
+    /// The Vibrance step: `CIVibrance` for positive `amount`, ``MutedVibranceTransform`` through a
     /// color cube for negative.
     static func vibrance(_ image: CIImage, _ amount: Double) -> CIImage {
         guard amount < 0 else {
@@ -16,19 +15,7 @@ extension ImageAdjustmentRenderer {
             return filter.outputImage ?? image
         }
 
-        return colorCube(image, step: "vibrance", values: [amount], nodeTransform: { mutedVibrance($0, amount: amount) })
-    }
-
-    /// `node`'s color with its Oklch chroma scaled toward ``vibranceResidual`` by `−amount`, holding
-    /// lightness and hue. Skin hues keep ``vibranceSkinProtection`` of what they would lose.
-    static func mutedVibrance(_ node: ColorCubeNode, amount: Double) -> SIMD3<Double> {
-        let chroma = simd_length(SIMD2(node.oklab.y, node.oklab.z))
-        guard chroma > 0 else { return node.rgb }
-
-        let skin = HueBands.weight(hue: node.hue, center: vibranceSkinHue, width: vibranceSkinWidth)
-        let scale = 1 + amount * (1 - vibranceResidual) * (1 - vibranceSkinProtection * skin)
-
-        return ColorMath.sRGB(lightness: node.oklab.x, chroma: chroma * scale, hue: node.hue)
+        return ColorCube.apply(MutedVibranceTransform(amount: amount), to: image)
     }
 
     // MARK: - Mapping from slider positions

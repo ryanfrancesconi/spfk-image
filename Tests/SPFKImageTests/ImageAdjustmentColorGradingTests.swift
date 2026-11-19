@@ -105,7 +105,7 @@ struct ImageAdjustmentColorGradingTests {
         for level in stride(from: 0.0, through: 1, by: 0.05) {
             for balance in [-1.0, 0, 1] {
                 let gray = SIMD3<Double>(repeating: level)
-                let output = ImageAdjustmentRenderer.colorGrading(gray, tints: tints, balance: balance)
+                let output = ColorGradingTransform(tints: tints, balance: balance)(gray)
 
                 #expect(abs(luma(output) - level) < 1e-9)
                 #expect(output.min() >= 0 && output.max() <= 1)
@@ -140,7 +140,7 @@ struct ImageAdjustmentColorGradingTests {
 
         for level in [0.3, 0.5, 0.7] {
             let gray = SIMD3<Double>(repeating: level)
-            let output = ImageAdjustmentRenderer.colorGrading(gray, tints: tints, balance: 0.4)
+            let output = ColorGradingTransform(tints: tints, balance: 0.4)(gray)
             #expect(abs((output - gray - tint).max()) < 1e-9)
             #expect(abs((output - gray - tint).min()) < 1e-9)
         }

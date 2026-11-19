@@ -3,6 +3,7 @@
 import CoreGraphics
 import CoreImage
 import Foundation
+import os
 import simd
 @testable import SPFKImage
 import Testing
@@ -74,10 +75,10 @@ struct ImageAdjustmentSelectiveColorTests {
 
     @Test func neutralShiftsBuildAnIdentityCube() {
         let shifts = [SIMD3<Double>](repeating: .zero, count: Band.allCases.count)
-        let data = ImageAdjustmentRenderer.buildColorCube(dimension: 8) {
-            ImageAdjustmentRenderer.selectiveColor($0, shifts: shifts)
+        let data = ColorCube.build(nodes: ColorCube.nodes(dimension: 8)) {
+            SelectiveColorTransform(shifts: shifts)($0)
         }
-        let identity = ImageAdjustmentRenderer.buildColorCube(dimension: 8) { $0 }
+        let identity = ColorCube.build(nodes: ColorCube.nodes(dimension: 8)) { $0.rgb }
 
         let cube = data.withUnsafeBytes { Array($0.bindMemory(to: Float.self)) }
         let expected = identity.withUnsafeBytes { Array($0.bindMemory(to: Float.self)) }
@@ -92,7 +93,7 @@ struct ImageAdjustmentSelectiveColorTests {
 
         for level in stride(from: 0.0, through: 1.0, by: 0.1) {
             let gray = SIMD3(repeating: level)
-            #expect(ImageAdjustmentRenderer.selectiveColor(gray, shifts: shifts) == gray)
+            #expect(SelectiveColorTransform(shifts: shifts)(gray) == gray)
         }
     }
 
@@ -112,7 +113,7 @@ struct ImageAdjustmentSelectiveColorTests {
     @Test(arguments: [(SIMD3(0.0, 1, 0), Band.green), (SIMD3(1.0, 0, 0), .red), (SIMD3(0.0, 0, 1), .blue)])
     func theCenterTurnsByTheFullReach(color: SIMD3<Double>, band: Band) {
         for direction in [-1.0, 1.0] {
-            let turned = ImageAdjustmentRenderer.selectiveColor(color, shifts: only(band, SIMD3(direction, 0, 0)))
+            let turned = SelectiveColorTransform(shifts: only(band, SIMD3(direction, 0, 0)))(color)
             let degrees = turn(oklch(color).hue, oklch(turned).hue)
 
             #expect(abs(degrees - direction * ImageAdjustmentRenderer.maximumSelectiveHueShift) < 1, "\(band) \(direction): \(degrees)")
@@ -124,7 +125,7 @@ struct ImageAdjustmentSelectiveColorTests {
     func aHueTwentyDegreesOffTheCenterTakesMostOfTheTurn(offset: Double) {
         let hue = HueBands.centers[2] + offset
         let color = ColorMath.sRGB(lightness: 0.6, chroma: 0.12, hue: hue)
-        let turned = ImageAdjustmentRenderer.selectiveColor(color, shifts: only(.green, SIMD3(-1, 0, 0)))
+        let turned = SelectiveColorTransform(shifts: only(.green, SIMD3(-1, 0, 0)))(color)
         let degrees = turn(oklch(color).hue, oklch(turned).hue)
 
         #expect(-degrees > 0.7 * ImageAdjustmentRenderer.maximumSelectiveHueShift, "\(degrees)")
@@ -135,7 +136,7 @@ struct ImageAdjustmentSelectiveColorTests {
         let color = ColorMath.sRGB(lightness: 0.6, chroma: 0.15, hue: hue)
 
         for shift in [SIMD3(1.0, 1, 1), SIMD3(-1.0, -1, -1)] {
-            #expect(ImageAdjustmentRenderer.selectiveColor(color, shifts: only(.green, shift)) == color)
+            #expect(SelectiveColorTransform(shifts: only(.green, shift))(color) == color)
         }
     }
 
@@ -152,7 +153,7 @@ struct ImageAdjustmentSelectiveColorTests {
     private func greenTurn(offset: Double, range: Double) -> Double {
         let color = ColorMath.sRGB(lightness: 0.6, chroma: 0.1, hue: HueBands.centers[2] + offset)
         let widths = Band.allCases.map { HueBands.width(range: $0 == .green ? range : 0) }
-        let turned = ImageAdjustmentRenderer.selectiveColor(color, shifts: only(.green, SIMD3(-1, 0, 0)), widths: widths)
+        let turned = SelectiveColorTransform(shifts: only(.green, SIMD3(-1, 0, 0)), widths: widths)(color)
         return turn(oklch(color).hue, oklch(turned).hue)
     }
 
@@ -186,8 +187,8 @@ struct ImageAdjustmentSelectiveColorTests {
         let dull = ColorMath.rgb(hue: 120, saturation: 0.25, lightness: 0.4)
         let shifts = only(.green, SIMD3(0, 0, value))
 
-        let vividMove = abs(oklch(ImageAdjustmentRenderer.selectiveColor(vivid, shifts: shifts)).lightness - oklch(vivid).lightness)
-        let dullMove = abs(oklch(ImageAdjustmentRenderer.selectiveColor(dull, shifts: shifts)).lightness - oklch(dull).lightness)
+        let vividMove = abs(oklch(SelectiveColorTransform(shifts: shifts)(vivid)).lightness - oklch(vivid).lightness)
+        let dullMove = abs(oklch(SelectiveColorTransform(shifts: shifts)(dull)).lightness - oklch(dull).lightness)
 
         #expect(dullMove > 0.01)
         #expect(dullMove < 0.5 * vividMove, "dull \(dullMove), vivid \(vividMove)")
@@ -201,7 +202,7 @@ struct ImageAdjustmentSelectiveColorTests {
         for hue in stride(from: 0.0, to: 360, by: 10) {
             for lightness in [0.3, 0.5, 0.7] {
                 let color = ColorMath.rgb(hue: hue, saturation: 0.9, lightness: lightness)
-                let output = ImageAdjustmentRenderer.selectiveColor(color, shifts: shifts)
+                let output = SelectiveColorTransform(shifts: shifts)(color)
 
                 #expect(output.min() >= 0 && output.max() <= 1)
                 #expect(abs(turn(oklch(color).hue, oklch(output).hue)) < 1.5, "HSL \(hue) L \(lightness): \(output)")
@@ -299,7 +300,7 @@ struct ImageAdjustmentSelectiveColorTests {
 
             for (pixel, input) in zip(output, ramp) {
                 let color = SIMD3(Double(input.x), Double(input.y), Double(input.z)) / 255
-                let expected = (ImageAdjustmentRenderer.selectiveColor(color, shifts: shifts) * 255).rounded(.toNearestOrEven)
+                let expected = (SelectiveColorTransform(shifts: shifts)(color) * 255).rounded(.toNearestOrEven)
                 maximumError = max(maximumError, difference(pixel, SIMD3(Int(expected.x), Int(expected.y), Int(expected.z))))
             }
         }
@@ -310,15 +311,31 @@ struct ImageAdjustmentSelectiveColorTests {
 
     // MARK: - Cube cache
 
+    /// Counts its evaluations, so a test sees whether its cube was rebuilt. Each cache test has its own
+    /// type, since the cache holds one cube per type.
+    private struct CountingScale: ColorCubeTransform {
+        static let evaluations = OSAllocatedUnfairLock(initialState: 0)
+        let scale: Double
+
+        func callAsFunction(_ node: ColorCubeNode) -> SIMD3<Double> {
+            Self.evaluations.withLock { $0 += 1 }
+            return node.rgb * scale
+        }
+    }
+
+    private struct Scale: ColorCubeTransform {
+        let scale: Double
+
+        func callAsFunction(_ node: ColorCubeNode) -> SIMD3<Double> {
+            node.rgb * scale
+        }
+    }
+
     @Test func theCubeCacheBuildsOncePerValues() {
-        let step = "test-\(UUID().uuidString)"
-        var builds = 0
+        var builds: Int { CountingScale.evaluations.withLock { $0 } }
 
         func data(_ values: [Double]) -> Data {
-            ImageAdjustmentRenderer.colorCubeData(step: step, values: values) { rgb in
-                builds += 1
-                return rgb * values[0]
-            }
+            ColorCube.data(for: CountingScale(scale: values[0]))
         }
 
         let first = data([0.5])
@@ -338,14 +355,13 @@ struct ImageAdjustmentSelectiveColorTests {
     /// Concurrent builds for one step, as a preview render and a Save can run, each get the cube for
     /// their own values.
     @Test func concurrentBuildsGetTheirOwnCubes() async {
-        let step = "test-\(UUID().uuidString)"
         let scales = (1 ... 16).map { Double($0) / 16 }
 
         let built = await withTaskGroup(of: (Double, Data).self) { group in
             for _ in 0 ..< 4 {
                 for scale in scales {
                     group.addTask {
-                        (scale, ImageAdjustmentRenderer.colorCubeData(step: step, values: [scale]) { $0 * scale })
+                        (scale, ColorCube.data(for: Scale(scale: scale)))
                     }
                 }
             }
@@ -353,7 +369,7 @@ struct ImageAdjustmentSelectiveColorTests {
         }
 
         for (scale, data) in built {
-            #expect(data == ImageAdjustmentRenderer.buildColorCube(dimension: ImageAdjustmentRenderer.colorCubeDimension) { $0 * scale })
+            #expect(data == ColorCube.build(nodes: ColorCube.sRGBNodes) { $0.rgb * scale })
         }
     }
 
