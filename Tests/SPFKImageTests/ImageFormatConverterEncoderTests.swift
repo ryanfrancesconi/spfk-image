@@ -106,8 +106,9 @@ final class ImageFormatConverterEncoderTests: BinTestCase {
     private func metadata(
         _ scheme: ImageMetadataCopyScheme,
         of input: URL? = nil
-    ) throws -> (exif: Data?, xmp: Data?, size: ImageFormatConverter.PixelSize) {
-        let input = try input ?? AdjustmentFileFixtures.tagged(.jpeg, orientation: 6, in: bin)
+    ) async throws -> (exif: Data?, xmp: Data?, size: ImageFormatConverter.PixelSize) {
+        let generated = try await AdjustmentFileFixtures.tagged(.jpeg, orientation: 6, in: bin)
+        let input = input ?? generated
         let source = try #require(CGImageSourceCreateWithURL(input as CFURL, nil))
         let size = ImageFormatConverter.PixelSize(width: 450, height: 800)
 
@@ -169,7 +170,7 @@ final class ImageFormatConverterEncoderTests: BinTestCase {
     @Test func aRotatedSourceReachesTheEncoderUpright() async throws {
         try requireWebPIsReadOnly()
 
-        let input = try AdjustmentFileFixtures.tagged(.jpeg, orientation: 6, in: bin)
+        let input = try await AdjustmentFileFixtures.tagged(.jpeg, orientation: 6, in: bin)
         let stored = try pixelSize(properties(input))
 
         let output = try await properties(convert(input, named: "upright"))
@@ -181,7 +182,7 @@ final class ImageFormatConverterEncoderTests: BinTestCase {
     @Test func anImageLargerThanTheEncoderHoldsIsRefusedUntilLimited() async throws {
         try requireWebPIsReadOnly()
 
-        let input = try AdjustmentFileFixtures.tagged(.jpeg, orientation: 1, in: bin)
+        let input = try await AdjustmentFileFixtures.tagged(.jpeg, orientation: 1, in: bin)
         let encoder = PNGStandInEncoder(maxPixelSize: 100)
 
         await #expect(throws: ImageConversionError.exceedsMaxPixelSize(UTType.webP.identifier, 100)) {
@@ -196,7 +197,7 @@ final class ImageFormatConverterEncoderTests: BinTestCase {
     @Test func anEncoderWritingTheWrongSizeLeavesTheExistingOutput() async throws {
         try requireWebPIsReadOnly()
 
-        let input = try AdjustmentFileFixtures.tagged(.jpeg, orientation: 1, in: bin)
+        let input = try await AdjustmentFileFixtures.tagged(.jpeg, orientation: 1, in: bin)
         let output = bin.appending(component: "existing.png", directoryHint: .notDirectory)
         let existing = Data("existing".utf8)
         try existing.write(to: output)
@@ -211,7 +212,7 @@ final class ImageFormatConverterEncoderTests: BinTestCase {
     @Test func aCancelDuringTheWriteLeavesTheExistingOutput() async throws {
         try requireWebPIsReadOnly()
 
-        let input = try AdjustmentFileFixtures.tagged(.jpeg, orientation: 1, in: bin)
+        let input = try await AdjustmentFileFixtures.tagged(.jpeg, orientation: 1, in: bin)
         let output = bin.appending(component: "existing.png", directoryHint: .notDirectory)
         let existing = Data("existing".utf8)
         try existing.write(to: output)
@@ -229,8 +230,8 @@ final class ImageFormatConverterEncoderTests: BinTestCase {
 
     // MARK: - Metadata
 
-    @Test func copyAllStatesOrientationOneAndTheOutputSize() throws {
-        let metadata = try metadata(.copyAll)
+    @Test func copyAllStatesOrientationOneAndTheOutputSize() async throws {
+        let metadata = try await metadata(.copyAll)
 
         let exif = try properties(ofEXIF: #require(metadata.exif))
         let exifDictionary = exif[kCGImagePropertyExifDictionary as String] as? [String: Any] ?? [:]
@@ -251,15 +252,15 @@ final class ImageFormatConverterEncoderTests: BinTestCase {
         #expect(paths.contains { $0.hasPrefix("exif:GPS") })
     }
 
-    @Test func copyAllHandsOverTorchTagsOwnFields() throws {
+    @Test func copyAllHandsOverTorchTagsOwnFields() async throws {
         let input = try ConversionFixtures.fields(orientation: 6, in: bin)
-        let paths = try xmpPaths(metadata(.copyAll, of: input).xmp)
+        let paths = try await xmpPaths(metadata(.copyAll, of: input).xmp)
 
         #expect(paths.isSuperset(of: ["photoshop:LabelColor", "Iptc4xmpCore:AltTextAccessibility"]))
     }
 
-    @Test func copyAllExceptLocationHandsOverNoLocation() throws {
-        let metadata = try metadata(.copyAllExceptLocation)
+    @Test func copyAllExceptLocationHandsOverNoLocation() async throws {
+        let metadata = try await metadata(.copyAllExceptLocation)
 
         let exif = try properties(ofEXIF: #require(metadata.exif))
         let exifDictionary = exif[kCGImagePropertyExifDictionary as String] as? [String: Any] ?? [:]
@@ -272,18 +273,18 @@ final class ImageFormatConverterEncoderTests: BinTestCase {
     }
 
     /// A location field in the `exifEX` namespace, which `exif:GPS` alone does not cover.
-    @Test func copyAllExceptLocationHandsOverNoPositioningError() throws {
+    @Test func copyAllExceptLocationHandsOverNoPositioningError() async throws {
         let input = try ConversionFixtures.fields(orientation: 6, in: bin)
-        try #require(xmpPaths(metadata(.copyAll, of: input).xmp).contains("exifEX:GPSHPositioningError"))
+        try await #require(xmpPaths(metadata(.copyAll, of: input).xmp).contains("exifEX:GPSHPositioningError"))
 
-        let paths = try xmpPaths(metadata(.copyAllExceptLocation, of: input).xmp)
+        let paths = try await xmpPaths(metadata(.copyAllExceptLocation, of: input).xmp)
 
         #expect(!paths.contains { $0.contains(":GPS") })
         #expect(paths.contains("photoshop:LabelColor"))
     }
 
-    @Test func stripAllHandsOverNoMetadata() throws {
-        let metadata = try metadata(.stripAll)
+    @Test func stripAllHandsOverNoMetadata() async throws {
+        let metadata = try await metadata(.stripAll)
 
         #expect(metadata.exif == nil)
         #expect(metadata.xmp == nil)

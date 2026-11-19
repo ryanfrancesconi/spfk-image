@@ -4,6 +4,7 @@ import CoreImage
 import CoreImage.CIFilterBuiltins
 import Foundation
 import ImageIO
+import SPFKBase
 import SPFKTesting
 import UniformTypeIdentifiers
 
@@ -18,8 +19,7 @@ enum AdjustmentFileFixtures {
     static let latitude = 37.7749
     static let keywords = ["alpha", "beta"]
 
-    /// The SDK declares no constant for AVIF. An AVIF encode blocks its thread, so a test generating one runs the
-    /// generator inside a `BlockingCallLimiter` slot.
+    /// The SDK declares no constant for AVIF.
     static let avif = UTType(importedAs: "public.avif")
 
     static func songbird() throws -> CGImage {
@@ -31,7 +31,12 @@ enum AdjustmentFileFixtures {
     }
 
     /// `songbird.jpg` as `type`, tagged with `orientation`, a capture date, a GPS latitude and `dc:subject`.
-    static func tagged(_ type: UTType, orientation: Int, in directory: URL) throws -> URL {
+    /// An AVIF or HEIC encode can block its thread, so the generator runs in a `BlockingCallLimiter` slot.
+    static func tagged(_ type: UTType, orientation: Int, in directory: URL) async throws -> URL {
+        try await BlockingCallLimiter.shared.run { try makeTagged(type, orientation: orientation, in: directory) }
+    }
+
+    private static func makeTagged(_ type: UTType, orientation: Int, in directory: URL) throws -> URL {
         let url = directory.appendingPathComponent("tagged-\(orientation)").appendingPathExtension(for: type)
         let metadata = CGImageMetadataCreateMutable()
 
@@ -84,7 +89,13 @@ enum AdjustmentFileFixtures {
 
     /// `songbird.jpg` as `type` with a gain map in `format`.
     @available(macOS 15, iOS 18, *)
-    static func gainMapped(_ type: UTType, format: GainMapFormat, in directory: URL) throws -> URL {
+    static func gainMapped(_ type: UTType, format: GainMapFormat, in directory: URL) async throws -> URL {
+        try await BlockingCallLimiter.shared.run { try makeGainMapped(type, format: format, in: directory) }
+    }
+
+    /// ``gainMapped(_:format:in:)`` for a caller already holding a slot.
+    @available(macOS 15, iOS 18, *)
+    static func makeGainMapped(_ type: UTType, format: GainMapFormat, in directory: URL) throws -> URL {
         let url = directory.appendingPathComponent("gain-map-\(format.rawValue)").appendingPathExtension(for: type)
         try writeGainMapped(CIImage(cgImage: try songbird()), type: type, format: format, to: url)
         return url

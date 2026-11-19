@@ -17,7 +17,7 @@ final class ImageFormatConverterMemoryTests: BinTestCase {
     /// Photo-sized, so that anything kept per file is large against the noise of the suites running alongside. ISO
     /// only: both formats are carried by the same loop.
     @available(macOS 15, iOS 18, *)
-    static func photoSizedGainMappedHEIC(in bin: URL) throws -> URL {
+    static func photoSizedGainMappedHEIC(in bin: URL) async throws -> URL {
         let url = bin.appendingPathComponent("photo-gain-map.heic")
         let extent = CGRect(x: 0, y: 0, width: 4032, height: 3024)
 
@@ -30,14 +30,16 @@ final class ImageFormatConverterMemoryTests: BinTestCase {
             throw AdjustmentFileFixtures.GenerationError(message: "no checkerboard")
         }
 
-        try AdjustmentFileFixtures.writeGainMapped(base, type: .heic, format: .iso, to: url)
+        try await BlockingCallLimiter.shared.run {
+            try AdjustmentFileFixtures.writeGainMapped(base, type: .heic, format: .iso, to: url)
+        }
         return url
     }
 
     @Test func carryingGainMapsHoldsNoMemoryPerFile() async throws {
         guard #available(macOS 15, iOS 18, *) else { return }
 
-        let input = try Self.photoSizedGainMappedHEIC(in: bin)
+        let input = try await Self.photoSizedGainMappedHEIC(in: bin)
         try #require(AdjustmentFileFixtures.GainMapFormat.iso.info(input) != nil)
 
         let options = ImageConversionOptions(format: UTType.heic.identifier)
@@ -59,7 +61,7 @@ final class ImageFormatConverterMemoryTests: BinTestCase {
     @Test func croppingGainMapsHoldsNoMemoryPerFile() async throws {
         guard #available(macOS 15, iOS 18, *) else { return }
 
-        let input = try Self.photoSizedGainMappedHEIC(in: bin)
+        let input = try await Self.photoSizedGainMappedHEIC(in: bin)
         try #require(AdjustmentFileFixtures.GainMapFormat.iso.info(input) != nil)
 
         let options = ImageConversionOptions(format: UTType.heic.identifier)

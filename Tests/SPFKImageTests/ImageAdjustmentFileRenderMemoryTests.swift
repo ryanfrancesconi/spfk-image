@@ -13,7 +13,7 @@ final class ImageAdjustmentFileRenderMemoryTests: BinTestCase {
     @Test func croppedSavesHoldNoMemoryPerFile() async throws {
         guard #available(macOS 15, iOS 18, *) else { return }
 
-        let input = try ImageFormatConverterMemoryTests.photoSizedGainMappedHEIC(in: bin)
+        let input = try await ImageFormatConverterMemoryTests.photoSizedGainMappedHEIC(in: bin)
         try #require(AdjustmentFileFixtures.GainMapFormat.iso.info(input) != nil)
 
         let renderer = ImageAdjustmentRenderer()

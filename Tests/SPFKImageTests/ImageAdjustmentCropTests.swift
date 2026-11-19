@@ -182,7 +182,7 @@ final class ImageAdjustmentCropTests {
     /// The pin for every uncropped save: passing an identity crop changes nothing in the file.
     @Test(arguments: [UTType.jpeg, .heic])
     func anIdentityCropSavesByteIdenticalToNone(type: UTType) async throws {
-        let source = try AdjustmentFileFixtures.tagged(type, orientation: 6, in: directory)
+        let source = try await AdjustmentFileFixtures.tagged(type, orientation: 6, in: directory)
         let plain = directory.appendingPathComponent("plain").appendingPathExtension(for: type)
         let identity = directory.appendingPathComponent("identity").appendingPathExtension(for: type)
         let adjustments = ImageAdjustmentDescription(light: .init(exposure: 0.4))
@@ -304,8 +304,8 @@ final class ImageAdjustmentCropTests {
         #expect(curves.luminance[0] == 0)
     }
 
-    @Test func theDisplayedPixelSizeOfAQuarterTurnedFileIsSwapped() throws {
-        let url = try AdjustmentFileFixtures.tagged(.jpeg, orientation: 6, in: directory)
+    @Test func theDisplayedPixelSizeOfAQuarterTurnedFileIsSwapped() async throws {
+        let url = try await AdjustmentFileFixtures.tagged(.jpeg, orientation: 6, in: directory)
         let source = try #require(CGImageSourceCreateWithURL(url as CFURL, nil))
         let properties = try #require(CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [String: Any])
         let storedWidth = try #require(properties[kCGImagePropertyPixelWidth as String] as? Int)

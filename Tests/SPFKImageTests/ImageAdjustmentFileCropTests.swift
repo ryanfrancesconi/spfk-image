@@ -115,9 +115,7 @@ final class ImageAdjustmentFileCropTests {
         comparesHDR: Bool = true
     ) async throws {
         let directory = directory
-        let source = try await BlockingCallLimiter.shared.run {
-            try AdjustmentFileFixtures.checkerMapped(type, formats: formats, orientation: orientation, in: directory)
-        }
+        let source = try await AdjustmentFileFixtures.checkerMapped(type, formats: formats, orientation: orientation, in: directory)
         let output = destination(source)
 
         try await renderer.renderFile(ImageAdjustmentDescription(), crop: crop, source: source, destination: output)
@@ -183,7 +181,7 @@ final class ImageAdjustmentFileCropTests {
 
     @Test(arguments: [UTType.jpeg, .heic])
     func theEXIFSizeIsTheWrittenSize(type: UTType) async throws {
-        let source = try AdjustmentFileFixtures.tagged(type, orientation: 6, in: directory)
+        let source = try await AdjustmentFileFixtures.tagged(type, orientation: 6, in: directory)
         let output = destination(source)
 
         try await renderer.renderFile(ImageAdjustmentDescription(), crop: crop, source: source, destination: output)

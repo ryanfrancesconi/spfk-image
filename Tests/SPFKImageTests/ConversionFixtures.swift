@@ -2,6 +2,7 @@
 
 import Foundation
 import ImageIO
+import SPFKBase
 import UniformTypeIdentifiers
 
 /// Sources for ``ImageFormatConverterMetadataTests``, generated from `songbird.jpg` into a directory the caller owns.
@@ -110,8 +111,17 @@ enum ConversionFixtures {
         orientation: Int,
         format: AdjustmentFileFixtures.GainMapFormat,
         in directory: URL
+    ) async throws -> URL {
+        try await BlockingCallLimiter.shared.run { try makeRotatedGainMap(orientation: orientation, format: format, in: directory) }
+    }
+
+    @available(macOS 15, iOS 18, *)
+    private static func makeRotatedGainMap(
+        orientation: Int,
+        format: AdjustmentFileFixtures.GainMapFormat,
+        in directory: URL
     ) throws -> URL {
-        let upright = try AdjustmentFileFixtures.gainMapped(.heic, format: format, in: directory)
+        let upright = try AdjustmentFileFixtures.makeGainMapped(.heic, format: format, in: directory)
         let url = directory.appendingPathComponent("gain-map-\(format.rawValue)-\(orientation).heic")
 
         guard let source = CGImageSourceCreateWithURL(upright as CFURL, nil),

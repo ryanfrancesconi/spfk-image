@@ -14,7 +14,7 @@ final class BlockingCallLimiterTests: BinTestCase {
     /// none complete.
     @Test func moreAutoAndAVIFCallsThanCoresAllFinish() async throws {
         let avif = try #require(UTType("public.avif"))
-        let jpeg = try AdjustmentFileFixtures.tagged(.jpeg, orientation: 1, in: bin)
+        let jpeg = try await AdjustmentFileFixtures.tagged(.jpeg, orientation: 1, in: bin)
         let count = ProcessInfo.processInfo.activeProcessorCount + 2
 
         let finished = try await withThrowingTaskGroup(of: Bool.self) { group in
@@ -41,8 +41,8 @@ final class BlockingCallLimiterTests: BinTestCase {
     /// hang with none complete.
     @Test func moreAVIFRendersAndConversionsThanCoresAllFinish() async throws {
         let avif = try #require(UTType("public.avif"))
-        let jpeg = try AdjustmentFileFixtures.tagged(.jpeg, orientation: 1, in: bin)
-        let avifSource = try AdjustmentFileFixtures.tagged(avif, orientation: 1, in: bin)
+        let jpeg = try await AdjustmentFileFixtures.tagged(.jpeg, orientation: 1, in: bin)
+        let avifSource = try await AdjustmentFileFixtures.tagged(avif, orientation: 1, in: bin)
         let adjustments = ImageAdjustmentDescription(light: .init(exposure: 1))
         let count = ProcessInfo.processInfo.activeProcessorCount + 2
 

@@ -204,7 +204,7 @@ final class ImageFormatConverterMetadataTests: BinTestCase {
     func stripAllKeepsTheGainMap(identifier: String, format: AdjustmentFileFixtures.GainMapFormat) async throws {
         guard #available(macOS 15, iOS 18, *) else { return }
 
-        let input = try AdjustmentFileFixtures.gainMapped(.heic, format: format, in: bin)
+        let input = try await AdjustmentFileFixtures.gainMapped(.heic, format: format, in: bin)
         let output = try await convert(input, to: identifier, .stripAll)
 
         #expect(format.info(output) != nil)
@@ -214,7 +214,7 @@ final class ImageFormatConverterMetadataTests: BinTestCase {
     func aResizedJPEGKeepsItsGainMap(format: AdjustmentFileFixtures.GainMapFormat) async throws {
         guard #available(macOS 15, iOS 18, *) else { return }
 
-        let input = try AdjustmentFileFixtures.gainMapped(.jpeg, format: format, in: bin)
+        let input = try await AdjustmentFileFixtures.gainMapped(.jpeg, format: format, in: bin)
         let output = try await convert(input, to: UTType.jpeg.identifier, .copyAll, maxPixelSize: 400)
 
         #expect(format.info(output) != nil)
@@ -225,7 +225,7 @@ final class ImageFormatConverterMetadataTests: BinTestCase {
     func aRotatedGainMapTurnsWithTheImage(format: AdjustmentFileFixtures.GainMapFormat) async throws {
         guard #available(macOS 15, iOS 18, *) else { return }
 
-        let input = try ConversionFixtures.rotatedGainMap(orientation: 6, format: format, in: bin)
+        let input = try await ConversionFixtures.rotatedGainMap(orientation: 6, format: format, in: bin)
         let sourceMap = try #require(format.info(input))
         let sourceDescription = try #require(sourceMap[kCGImageAuxiliaryDataInfoDataDescription as String] as? [String: Any])
         let sourceWidth = try #require(sourceDescription["Width"] as? Int)

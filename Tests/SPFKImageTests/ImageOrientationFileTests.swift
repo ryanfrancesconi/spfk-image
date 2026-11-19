@@ -81,9 +81,9 @@ final class ImageOrientationFileTests {
     // MARK: - Lossless rewrite
 
     @Test(arguments: [UTType.jpeg, .heic, .png, .tiff], [1, 6])
-    func theRewriteChangesOnlyTheTag(type: UTType, start: Int) throws {
+    func theRewriteChangesOnlyTheTag(type: UTType, start: Int) async throws {
         try #require(OrientationEdit.losslessRewriteTypes.contains(type))
-        let source = try AdjustmentFileFixtures.tagged(type, orientation: start, in: directory)
+        let source = try await AdjustmentFileFixtures.tagged(type, orientation: start, in: directory)
         let bytes = try Data(contentsOf: source)
         let output = output(for: source)
 
@@ -98,10 +98,10 @@ final class ImageOrientationFileTests {
     }
 
     @Test(arguments: [UTType.jpeg, .heic], AdjustmentFileFixtures.GainMapFormat.allCases)
-    func theRewriteKeepsTheGainMap(type: UTType, format: AdjustmentFileFixtures.GainMapFormat) throws {
+    func theRewriteKeepsTheGainMap(type: UTType, format: AdjustmentFileFixtures.GainMapFormat) async throws {
         guard #available(macOS 15, iOS 18, *) else { return }
 
-        let source = try AdjustmentFileFixtures.gainMapped(type, format: format, in: directory)
+        let source = try await AdjustmentFileFixtures.gainMapped(type, format: format, in: directory)
         let original = try #require(gainMapData(source, format))
         let output = output(for: source)
 
@@ -112,8 +112,8 @@ final class ImageOrientationFileTests {
         #expect(try gainMapDisplaysAlignedWithTheImage(output))
     }
 
-    @Test func aHEICNamedHEIFIsRewritten() throws {
-        let heic = try AdjustmentFileFixtures.tagged(.heic, orientation: 1, in: directory)
+    @Test func aHEICNamedHEIFIsRewritten() async throws {
+        let heic = try await AdjustmentFileFixtures.tagged(.heic, orientation: 1, in: directory)
         let source = directory.appendingPathComponent("named.heif")
         try FileManager.default.moveItem(at: heic, to: source)
         let reader = try #require(CGImageSourceCreateWithURL(source as CFURL, nil))
@@ -127,8 +127,8 @@ final class ImageOrientationFileTests {
     }
 
     /// Pins why GIF is not in ``OrientationEdit/losslessRewriteTypes``.
-    @Test func imageIORefusesToRewriteAGIF() throws {
-        let source = try AdjustmentFileFixtures.tagged(.gif, orientation: 1, in: directory)
+    @Test func imageIORefusesToRewriteAGIF() async throws {
+        let source = try await AdjustmentFileFixtures.tagged(.gif, orientation: 1, in: directory)
         let output = output(for: source)
 
         #expect(throws: ImageAdjustmentRenderError.encodeFailed) {
@@ -138,8 +138,8 @@ final class ImageOrientationFileTests {
         #expect(!FileManager.default.fileExists(atPath: output.path))
     }
 
-    @Test func theRewriteLeavesAnExistingDestinationAlone() throws {
-        let source = try AdjustmentFileFixtures.tagged(.jpeg, orientation: 1, in: directory)
+    @Test func theRewriteLeavesAnExistingDestinationAlone() async throws {
+        let source = try await AdjustmentFileFixtures.tagged(.jpeg, orientation: 1, in: directory)
         let output = output(for: source)
         let occupant = Data("occupied".utf8)
         try occupant.write(to: output)
@@ -155,7 +155,7 @@ final class ImageOrientationFileTests {
 
     @Test(arguments: [UTType.jpeg, .heic], [1, 6])
     func theRenderWritesTheComposedTag(type: UTType, start: Int) async throws {
-        let source = try AdjustmentFileFixtures.tagged(type, orientation: start, in: directory)
+        let source = try await AdjustmentFileFixtures.tagged(type, orientation: start, in: directory)
         let output = output(for: source)
 
         try await renderer.renderFile(ImageAdjustmentDescription(light: .init(exposure: 1)), orientation: .flippedRight, source: source, destination: output)
@@ -168,7 +168,7 @@ final class ImageOrientationFileTests {
     func theRenderKeepsTheGainMapAligned(type: UTType, format: AdjustmentFileFixtures.GainMapFormat) async throws {
         guard #available(macOS 15, iOS 18, *) else { return }
 
-        let source = try AdjustmentFileFixtures.gainMapped(type, format: format, in: directory)
+        let source = try await AdjustmentFileFixtures.gainMapped(type, format: format, in: directory)
         let output = output(for: source)
 
         try await renderer.renderFile(ImageAdjustmentDescription(light: .init(exposure: 1)), orientation: .right, source: source, destination: output)

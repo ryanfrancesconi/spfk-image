@@ -102,8 +102,8 @@ final class ImageAdjustmentFileRenderTests {
     // MARK: - Fixtures
 
     @Test(arguments: [UTType.jpeg, .heic])
-    func taggedFixturesCarryWhatTheTestsRelyOn(type: UTType) throws {
-        let url = try AdjustmentFileFixtures.tagged(type, orientation: 6, in: directory)
+    func taggedFixturesCarryWhatTheTestsRelyOn(type: UTType) async throws {
+        let url = try await AdjustmentFileFixtures.tagged(type, orientation: 6, in: directory)
 
         #expect(try orientation(url) == 6)
         #expect(try captureDate(url) == AdjustmentFileFixtures.captureDate)
@@ -119,9 +119,7 @@ final class ImageAdjustmentFileRenderTests {
         guard #available(macOS 15, iOS 18, *) else { return }
 
         let directory = directory
-        let url = try await BlockingCallLimiter.shared.run {
-            try AdjustmentFileFixtures.gainMapped(type, format: format, in: directory)
-        }
+        let url = try await AdjustmentFileFixtures.gainMapped(type, format: format, in: directory)
 
         for other in AdjustmentFileFixtures.GainMapFormat.allCases {
             #expect((other.info(url) != nil) == (other == format), "\(other)")
@@ -131,7 +129,7 @@ final class ImageAdjustmentFileRenderTests {
     // MARK: - Pixels
 
     @Test func theAdjustmentIsInTheWrittenPixels() async throws {
-        let source = try AdjustmentFileFixtures.tagged(.jpeg, orientation: 1, in: directory)
+        let source = try await AdjustmentFileFixtures.tagged(.jpeg, orientation: 1, in: directory)
         let output = destination(for: source)
 
         try await renderer.renderFile(brighter, source: source, destination: output)
@@ -187,7 +185,7 @@ final class ImageAdjustmentFileRenderTests {
     }
 
     @Test func qualityReachesTheEncoder() async throws {
-        let source = try AdjustmentFileFixtures.tagged(.jpeg, orientation: 1, in: directory)
+        let source = try await AdjustmentFileFixtures.tagged(.jpeg, orientation: 1, in: directory)
         let low = directory.appendingPathComponent("low-quality.jpg")
         let high = directory.appendingPathComponent("high-quality.jpg")
 
@@ -205,7 +203,7 @@ final class ImageAdjustmentFileRenderTests {
 
     @Test(arguments: [UTType.jpeg, .heic, AdjustmentFileFixtures.avif])
     func metadataSurvives(type: UTType) async throws {
-        let source = try await BlockingCallLimiter.shared.run { try AdjustmentFileFixtures.tagged(type, orientation: 1, in: directory) }
+        let source = try await AdjustmentFileFixtures.tagged(type, orientation: 1, in: directory)
         let output = destination(for: source)
 
         try await renderer.renderFile(brighter, source: source, destination: output)
@@ -219,7 +217,7 @@ final class ImageAdjustmentFileRenderTests {
     /// back as 1 and displays sideways.
     @Test(arguments: [UTType.jpeg, .heic], [6, 8])
     func orientationRoundTrips(type: UTType, orientation expected: Int) async throws {
-        let source = try AdjustmentFileFixtures.tagged(type, orientation: expected, in: directory)
+        let source = try await AdjustmentFileFixtures.tagged(type, orientation: expected, in: directory)
         let output = destination(for: source)
 
         try await renderer.renderFile(brighter, source: source, destination: output)
@@ -233,9 +231,7 @@ final class ImageAdjustmentFileRenderTests {
         guard #available(macOS 15, iOS 18, *) else { return }
 
         let directory = directory
-        let source = try await BlockingCallLimiter.shared.run {
-            try AdjustmentFileFixtures.gainMapped(type, format: format, in: directory)
-        }
+        let source = try await AdjustmentFileFixtures.gainMapped(type, format: format, in: directory)
         let output = destination(for: source)
 
         try await renderer.renderFile(brighter, source: source, destination: output)
@@ -265,9 +261,7 @@ final class ImageAdjustmentFileRenderTests {
     }
 
     @Test func anUprightAVIFIsWrittenAsBefore() async throws {
-        let source = try await BlockingCallLimiter.shared.run {
-            try AdjustmentFileFixtures.tagged(AdjustmentFileFixtures.avif, orientation: 1, in: directory)
-        }
+        let source = try await AdjustmentFileFixtures.tagged(AdjustmentFileFixtures.avif, orientation: 1, in: directory)
         let output = destination(for: source)
 
         try await renderer.renderFile(brighter, source: source, destination: output)
@@ -278,7 +272,7 @@ final class ImageAdjustmentFileRenderTests {
     }
 
     @Test func heicNamedHeifIsWritten() async throws {
-        let heic = try AdjustmentFileFixtures.tagged(.heic, orientation: 1, in: directory)
+        let heic = try await AdjustmentFileFixtures.tagged(.heic, orientation: 1, in: directory)
         let source = directory.appendingPathComponent("named.heif")
         try FileManager.default.moveItem(at: heic, to: source)
 
@@ -294,8 +288,8 @@ final class ImageAdjustmentFileRenderTests {
     // MARK: - Refusals
 
     /// The read-back check removes what it wrote and never touches the source.
-    @Test func aReadBackMismatchLeavesNothingBehind() throws {
-        let source = try AdjustmentFileFixtures.tagged(.heic, orientation: 6, in: directory)
+    @Test func aReadBackMismatchLeavesNothingBehind() async throws {
+        let source = try await AdjustmentFileFixtures.tagged(.heic, orientation: 6, in: directory)
         let bytes = try Data(contentsOf: source)
         let output = destination(for: source)
 
@@ -319,7 +313,7 @@ final class ImageAdjustmentFileRenderTests {
     }
 
     @Test func anExistingDestinationIsLeftAlone() async throws {
-        let source = try AdjustmentFileFixtures.tagged(.jpeg, orientation: 1, in: directory)
+        let source = try await AdjustmentFileFixtures.tagged(.jpeg, orientation: 1, in: directory)
         let output = destination(for: source)
         let occupant = Data("occupied".utf8)
         try occupant.write(to: output)

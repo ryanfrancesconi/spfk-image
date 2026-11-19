@@ -25,8 +25,8 @@ final class ImageFormatConverterTests: BinTestCase {
         return url
     }
 
-    private func source() throws -> URL {
-        try AdjustmentFileFixtures.tagged(.jpeg, orientation: 1, in: bin)
+    private func source() async throws -> URL {
+        try await AdjustmentFileFixtures.tagged(.jpeg, orientation: 1, in: bin)
     }
 
     @discardableResult
@@ -64,7 +64,7 @@ final class ImageFormatConverterTests: BinTestCase {
 
     @Test(arguments: ImageConversionFormats().outputTypes)
     func everyOfferedTypeConvertsAtTheSourceSize(type: UTType) async throws {
-        let input = try source()
+        let input = try await source()
         let expected = try displayedSize(input)
 
         let converted = try await convert(input, to: output("converted", type), ImageConversionOptions(format: type.identifier))
@@ -75,7 +75,7 @@ final class ImageFormatConverterTests: BinTestCase {
     @Test(arguments: [UTType.jpeg.identifier, UTType.heic.identifier, UTType.png.identifier, UTType.tiff.identifier, "public.avif"])
     func maxPixelSizeCapsTheLongestEdge(identifier: String) async throws {
         let type = try #require(UTType(identifier))
-        let input = try source()
+        let input = try await source()
         let sourceSize = try displayedSize(input)
         let limit = max(sourceSize.width, sourceSize.height) / 2
 
@@ -88,7 +88,7 @@ final class ImageFormatConverterTests: BinTestCase {
     }
 
     @Test func aSourceWithinTheLimitIsNotEnlarged() async throws {
-        let input = try source()
+        let input = try await source()
         let sourceSize = try displayedSize(input)
         let limit = max(sourceSize.width, sourceSize.height) * 2
 
@@ -100,7 +100,7 @@ final class ImageFormatConverterTests: BinTestCase {
     @Test(arguments: ImageFormatConverter.lossyTypeIdentifiers.sorted().filter { ImageFormatConverter.writableTypeIdentifiers.contains($0) })
     func lowerQualityWritesASmallerFile(identifier: String) async throws {
         let type = try #require(UTType(identifier))
-        let input = try source()
+        let input = try await source()
 
         let low = try await convert(input, to: output("low", type), ImageConversionOptions(format: identifier, quality: 0.1))
         let high = try await convert(input, to: output("high", type), ImageConversionOptions(format: identifier, quality: 0.9))
@@ -109,7 +109,7 @@ final class ImageFormatConverterTests: BinTestCase {
     }
 
     @Test func resizingIntoJPEGKeepsTheCaptureDateAndLocation() async throws {
-        let input = try source()
+        let input = try await source()
         let sourceEXIF = try #require(properties(input)[kCGImagePropertyExifDictionary as String] as? [String: Any])
         try #require(sourceEXIF[kCGImagePropertyExifDateTimeOriginal as String] as? String == AdjustmentFileFixtures.captureDate)
 
@@ -127,7 +127,7 @@ final class ImageFormatConverterTests: BinTestCase {
     @Test(arguments: ["public.avif", UTType.gif.identifier, UTType.jpeg.identifier, UTType.heic.identifier])
     func aRotatedSourceDisplaysUpright(identifier: String) async throws {
         let type = try #require(UTType(identifier))
-        let input = try AdjustmentFileFixtures.tagged(.heic, orientation: 6, in: bin)
+        let input = try await AdjustmentFileFixtures.tagged(.heic, orientation: 6, in: bin)
         let expected = try displayedSize(input)
         try #require(expected.width < expected.height)
 
@@ -150,7 +150,7 @@ final class ImageFormatConverterTests: BinTestCase {
         let identifier = "public.heics"
         try #require(ImageFormatConverter.writableTypeIdentifiers.contains(identifier))
 
-        let input = try AdjustmentFileFixtures.tagged(.heic, orientation: 1, in: bin)
+        let input = try await AdjustmentFileFixtures.tagged(.heic, orientation: 1, in: bin)
         let converted = try await convert(input, to: output("sequence", #require(UTType(identifier))), ImageConversionOptions(format: identifier))
 
         #expect(try displayedSize(converted.output) == displayedSize(input))
@@ -160,7 +160,7 @@ final class ImageFormatConverterTests: BinTestCase {
     func aGainMapIsCarriedIntoHEIC(format: AdjustmentFileFixtures.GainMapFormat) async throws {
         guard #available(macOS 15, iOS 18, *) else { return }
 
-        let input = try AdjustmentFileFixtures.gainMapped(.heic, format: format, in: bin)
+        let input = try await AdjustmentFileFixtures.gainMapped(.heic, format: format, in: bin)
         try #require(format.info(input) != nil)
 
         let converted = try await convert(input, to: output("carried-\(format)", .heic), ImageConversionOptions(format: UTType.heic.identifier))
@@ -173,7 +173,7 @@ final class ImageFormatConverterTests: BinTestCase {
     func aGainMapIsCarriedIntoAResizedHEIC(format: AdjustmentFileFixtures.GainMapFormat) async throws {
         guard #available(macOS 15, iOS 18, *) else { return }
 
-        let input = try AdjustmentFileFixtures.gainMapped(.heic, format: format, in: bin)
+        let input = try await AdjustmentFileFixtures.gainMapped(.heic, format: format, in: bin)
         let size = try displayedSize(input)
         let limit = max(size.width, size.height) / 2
 
@@ -186,7 +186,7 @@ final class ImageFormatConverterTests: BinTestCase {
     // MARK: - Conflicts
 
     @Test func theErrorSchemeLeavesAnExistingOutputAlone() async throws {
-        let input = try source()
+        let input = try await source()
         let existing = output("existing", .heic)
         try Data("existing".utf8).write(to: existing)
 
@@ -198,7 +198,7 @@ final class ImageFormatConverterTests: BinTestCase {
     }
 
     @Test func theOverwriteSchemeReplacesAnExistingOutput() async throws {
-        let input = try source()
+        let input = try await source()
         let existing = output("existing", .heic)
         try Data("existing".utf8).write(to: existing)
 
@@ -209,7 +209,7 @@ final class ImageFormatConverterTests: BinTestCase {
     }
 
     @Test func theUniqueSchemeWritesBesideAnExistingOutput() async throws {
-        let input = try source()
+        let input = try await source()
         let existing = output("existing", .heic)
         try Data("existing".utf8).write(to: existing)
 
@@ -224,7 +224,7 @@ final class ImageFormatConverterTests: BinTestCase {
 
     @Test(arguments: FileConflictScheme.allCases)
     func refusesAnOutputThatIsItsOwnInput(scheme: FileConflictScheme) async throws {
-        let input = try source()
+        let input = try await source()
         let before = try Data(contentsOf: input)
 
         await #expect(throws: ImageConversionError.outputReplacesInput(input)) {
@@ -236,7 +236,7 @@ final class ImageFormatConverterTests: BinTestCase {
 
     @Test func refusesAnOutputReachedThroughASymlinkedDirectory() async throws {
         let real = try directory("real")
-        let input = try AdjustmentFileFixtures.tagged(.jpeg, orientation: 1, in: real)
+        let input = try await AdjustmentFileFixtures.tagged(.jpeg, orientation: 1, in: real)
         let before = try Data(contentsOf: input)
 
         let alias = bin.appending(component: "alias", directoryHint: .isDirectory)
@@ -251,8 +251,8 @@ final class ImageFormatConverterTests: BinTestCase {
     }
 
     @Test func refusesAnOutputThatIsTheFileARenderStandsIn() async throws {
-        let original = try AdjustmentFileFixtures.tagged(.jpeg, orientation: 1, in: directory("original"))
-        let render = try AdjustmentFileFixtures.tagged(.jpeg, orientation: 3, in: directory("render"))
+        let original = try await AdjustmentFileFixtures.tagged(.jpeg, orientation: 1, in: directory("original"))
+        let render = try await AdjustmentFileFixtures.tagged(.jpeg, orientation: 3, in: directory("render"))
         let before = try Data(contentsOf: original)
 
         await #expect(throws: ImageConversionError.outputReplacesInput(original)) {
@@ -265,7 +265,7 @@ final class ImageFormatConverterTests: BinTestCase {
     // MARK: - Cancellation
 
     @Test func aCancelledConversionLeavesNoOutput() async throws {
-        let input = try source()
+        let input = try await source()
         let output = output("cancelled", .heic)
         let converter = ImageFormatConverter(
             source: ImageConversionSource(input: input, output: output, options: ImageConversionOptions(format: UTType.heic.identifier))

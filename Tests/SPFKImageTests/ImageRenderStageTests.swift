@@ -28,7 +28,7 @@ final class ImageRenderStageTests {
     }
 
     @Test func stagesAreReportedInOrder() async throws {
-        let source = try AdjustmentFileFixtures.tagged(.jpeg, orientation: 1, in: directory)
+        let source = try await AdjustmentFileFixtures.tagged(.jpeg, orientation: 1, in: directory)
 
         try await renderer.renderFile(
             brighter, source: source, destination: directory.appendingPathComponent("out.jpg"), stage: record
@@ -38,8 +38,8 @@ final class ImageRenderStageTests {
     }
 
     /// The read-back fails during `.verifying`, the last stage.
-    @Test func nothingIsReportedAfterAThrow() throws {
-        let source = try AdjustmentFileFixtures.tagged(.jpeg, orientation: 6, in: directory)
+    @Test func nothingIsReportedAfterAThrow() async throws {
+        let source = try await AdjustmentFileFixtures.tagged(.jpeg, orientation: 6, in: directory)
 
         #expect(throws: ImageAdjustmentRenderError.readBackMismatch) {
             try self.renderer.renderFile(

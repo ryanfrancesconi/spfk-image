@@ -3,6 +3,7 @@
 import CoreImage
 import Foundation
 import ImageIO
+import SPFKBase
 import UniformTypeIdentifiers
 
 /// Files for the crop's Save and Convert tests.
@@ -175,7 +176,14 @@ extension AdjustmentFileFixtures {
     /// A gain-mapped `type` tagged `orientation`, its map replaced by a checkerboard of 12 × 8 squares so a map
     /// carried uncropped is told apart from one cropped. Built from Core Image's HEIC or JPEG.
     @available(macOS 15, iOS 18, *)
-    static func checkerMapped(_ type: UTType, formats: [GainMapFormat], orientation: Int, in directory: URL) throws -> URL {
+    static func checkerMapped(_ type: UTType, formats: [GainMapFormat], orientation: Int, in directory: URL) async throws -> URL {
+        try await BlockingCallLimiter.shared.run {
+            try makeCheckerMapped(type, formats: formats, orientation: orientation, in: directory)
+        }
+    }
+
+    @available(macOS 15, iOS 18, *)
+    private static func makeCheckerMapped(_ type: UTType, formats: [GainMapFormat], orientation: Int, in directory: URL) throws -> URL {
         let encoded: UTType = type == .jpeg ? .jpeg : .heic
         let intermediate = directory.appendingPathComponent("intermediate-\(UUID().uuidString)").appendingPathExtension(for: encoded)
         try writeGainMapped(CIImage(cgImage: try songbird()), type: encoded, format: .iso, to: intermediate)

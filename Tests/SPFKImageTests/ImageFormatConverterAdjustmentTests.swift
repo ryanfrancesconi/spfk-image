@@ -70,7 +70,7 @@ final class ImageFormatConverterAdjustmentTests: BinTestCase {
     // MARK: - Tests
 
     @Test func adjustmentsReachTheOutputAndTheSourceIsUntouched() async throws {
-        let input = try AdjustmentFileFixtures.tagged(.jpeg, orientation: 6, in: bin)
+        let input = try await AdjustmentFileFixtures.tagged(.jpeg, orientation: 6, in: bin)
         let before = try Data(contentsOf: input)
 
         let plain = try await convert(input, named: "plain", adjustments: nil)
@@ -82,7 +82,7 @@ final class ImageFormatConverterAdjustmentTests: BinTestCase {
 
     /// The encoder branch returns before a route is chosen, so the adjustments must not depend on one.
     @Test func adjustmentsReachAnEncoderOutput() async throws {
-        let input = try AdjustmentFileFixtures.tagged(.jpeg, orientation: 1, in: bin)
+        let input = try await AdjustmentFileFixtures.tagged(.jpeg, orientation: 1, in: bin)
         let before = try Data(contentsOf: input)
         let formats = ImageConversionFormats(encoders: [ImageFormatConverterEncoderTests.PNGStandInEncoder()])
 
@@ -149,7 +149,7 @@ final class ImageFormatConverterAdjustmentTests: BinTestCase {
 
     @Test(arguments: [OrientationEdit.up, .right])
     func theOutputIsTheKeptSize(orientation: OrientationEdit) async throws {
-        let input = try AdjustmentFileFixtures.tagged(.jpeg, orientation: 6, in: bin)
+        let input = try await AdjustmentFileFixtures.tagged(.jpeg, orientation: 6, in: bin)
         let upright = ImageFormatConverter.displayedSize(width: try pixelSize(input).width, height: try pixelSize(input).height, orientation: 6)
         let kept = crop.keptPixelSize(imageWidth: upright.width, imageHeight: upright.height)
 
@@ -161,7 +161,7 @@ final class ImageFormatConverterAdjustmentTests: BinTestCase {
     }
 
     @Test func aCropWithAResizeKeepsTheKeptAspect() async throws {
-        let input = try AdjustmentFileFixtures.tagged(.jpeg, orientation: 1, in: bin)
+        let input = try await AdjustmentFileFixtures.tagged(.jpeg, orientation: 1, in: bin)
         let size = try pixelSize(input)
         let kept = crop.keptPixelSize(imageWidth: size.width, imageHeight: size.height)
 
@@ -178,9 +178,7 @@ final class ImageFormatConverterAdjustmentTests: BinTestCase {
         guard #available(macOS 15, iOS 18, *) else { return }
 
         let bin = bin
-        let input = try await BlockingCallLimiter.shared.run {
-            try AdjustmentFileFixtures.checkerMapped(.heic, formats: [.iso], orientation: 6, in: bin)
-        }
+        let input = try await AdjustmentFileFixtures.checkerMapped(.heic, formats: [.iso], orientation: 6, in: bin)
         let output = try await convert(input, format: .heic, crop: crop)
 
         let map = { (url: URL) throws -> (Int, Int) in
@@ -198,7 +196,7 @@ final class ImageFormatConverterAdjustmentTests: BinTestCase {
     }
 
     @Test func aCroppedEncoderOutputHasTheKeptSize() async throws {
-        let input = try AdjustmentFileFixtures.tagged(.jpeg, orientation: 1, in: bin)
+        let input = try await AdjustmentFileFixtures.tagged(.jpeg, orientation: 1, in: bin)
         let size = try pixelSize(input)
         let kept = crop.keptPixelSize(imageWidth: size.width, imageHeight: size.height)
         let formats = ImageConversionFormats(encoders: [ImageFormatConverterEncoderTests.PNGStandInEncoder()])
