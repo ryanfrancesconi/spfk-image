@@ -8,7 +8,7 @@ import simd
 extension ImageAdjustmentRenderer {
     /// The Temperature and Tint whose step renders `color` gray, each limited to its slider range, so a
     /// color beyond reach comes back as the nearest the range allows. A damped Newton search on
-    /// ``whiteBalanceMatrix(temperature:tint:)``.
+    /// ``WhiteBalanceStep/matrix(temperature:tint:)``.
     public static func whiteBalance(neutralizing color: CIColor) -> (temperature: Double, tint: Double) {
         guard let linear = CGColorSpace(name: CGColorSpace.extendedLinearSRGB),
               let converted = color.colorSpace.name == linear.name ? color : convert(color, to: linear),
@@ -18,7 +18,7 @@ extension ImageAdjustmentRenderer {
         let pixel = SIMD3(Double(converted.red), Double(converted.green), Double(converted.blue))
 
         func residual(_ temperature: Double, _ tint: Double) -> SIMD2<Double>? {
-            let rgb = whiteBalanceMatrix(temperature: temperature, tint: tint) * pixel
+            let rgb = WhiteBalanceStep.matrix(temperature: temperature, tint: tint) * pixel
             guard rgb.x > 0, rgb.y > 0, rgb.z > 0 else { return nil }
             return SIMD2(log(rgb.x / rgb.y), log(rgb.z / rgb.y))
         }
@@ -183,8 +183,8 @@ extension ImageAdjustmentRenderer {
         return (0 ..< count).map { stop in
             let value = range.lowerBound + (range.upperBound - range.lowerBound) * Double(stop) / Double(count - 1)
             let transform = component == .temperature
-                ? whiteBalanceMatrix(temperature: value, tint: tint)
-                : whiteBalanceMatrix(temperature: temperature, tint: value)
+                ? WhiteBalanceStep.matrix(temperature: value, tint: tint)
+                : WhiteBalanceStep.matrix(temperature: temperature, tint: value)
             let rgb = (transform * gray).clamped(lowerBound: .zero, upperBound: .one)
             return SIMD3(ColorMath.sRGBEncoded(rgb.x), ColorMath.sRGBEncoded(rgb.y), ColorMath.sRGBEncoded(rgb.z))
         }

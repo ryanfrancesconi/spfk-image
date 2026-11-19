@@ -85,7 +85,7 @@ final class ImageAdjustmentLevelsTests {
         adjustments.light.blackPoint = -1
 
         // Black point first raises 0.4 to 0.55; levels then maps that, not 0.4.
-        let raised = ImageAdjustmentRenderer.maximumBlackPoint + (1 - ImageAdjustmentRenderer.maximumBlackPoint) * gray
+        let raised = BlackPointStep.maximum + (1 - BlackPointStep.maximum) * gray
         let expected = try render(gray: raised, levels([0.2, 0.4, 0.6, 0.8, 1]))
 
         #expect(abs(try render(gray: gray, adjustments) - expected) < 0.01)

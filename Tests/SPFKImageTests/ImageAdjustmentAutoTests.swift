@@ -53,7 +53,7 @@ final class ImageAdjustmentAutoTests {
     /// `image` white balanced by `balance`, then through Apple's own enhancement filters for the
     /// balanced image.
     private func appleReference(_ image: CIImage, balance: ImageAdjustmentDescription) async throws -> CIImage {
-        let balanced = ImageAdjustmentRenderer.temperatureAndTint(image, temperature: balance.color.temperature, tint: balance.color.tint)
+        let balanced = WhiteBalanceStep.apply(image, temperature: balance.color.temperature, tint: balance.color.tint)
             .cropped(to: image.extent)
 
         let filters = await BlockingCallLimiter.shared.run { balanced.autoAdjustmentFilters(options: [.redEye: false]) }
@@ -142,7 +142,7 @@ final class ImageAdjustmentAutoTests {
         )
 
         let adjustments = ImageAdjustmentDescription(
-            light: .init(highlights: ImageAdjustmentRenderer.highlights(forHighlightAmount: amount))
+            light: .init(highlights: HighlightsShadowsStep.highlights(forHighlightAmount: amount))
         )
         let rendered = try ImageAdjustmentChainPinTests.floatPixels(
             ImageAdjustmentRenderer.apply(adjustments, to: image), context: context
@@ -165,7 +165,7 @@ final class ImageAdjustmentAutoTests {
         let expected = try pixels(try #require(filter.outputImage).cropped(to: field.extent))
 
         let adjustments = ImageAdjustmentDescription(
-            light: .init(shadows: ImageAdjustmentRenderer.shadows(forShadowAmount: amount))
+            light: .init(shadows: HighlightsShadowsStep.shadows(forShadowAmount: amount))
         )
         let rendered = try pixels(ImageAdjustmentRenderer.apply(adjustments, to: field))
 
@@ -174,7 +174,7 @@ final class ImageAdjustmentAutoTests {
     }
 
     @Test func autoHighlightsBelowTheSliderMinimumClampToIt() {
-        let value = ImageAdjustmentRenderer.highlights(forHighlightAmount: ImageAdjustmentRenderer.minimumHighlightAmount / 2)
+        let value = HighlightsShadowsStep.highlights(forHighlightAmount: HighlightsShadowsStep.minimumHighlightAmount / 2)
 
         #expect(ImageAdjustmentDescription(light: .init(highlights: value)).light.highlights == -1)
     }

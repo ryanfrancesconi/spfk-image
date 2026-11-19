@@ -82,7 +82,7 @@ struct ImageAdjustmentRangeTests {
     /// Below 1 the steps render as Core Image's clamping filters do, within the carry's rounding.
     @Test func toneCurvesLeaveInRangeValuesAsBefore() throws {
         let image = try flat(0.4, 0.3, 0.2)
-        let points = ImageAdjustmentRenderer.brightnessCurve(0.5)
+        let points = BrightnessStep.curve(0.5)
 
         let filter = CIFilter.toneCurve()
         filter.inputImage = image
@@ -92,7 +92,7 @@ struct ImageAdjustmentRangeTests {
         filter.point3 = points[3]
         filter.point4 = points[4]
         let reference = try ImageAdjustmentChainPinTests.floatPixels(try #require(filter.outputImage), context: context)
-        let rendered = try ImageAdjustmentChainPinTests.floatPixels(ImageAdjustmentRenderer.toneCurve(image, points), context: context)
+        let rendered = try ImageAdjustmentChainPinTests.floatPixels(ToneCurve.apply(image, points), context: context)
 
         try #require(rendered.count == reference.count)
         let maximumDifference = zip(rendered, reference).map { abs($0 - $1) }.max() ?? 0

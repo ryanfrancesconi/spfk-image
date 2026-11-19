@@ -29,7 +29,7 @@ final class ImageAdjustmentToneStepTests {
 
     @Test func positiveBlackPointMapsItsInputToBlack() throws {
         let value = 0.6
-        let input = value * ImageAdjustmentRenderer.maximumBlackPoint
+        let input = value * BlackPointStep.maximum
 
         #expect(try render(gray: input, .init(light: .init(blackPoint: value))) < 0.005)
         #expect(try render(gray: input / 2, .init(light: .init(blackPoint: value))) < 0.005)
@@ -47,12 +47,12 @@ final class ImageAdjustmentToneStepTests {
     @Test func negativeBlackPointRaisesBlack() throws {
         let floor = try render(gray: 0, .init(light: .init(blackPoint: -1)))
 
-        #expect(abs(floor - ImageAdjustmentRenderer.maximumBlackPoint) < 0.01)
+        #expect(abs(floor - BlackPointStep.maximum) < 0.01)
         #expect(abs(try render(gray: 1, .init(light: .init(blackPoint: -1))) - 1) < 0.005)
     }
 
     @Test func positiveWhitePointMapsItsInputToWhite() throws {
-        let input = 1 - ImageAdjustmentRenderer.maximumWhitePoint
+        let input = 1 - WhitePointStep.maximum
 
         #expect(abs(try render(gray: input, .init(light: .init(whitePoint: 1))) - 1) < 0.005)
         #expect(abs(try render(gray: (1 + input) / 2, .init(light: .init(whitePoint: 1))) - 1) < 0.005)
@@ -63,12 +63,12 @@ final class ImageAdjustmentToneStepTests {
     @Test func negativeWhitePointLowersWhite() throws {
         let ceiling = try render(gray: 1, .init(light: .init(whitePoint: -1)))
 
-        #expect(abs(ceiling - (1 - ImageAdjustmentRenderer.maximumWhitePoint)) < 0.01)
+        #expect(abs(ceiling - (1 - WhitePointStep.maximum)) < 0.01)
         #expect(try render(gray: 0, .init(light: .init(whitePoint: -1))) < 0.005)
     }
 
     @Test func brightnessMovesMidGrayAndHoldsBlackAndWhite() throws {
-        let lift = ImageAdjustmentRenderer.maximumBrightnessLift
+        let lift = BrightnessStep.maximumLift
 
         #expect(abs(try render(gray: 0.5, .init(light: .init(brightness: 1))) - (0.5 + lift)) < 0.01)
         #expect(abs(try render(gray: 0.5, .init(light: .init(brightness: -1))) - (0.5 - lift)) < 0.01)
@@ -128,7 +128,7 @@ final class ImageAdjustmentToneStepTests {
 
     @Test func shadowsCurveStaysIncreasing() {
         for value in [0.5, 1] {
-            let curve = ImageAdjustmentRenderer.shadowsCurve(value)
+            let curve = ShadowsTransform.curve(value)
             let samples = (0 ... 100).map { curve.value(at: Double($0) / 100) }
             #expect(zip(samples, samples.dropFirst()).allSatisfy { $0 <= $1 })
         }
@@ -137,11 +137,11 @@ final class ImageAdjustmentToneStepTests {
     @Test func toneCurvesStayIncreasingAtTheEndsOfTheirRanges() {
         for value in [-1.0, -0.5, 0.5, 1] {
             for curve in [
-                ImageAdjustmentRenderer.blackPointCurve(value),
-                ImageAdjustmentRenderer.whitePointCurve(value),
-                ImageAdjustmentRenderer.brightnessCurve(value),
-                ImageAdjustmentRenderer.contrastCurve(value),
-                ImageAdjustmentRenderer.highlightsCurve(value),
+                BlackPointStep.curve(value),
+                WhitePointStep.curve(value),
+                BrightnessStep.curve(value),
+                ContrastStep.curve(value),
+                HighlightsShadowsStep.highlightsCurve(value),
             ] {
                 #expect(zip(curve, curve.dropFirst()).allSatisfy { $0.x < $1.x && $0.y <= $1.y })
             }

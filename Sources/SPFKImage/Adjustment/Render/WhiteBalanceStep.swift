@@ -6,17 +6,18 @@ import simd
 
 /// Temperature and Tint as a chromatic adaptation in linear sRGB: from a white point on or beside the
 /// Planckian locus to the locus at ``neutralKelvin``.
-extension ImageAdjustmentRenderer {
-    /// The Temperature and Tint step. Does not clamp, so wide-gamut and HDR values pass through.
-    static func temperatureAndTint(_ image: CIImage, temperature: Double, tint: Double) -> CIImage {
-        CIArithmetic.matrix(image, whiteBalanceMatrix(temperature: temperature, tint: tint))
+enum WhiteBalanceStep {
+    /// Does not clamp, so wide-gamut and HDR values pass through.
+    static func apply(_ image: CIImage, temperature: Double, tint: Double) -> CIImage {
+        guard temperature != 0 || tint != 0 else { return image }
+        return CIArithmetic.matrix(image, matrix(temperature: temperature, tint: tint))
     }
 
-    /// The linear sRGB matrix of the Temperature and Tint step, exactly identity at (0, 0).
+    /// The linear sRGB matrix of the step, exactly identity at (0, 0).
     ///
     /// Bradford adaptation from the white the sliders name to the locus at ``neutralKelvin``, scaled to
     /// keep a neutral gray's Rec. 709 luminance.
-    static func whiteBalanceMatrix(temperature: Double, tint: Double) -> simd_double3x3 {
+    static func matrix(temperature: Double, tint: Double) -> simd_double3x3 {
         guard temperature != 0 || tint != 0 else { return matrix_identity_double3x3 }
 
         let kelvin = 1_000_000 / (1_000_000 / neutralKelvin - temperature * miredPerUnit)
@@ -70,4 +71,15 @@ extension ImageAdjustmentRenderer {
         SIMD3(-0.7502, 1.7135, 0.0367),
         SIMD3(0.0389, -0.0685, 1.0296),
     ])
+
+    // MARK: - Mapping from slider positions
+
+    /// The white point at neutral Temperature, on the Planckian locus.
+    static let neutralKelvin: Double = 6500
+    /// Temperature moves the white point evenly in mired (10⁶ / kelvin), 4276…13542 K.
+    static let miredPerUnit: Double = 80
+    /// How far full Tint moves the white point off the locus toward magenta and toward green, in CIE
+    /// 1960 (u, v).
+    static let maximumMagentaTintOffset: Double = 0.05
+    static let maximumGreenTintOffset: Double = 0.043
 }

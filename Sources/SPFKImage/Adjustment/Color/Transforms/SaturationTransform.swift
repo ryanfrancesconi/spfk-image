@@ -4,8 +4,8 @@ import Foundation
 import simd
 
 /// Positive Saturation: a Display P3-encoded color with its Oklch chroma scaled by
-/// `1 + amount × maximumSaturationGain`, holding lightness and hue. A color the scale takes outside
-/// Display P3 stops at its edge, so dull colors gain the most.
+/// `1 + amount × maximumGain`, holding lightness and hue. A color the scale takes outside Display P3
+/// stops at its edge, so dull colors gain the most.
 struct SaturationTransform: ColorCubeTransform {
     static let space = ColorCubeSpace.displayP3
 
@@ -15,7 +15,12 @@ struct SaturationTransform: ColorCubeTransform {
         let chroma = simd_length(SIMD2(node.oklab.y, node.oklab.z))
         guard chroma > 0 else { return node.rgb }
 
-        let target = chroma * (1 + amount * ImageAdjustmentRenderer.maximumSaturationGain)
+        let target = chroma * (1 + amount * Self.maximumGain)
         return ColorMath.displayP3(lightness: node.oklab.x, chroma: target, hue: node.hue, insideChroma: chroma)
     }
+
+    // MARK: - Mapping from slider positions
+
+    /// How much full positive Saturation adds to a color's Oklch chroma, as a multiple of it.
+    static let maximumGain: Double = 1.6
 }

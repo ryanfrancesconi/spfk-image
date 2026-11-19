@@ -17,8 +17,6 @@ struct BlackAndWhiteTransform: ColorCubeTransform {
     }
 
     func callAsFunction(_ node: ColorCubeNode) -> SIMD3<Double> {
-        typealias Renderer = ImageAdjustmentRenderer
-
         let rgb = node.rgb
         let linear = SIMD3(ColorMath.sRGBDecoded(rgb.x), ColorMath.sRGBDecoded(rgb.y), ColorMath.sRGBDecoded(rgb.z))
         var gray = ColorMath.sRGBEncoded((linear * ColorMath.luminanceWeights).sum())
@@ -28,10 +26,17 @@ struct BlackAndWhiteTransform: ColorCubeTransform {
             for (center, value) in zip(HueBands.centers, shifts) where value != 0 {
                 shift += HueBands.weight(hue: node.hue, center: center) * value
             }
-            shift *= HueBands.chromaGate(node.chroma, full: Renderer.blackAndWhiteFullChroma) * Renderer.maximumBlackAndWhiteShift
+            shift *= HueBands.chromaGate(node.chroma, full: Self.fullChroma) * Self.maximumShift
             gray += shift * (shift > 0 ? 1 - gray : gray)
         }
 
         return SIMD3(repeating: gray)
     }
+
+    // MARK: - Mapping from slider positions
+
+    /// The share of the way to white or black a full band shift moves a fully colorful pixel's gray.
+    static let maximumShift: Double = 0.6
+    /// The chroma, max − min of sRGB-encoded channels, at which a pixel takes its band's whole shift.
+    static let fullChroma: Double = 0.4
 }

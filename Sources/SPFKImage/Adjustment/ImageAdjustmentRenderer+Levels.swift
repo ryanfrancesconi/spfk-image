@@ -6,11 +6,6 @@ import Foundation
 import SPFKBase
 
 extension ImageAdjustmentRenderer {
-    /// The levels points as `CIToneCurve` points: each ordered input position to its fixed output.
-    static func levelsCurve(_ levels: ImageAdjustmentDescription.Levels) -> [CGPoint] {
-        zip(levels.positions, ImageAdjustmentDescription.Levels.identity).map { CGPoint(x: $0, y: $1) }
-    }
-
     /// The part of `adjustments` that renders before the levels step, so its output is what the
     /// levels curve receives. Leaves out noise reduction, which smooths the image without moving its
     /// tones.

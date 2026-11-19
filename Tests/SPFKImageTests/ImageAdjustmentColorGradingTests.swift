@@ -100,7 +100,7 @@ struct ImageAdjustmentColorGradingTests {
 
     @Test(arguments: [0.0, 0.2, 0.45, 0.7, 0.95])
     func theTransformKeepsAGraysLuma(hue: Double) {
-        let tints = Range.allCases.map { _ in ImageAdjustmentRenderer.colorGradingTint(hue: hue, saturation: 1) }
+        let tints = Range.allCases.map { _ in ColorGradingTransform.tint(hue: hue, saturation: 1) }
 
         for level in stride(from: 0.0, through: 1, by: 0.05) {
             for balance in [-1.0, 0, 1] {
@@ -135,7 +135,7 @@ struct ImageAdjustmentColorGradingTests {
     }
 
     @Test func theSameTintInEveryRangeIsUniform() {
-        let tint = ImageAdjustmentRenderer.colorGradingTint(hue: 0.6, saturation: 0.5)
+        let tint = ColorGradingTransform.tint(hue: 0.6, saturation: 0.5)
         let tints = [tint, tint, tint]
 
         for level in [0.3, 0.5, 0.7] {
@@ -184,7 +184,7 @@ struct ImageAdjustmentColorGradingTests {
     @Test func theHueTrackIsColoredWithSaturationAtZero() {
         let track = ImageAdjustmentRenderer.colorGradingTrack(component: .hue, tint: Tint(hue: 0.5, saturation: 0))
 
-        #expect(track.allSatisfy { abs(chroma($0) - ImageAdjustmentRenderer.maximumColorGradingChroma) < 0.01 })
+        #expect(track.allSatisfy { abs(chroma($0) - ColorGradingTransform.maximumChroma) < 0.01 })
     }
 
     @Test func theSaturationTrackRunsFromGrayToTheHueAtFullStrength() throws {
@@ -193,7 +193,7 @@ struct ImageAdjustmentColorGradingTests {
 
         #expect(track.first == SIMD3(repeating: 0.5))
         #expect(zip(track, track.dropFirst()).allSatisfy { chroma($1) > chroma($0) })
-        #expect(abs(chroma(last) - ImageAdjustmentRenderer.maximumColorGradingChroma) < 0.01)
+        #expect(abs(chroma(last) - ColorGradingTransform.maximumChroma) < 0.01)
         #expect(last.y > last.x && last.y > last.z)
     }
 

@@ -4,10 +4,10 @@ import CoreImage
 import CoreImage.CIFilterBuiltins
 import Foundation
 
-extension ImageAdjustmentRenderer {
+enum HighlightsShadowsStep {
     /// Negative values through `CIHighlightShadowAdjust`; positive Highlights through a tone curve,
     /// then positive Shadows through ``ShadowsTransform``.
-    static func highlightsAndShadows(_ image: CIImage, highlights: Double, shadows: Double) -> CIImage {
+    static func apply(_ image: CIImage, highlights: Double, shadows: Double) -> CIImage {
         var output = image
 
         if highlights < 0 || shadows < 0 {
@@ -19,7 +19,7 @@ extension ImageAdjustmentRenderer {
         }
 
         if highlights > 0 {
-            output = toneCurve(output, highlightsCurve(highlights))
+            output = ToneCurve.apply(output, highlightsCurve(highlights))
         }
 
         if shadows > 0 {
@@ -43,7 +43,7 @@ extension ImageAdjustmentRenderer {
 
     /// Lifts the upper tones by ``highlightsLift``, so black and white stay fixed.
     static func highlightsCurve(_ value: Double) -> [CGPoint] {
-        zip(curvePositions, highlightsLift).map { x, lift in CGPoint(x: x, y: x + value * lift) }
+        ToneCurve.lifted(by: highlightsLift, value)
     }
 
     /// The Shadows value that renders `CIHighlightShadowAdjust`'s shadow `amount` at about the same
@@ -52,8 +52,15 @@ extension ImageAdjustmentRenderer {
         amount > 0 ? amount * shadowAmountToSlider : amount
     }
 
-    /// Lifts the lower tones by ``shadowsLift``, so black and white stay fixed.
-    static func shadowsCurve(_ value: Double) -> MonotoneCubicInterpolation {
-        MonotoneCubicInterpolation(x: curvePositions, y: zip(curvePositions, shadowsLift).map { $0 + value * $1 })
-    }
+    // MARK: - Mapping from slider positions
+
+    /// `CIHighlightShadowAdjust`'s highlight amount at full negative Highlights. Lower flattens the
+    /// highlights into one tone.
+    static let minimumHighlightAmount: Double = 0.25
+    /// How far full positive Highlights moves each of `ToneCurve.positions`, in sRGB-encoded values.
+    static let highlightsLift: [Double] = [0, 0, 0.02, 0.07, 0]
+    /// Auto's positive shadow amounts (measured 0.05…0.33) on the Shadows slider. Within 0.03 of the
+    /// filter's lift of a flat quarter gray up to amount 0.3; photos, where the filter lifts more, want
+    /// between 1.3 and 2.
+    static let shadowAmountToSlider: Double = 1.5
 }

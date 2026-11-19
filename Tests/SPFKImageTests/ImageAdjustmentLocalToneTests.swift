@@ -81,7 +81,7 @@ final class ImageAdjustmentLocalToneTests {
 
     @Test func brillianceCurveHoldsBlackAndWhiteAndStaysIncreasing() {
         for value in [-1.0, 1] {
-            let curve = ImageAdjustmentRenderer.brillianceCurve(value)
+            let curve = BrillianceStep.curve(value)
             #expect(curve.first?.y == 0)
             #expect(curve.last?.y == 1)
             #expect(zip(curve, curve.dropFirst()).allSatisfy { $0.y < $1.y })

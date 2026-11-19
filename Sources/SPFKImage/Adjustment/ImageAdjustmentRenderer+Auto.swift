@@ -17,7 +17,7 @@ extension ImageAdjustmentRenderer {
         let balance = autoWhiteBalance(for: image)
         let balanced = balance.color.temperature == 0 && balance.color.tint == 0
             ? image
-            : temperatureAndTint(image, temperature: balance.color.temperature, tint: balance.color.tint).cropped(to: image.extent)
+            : WhiteBalanceStep.apply(image, temperature: balance.color.temperature, tint: balance.color.tint).cropped(to: image.extent)
 
         var result = await enhancement(for: balanced)
         result.color.temperature = balance.color.temperature
@@ -45,8 +45,8 @@ extension ImageAdjustmentRenderer {
                 result.levels.positions = ImageAdjustmentDescription.Levels.identity.map { inputPosition(of: $0, on: points) }
 
             case "CIHighlightShadowAdjust":
-                result.light.shadows = shadows(forShadowAmount: number(filter, "inputShadowAmount"))
-                result.light.highlights = highlights(forHighlightAmount: number(filter, "inputHighlightAmount"))
+                result.light.shadows = HighlightsShadowsStep.shadows(forShadowAmount: number(filter, "inputShadowAmount"))
+                result.light.highlights = HighlightsShadowsStep.highlights(forHighlightAmount: number(filter, "inputHighlightAmount"))
 
             default:
                 Log.debug("Auto drops \(filter.name)")

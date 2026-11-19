@@ -116,7 +116,7 @@ struct ImageAdjustmentSelectiveColorTests {
             let turned = SelectiveColorTransform(shifts: only(band, SIMD3(direction, 0, 0)))(color)
             let degrees = turn(oklch(color).hue, oklch(turned).hue)
 
-            #expect(abs(degrees - direction * ImageAdjustmentRenderer.maximumSelectiveHueShift) < 1, "\(band) \(direction): \(degrees)")
+            #expect(abs(degrees - direction * SelectiveColorTransform.maximumHueShift) < 1, "\(band) \(direction): \(degrees)")
         }
     }
 
@@ -128,7 +128,7 @@ struct ImageAdjustmentSelectiveColorTests {
         let turned = SelectiveColorTransform(shifts: only(.green, SIMD3(-1, 0, 0)))(color)
         let degrees = turn(oklch(color).hue, oklch(turned).hue)
 
-        #expect(-degrees > 0.7 * ImageAdjustmentRenderer.maximumSelectiveHueShift, "\(degrees)")
+        #expect(-degrees > 0.7 * SelectiveColorTransform.maximumHueShift, "\(degrees)")
     }
 
     @Test func theOppositeHueDoesNotMove() {
@@ -383,7 +383,7 @@ struct ImageAdjustmentSelectiveColorTests {
     func theHueTrackSpansTheFullReachEitherSideOfTheReference(band: Band) {
         let track = ImageAdjustmentRenderer.selectiveColorTrack(band, component: .hue, shift: .init(), stops: 25)
         let reference = HueBands.reference(band)
-        let reach = ImageAdjustmentRenderer.maximumSelectiveHueShift
+        let reach = SelectiveColorTransform.maximumHueShift
 
         #expect(abs(turn(HueBands.center(band), oklch(reference).hue)) < 0.5, "\(band)")
         #expect(simd_distance(track[12], reference) < 1e-9)

@@ -53,11 +53,11 @@ final class ImageAdjustmentWhiteBalanceTests {
     @Test(arguments: casts)
     func solvedBalanceRendersTheCastColorGray(cast: (temperature: Double, tint: Double)) throws {
         let gray = try flat(SIMD3(0.2, 0.2, 0.2))
-        let cast = try pixel(ImageAdjustmentRenderer.temperatureAndTint(gray, temperature: cast.temperature, tint: cast.tint))
+        let cast = try pixel(WhiteBalanceStep.apply(gray, temperature: cast.temperature, tint: cast.tint))
 
         let balance = ImageAdjustmentRenderer.whiteBalance(neutralizing: try color(cast))
         let corrected = try pixel(
-            ImageAdjustmentRenderer.temperatureAndTint(try flat(cast), temperature: balance.temperature, tint: balance.tint)
+            WhiteBalanceStep.apply(try flat(cast), temperature: balance.temperature, tint: balance.tint)
         )
 
         #expect(isGray(corrected), "\(cast) → \(balance) → \(corrected)")
@@ -65,7 +65,7 @@ final class ImageAdjustmentWhiteBalanceTests {
 
     @Test func solvedBalanceOpposesTheCast() throws {
         let gray = try flat(SIMD3(0.2, 0.2, 0.2))
-        let warm = try pixel(ImageAdjustmentRenderer.temperatureAndTint(gray, temperature: 0.3, tint: 0.3))
+        let warm = try pixel(WhiteBalanceStep.apply(gray, temperature: 0.3, tint: 0.3))
 
         let balance = ImageAdjustmentRenderer.whiteBalance(neutralizing: try color(warm))
 
@@ -109,12 +109,12 @@ final class ImageAdjustmentWhiteBalanceTests {
         let image = try fixture()
         let base = ImageAdjustmentRenderer.autoWhiteBalance(for: image)
 
-        let warm = ImageAdjustmentRenderer.temperatureAndTint(image, temperature: 0.3, tint: 0.3).cropped(to: image.extent)
+        let warm = WhiteBalanceStep.apply(image, temperature: 0.3, tint: 0.3).cropped(to: image.extent)
         let warmResult = ImageAdjustmentRenderer.autoWhiteBalance(for: warm)
         #expect(warmResult.color.temperature < base.color.temperature - 0.02, "\(base.color.temperature) → \(warmResult.color.temperature)")
         #expect(warmResult.color.tint < base.color.tint - 0.02, "\(base.color.tint) → \(warmResult.color.tint)")
 
-        let cool = ImageAdjustmentRenderer.temperatureAndTint(image, temperature: -0.3, tint: -0.3).cropped(to: image.extent)
+        let cool = WhiteBalanceStep.apply(image, temperature: -0.3, tint: -0.3).cropped(to: image.extent)
         let coolResult = ImageAdjustmentRenderer.autoWhiteBalance(for: cool)
         #expect(coolResult.color.temperature > base.color.temperature + 0.02, "\(base.color.temperature) → \(coolResult.color.temperature)")
         #expect(coolResult.color.tint > base.color.tint + 0.02, "\(base.color.tint) → \(coolResult.color.tint)")
@@ -168,7 +168,7 @@ final class ImageAdjustmentWhiteBalanceTests {
 
     /// Gray on the top half, a warm cast on the bottom; Core Image's origin is the bottom left.
     private func splitImage() throws -> CIImage {
-        let warm = try pixel(ImageAdjustmentRenderer.temperatureAndTint(try flat(SIMD3(0.2, 0.2, 0.2)), temperature: 0.4, tint: 0))
+        let warm = try pixel(WhiteBalanceStep.apply(try flat(SIMD3(0.2, 0.2, 0.2)), temperature: 0.4, tint: 0))
         let bottom = try flat(warm, size: 40).cropped(to: CGRect(x: 0, y: 0, width: 40, height: 20))
         let top = try flat(SIMD3(0.2, 0.2, 0.2), size: 40).cropped(to: CGRect(x: 0, y: 20, width: 40, height: 20))
         return top.composited(over: bottom)
@@ -197,7 +197,7 @@ final class ImageAdjustmentWhiteBalanceTests {
 
         for temperature in stride(from: -1.0, through: 1.0, by: 0.1) {
             for tint in stride(from: -1.0, through: 1.0, by: 0.1) {
-                let rendered = try pixel(ImageAdjustmentRenderer.temperatureAndTint(gray, temperature: temperature, tint: tint))
+                let rendered = try pixel(WhiteBalanceStep.apply(gray, temperature: temperature, tint: tint))
                 let gains = rendered / 0.2
                 if gains.min() <= 0.2 || gains.max() > 8 {
                     diverging.append(String(format: "%.1f, %.1f", temperature, tint))
@@ -211,7 +211,7 @@ final class ImageAdjustmentWhiteBalanceTests {
     // MARK: - The matrix
 
     @Test func neutralIsExactlyIdentity() {
-        #expect(ImageAdjustmentRenderer.whiteBalanceMatrix(temperature: 0, tint: 0) == matrix_identity_double3x3)
+        #expect(WhiteBalanceStep.matrix(temperature: 0, tint: 0) == matrix_identity_double3x3)
     }
 
     /// Linear gains on a gray, computed once from the shipped constants.
@@ -225,10 +225,10 @@ final class ImageAdjustmentWhiteBalanceTests {
 
     @Test(arguments: grayGains)
     func aGrayTakesThePinnedGains(pin: (temperature: Double, tint: Double, gains: SIMD3<Double>)) throws {
-        let computed = ImageAdjustmentRenderer.whiteBalanceMatrix(temperature: pin.temperature, tint: pin.tint) * SIMD3(repeating: 1)
+        let computed = WhiteBalanceStep.matrix(temperature: pin.temperature, tint: pin.tint) * SIMD3(repeating: 1)
         #expect(abs(computed - pin.gains).max() < 1e-4, "\(pin.temperature), \(pin.tint): \(computed)")
 
-        let rendered = try pixel(ImageAdjustmentRenderer.temperatureAndTint(try flat(SIMD3(repeating: 0.2)), temperature: pin.temperature, tint: pin.tint))
+        let rendered = try pixel(WhiteBalanceStep.apply(try flat(SIMD3(repeating: 0.2)), temperature: pin.temperature, tint: pin.tint))
         #expect(abs(rendered / 0.2 - pin.gains).max() < 0.01, "\(pin.temperature), \(pin.tint): rendered \(rendered / 0.2)")
     }
 
@@ -237,7 +237,7 @@ final class ImageAdjustmentWhiteBalanceTests {
 
         for temperature in stride(from: -1.0, through: 1.0, by: 0.5) {
             for tint in stride(from: -1.0, through: 1.0, by: 0.5) {
-                let rendered = try pixel(ImageAdjustmentRenderer.temperatureAndTint(gray, temperature: temperature, tint: tint))
+                let rendered = try pixel(WhiteBalanceStep.apply(gray, temperature: temperature, tint: tint))
                 let luminance = (rendered * ColorMath.luminanceWeights).sum()
                 #expect(abs(luminance / 0.2 - 1) < 0.003, "\(temperature), \(tint): \(luminance / 0.2)")
             }
@@ -257,8 +257,8 @@ final class ImageAdjustmentWhiteBalanceTests {
         }
 
         let colorSync = simd_double3x3(columns: (try converted([1, 0, 0]), try converted([0, 1, 0]), try converted([0, 0, 1])))
-        let bradford = ImageAdjustmentRenderer.bradford
-        let sRGB = ImageAdjustmentRenderer.linearSRGBToXYZ
+        let bradford = WhiteBalanceStep.bradford
+        let sRGB = WhiteBalanceStep.linearSRGBToXYZ
         let ratio = (bradford * colorSync * SIMD3(repeating: 1)) / (bradford * sRGB * SIMD3(repeating: 1))
         let predicted = bradford.inverse * simd_double3x3(diagonal: ratio) * bradford * sRGB
 
@@ -307,7 +307,7 @@ final class ImageAdjustmentWhiteBalanceTests {
 
         for (stop, color) in track.enumerated() {
             let value = -1 + 2 * Double(stop) / 8
-            let rendered = ImageAdjustmentRenderer.temperatureAndTint(
+            let rendered = WhiteBalanceStep.apply(
                 gray,
                 temperature: component == .temperature ? value : -0.4,
                 tint: component == .tint ? value : 0.3

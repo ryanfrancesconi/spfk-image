@@ -7,7 +7,7 @@ import Foundation
 /// to 1 and positive balance favors highlights. The sum is shortened just enough to stay in 0…1,
 /// which keeps luma and hue and leaves black and white untouched.
 struct ColorGradingTransform: ColorCubeTransform {
-    /// One per range, from ImageAdjustmentRenderer/colorGradingTint(hue:saturation:).
+    /// One per range, from ``tint(hue:saturation:)``.
     let tints: [SIMD3<Double>]
     let balance: Double
 
@@ -19,7 +19,7 @@ struct ColorGradingTransform: ColorCubeTransform {
     init(_ grading: ImageAdjustmentDescription.ColorGrading) {
         self.init(
             tints: ImageAdjustmentDescription.ColorGradingRange.allCases.map { range in
-                ImageAdjustmentRenderer.colorGradingTint(hue: grading[range].hue, saturation: grading[range].saturation)
+                Self.tint(hue: grading[range].hue, saturation: grading[range].saturation)
             },
             balance: grading.balance
         )
@@ -47,4 +47,19 @@ struct ColorGradingTransform: ColorCubeTransform {
 
         return rgb + max(0, scale) * offset
     }
+
+    /// The offset toward `hue` with no luma of its own, so adding it keeps a pixel's luma. `hue` is 0…1
+    /// around the HSL circle; full `saturation` has a chroma of ``maximumChroma``.
+    static func tint(hue: Double, saturation: Double) -> SIMD3<Double> {
+        guard saturation > 0 else { return .zero }
+
+        let color = ColorMath.rgb(hue: hue * 360, saturation: 1, lightness: 0.5)
+        let luma = (color * ColorMath.luminanceWeights).sum()
+        return (color - SIMD3(repeating: luma)) * saturation * maximumChroma
+    }
+
+    // MARK: - Mapping from slider positions
+
+    /// The chroma, max − min of sRGB-encoded channels, that a range's full saturation adds.
+    static let maximumChroma: Double = 0.25
 }
