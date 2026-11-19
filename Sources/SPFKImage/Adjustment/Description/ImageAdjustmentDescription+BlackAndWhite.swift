@@ -33,24 +33,6 @@ extension ImageAdjustmentDescription {
             self.magenta = magenta
         }
 
-        private enum CodingKeys: String, CodingKey {
-            case isOn, red, yellow, green, cyan, blue, magenta
-        }
-
-        /// A missing key takes its default, so a description saved with other fields still loads.
-        public init(from decoder: any Decoder) throws {
-            let c = try decoder.container(keyedBy: CodingKeys.self)
-            self.init(
-                isOn: try c.decodeIfPresent(Bool.self, forKey: .isOn) ?? false,
-                red: try c.decodeIfPresent(Double.self, forKey: .red) ?? 0,
-                yellow: try c.decodeIfPresent(Double.self, forKey: .yellow) ?? 0,
-                green: try c.decodeIfPresent(Double.self, forKey: .green) ?? 0,
-                cyan: try c.decodeIfPresent(Double.self, forKey: .cyan) ?? 0,
-                blue: try c.decodeIfPresent(Double.self, forKey: .blue) ?? 0,
-                magenta: try c.decodeIfPresent(Double.self, forKey: .magenta) ?? 0
-            )
-        }
-
         public var isNeutral: Bool { self == Self() }
 
         public subscript(band: ColorBand) -> Double {

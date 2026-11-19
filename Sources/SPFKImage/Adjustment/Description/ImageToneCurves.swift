@@ -54,15 +54,15 @@ public struct ImageToneCurves: Hashable, Sendable, Codable {
         case rgb, red, green, blue
     }
 
-    /// A missing channel decodes as identity.
+    /// Sanitizes the stored points, which a synthesized decoder would assign as they are.
     public init(from decoder: any Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
 
         self.init(
-            rgb: try c.decodeIfPresent([Point].self, forKey: .rgb) ?? Self.identityPoints,
-            red: try c.decodeIfPresent([Point].self, forKey: .red) ?? Self.identityPoints,
-            green: try c.decodeIfPresent([Point].self, forKey: .green) ?? Self.identityPoints,
-            blue: try c.decodeIfPresent([Point].self, forKey: .blue) ?? Self.identityPoints
+            rgb: try c.decode([Point].self, forKey: .rgb),
+            red: try c.decode([Point].self, forKey: .red),
+            green: try c.decode([Point].self, forKey: .green),
+            blue: try c.decode([Point].self, forKey: .blue)
         )
     }
 

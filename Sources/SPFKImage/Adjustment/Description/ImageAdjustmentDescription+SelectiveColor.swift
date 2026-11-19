@@ -28,21 +28,6 @@ extension ImageAdjustmentDescription {
                 self.range = range
             }
 
-            private enum CodingKeys: String, CodingKey {
-                case hue, saturation, luminance, range
-            }
-
-            /// A missing key takes its default, so a description saved with other fields still loads.
-            public init(from decoder: any Decoder) throws {
-                let c = try decoder.container(keyedBy: CodingKeys.self)
-                self.init(
-                    hue: try c.decodeIfPresent(Double.self, forKey: .hue) ?? 0,
-                    saturation: try c.decodeIfPresent(Double.self, forKey: .saturation) ?? 0,
-                    luminance: try c.decodeIfPresent(Double.self, forKey: .luminance) ?? 0,
-                    range: try c.decodeIfPresent(Double.self, forKey: .range) ?? 0
-                )
-            }
-
             public subscript(component: Component) -> Double {
                 get {
                     switch component {

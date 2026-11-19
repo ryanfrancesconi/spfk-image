@@ -437,13 +437,6 @@ struct ImageAdjustmentSelectiveColorTests {
         #expect(decoded == adjustments)
     }
 
-    @Test func aShiftSavedWithoutRangeLoadsAtRangeZero() throws {
-        let json = #"{"hue": 0.2, "saturation": -0.1, "luminance": 0.3}"#
-        let decoded = try JSONDecoder().decode(ImageAdjustmentDescription.SelectiveColor.Shift.self, from: Data(json.utf8))
-
-        #expect(decoded == .init(hue: 0.2, saturation: -0.1, luminance: 0.3, range: 0))
-    }
-
     @Test func eachBandOwnsDistinctParameters() {
         let parameters = Band.allCases.flatMap(\.parameters)
         #expect(Set(parameters).count == parameters.count)

@@ -139,20 +139,6 @@ struct ImageAdjustmentBlackAndWhiteTests {
         #expect(try JSONDecoder().decode(ImageAdjustmentDescription.self, from: data) == adjustments)
     }
 
-    /// A preset saved with the Amount slider loads switched off, keeping its bands.
-    @Test func anOldAmountDecodesSwitchedOffWithItsBands() throws {
-        let json = #"{"amount": 0.7, "red": 0.4, "yellow": 0, "green": 0, "cyan": -0.2, "blue": 0, "magenta": 1}"#
-        let decoded = try JSONDecoder().decode(ImageAdjustmentDescription.BlackAndWhite.self, from: Data(json.utf8))
-
-        #expect(decoded == .init(isOn: false, red: 0.4, cyan: -0.2, magenta: 1))
-    }
-
-    @Test func missingBandsDecodeAsNeutral() throws {
-        let decoded = try JSONDecoder().decode(ImageAdjustmentDescription.BlackAndWhite.self, from: Data(#"{"isOn": true}"#.utf8))
-
-        #expect(decoded == .init(isOn: true))
-    }
-
     // MARK: - Slider tracks
 
     @Test(arguments: ImageAdjustmentDescription.ColorBand.allCases)

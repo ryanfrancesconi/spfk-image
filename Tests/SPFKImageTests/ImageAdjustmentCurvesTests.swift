@@ -228,7 +228,8 @@ struct ImageAdjustmentCurvesTests {
     }
 
     @Test func storedPointsAreSanitizedOnDecode() throws {
-        let json = #"{"rgb":[{"x":1,"y":1},{"x":0.3,"y":2},{"x":0,"y":0}]}"#
+        let identity = #"[{"x":0,"y":0},{"x":1,"y":1}]"#
+        let json = #"{"rgb":[{"x":1,"y":1},{"x":0.3,"y":2},{"x":0,"y":0}],"red":\#(identity),"green":\#(identity),"blue":\#(identity)}"#
         let decoded = try JSONDecoder().decode(ImageToneCurves.self, from: Data(json.utf8))
 
         #expect(decoded.rgb == [Point(x: 0, y: 0), Point(x: 0.3, y: 1), Point(x: 1, y: 1)])
