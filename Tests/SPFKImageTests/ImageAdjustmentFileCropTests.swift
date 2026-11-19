@@ -135,7 +135,8 @@ final class ImageAdjustmentFileCropTests {
         guard comparesHDR else { return }
 
         let reference = crop.apply(to: try hdrDecode(source))
-        let control = try withUncroppedMaps(output, from: source, formats: formats)
+        // An AVIF control is an AV1 encode, which blocks its thread on Dispatch work.
+        let control = try await BlockingCallLimiter.shared.run { try withUncroppedMaps(output, from: source, formats: formats) }
         let cropped = try hdrDifference(try hdrDecode(output), reference)
         let uncropped = try hdrDifference(try hdrDecode(control), reference)
 
