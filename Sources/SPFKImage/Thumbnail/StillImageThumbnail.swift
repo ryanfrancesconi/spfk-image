@@ -3,6 +3,7 @@
 import CoreGraphics
 import Foundation
 import ImageIO
+import SPFKBase
 
 /// Downscaled decodes of still images: ImageIO for raster formats, `SVGImage` for SVG and
 /// PDF-compatible Illustrator files.
@@ -21,7 +22,36 @@ public enum StillImageThumbnail {
         #endif
 
         guard let source = CGImageSourceCreateWithURL(url as CFURL, nil) else { return nil }
+        return thumbnail(of: source, maxPixelSize: maxPixelSize, allowsEmbeddedThumbnail: allowsEmbeddedThumbnail)
+    }
 
+    /// ``make(url:maxPixelSize:allowsEmbeddedThumbnail:)`` for async code.
+    ///
+    /// A RAW decode blocks its thread on work needing a cooperative thread, so it runs under a
+    /// ``BlockingCallLimiter/shared`` slot; anything else decodes inline. Never call it from the main actor.
+    public static func admitted(url: URL, maxPixelSize: Int, allowsEmbeddedThumbnail: Bool) async -> CGImage? {
+        #if os(macOS)
+            if rendersThroughNSImage(url) {
+                return SVGImage.render(url: url, maxPixelSize: maxPixelSize)
+            }
+        #endif
+
+        guard let source = CGImageSourceCreateWithURL(url as CFURL, nil) else { return nil }
+
+        guard RAWDevelop.isRAW(source) else {
+            return autoreleasepool {
+                thumbnail(of: source, maxPixelSize: maxPixelSize, allowsEmbeddedThumbnail: allowsEmbeddedThumbnail)
+            }
+        }
+
+        return await BlockingCallLimiter.shared.run {
+            autoreleasepool {
+                thumbnail(of: source, maxPixelSize: maxPixelSize, allowsEmbeddedThumbnail: allowsEmbeddedThumbnail)
+            }
+        }
+    }
+
+    private static func thumbnail(of source: CGImageSource, maxPixelSize: Int, allowsEmbeddedThumbnail: Bool) -> CGImage? {
         let sourceOption = allowsEmbeddedThumbnail
             ? kCGImageSourceCreateThumbnailFromImageIfAbsent
             : kCGImageSourceCreateThumbnailFromImageAlways

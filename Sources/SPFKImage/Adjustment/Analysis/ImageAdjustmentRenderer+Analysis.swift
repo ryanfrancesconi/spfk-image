@@ -14,13 +14,11 @@ extension ImageAdjustmentRenderer {
         cropEdit: CropEdit = CropEdit(),
         kind: ImageAutoAdjustment = .adjust
     ) async -> ImageAdjustmentDescription? {
-        let image = autoreleasepool {
-            StillImageThumbnail.make(url: url, maxPixelSize: autoAnalysisSize, allowsEmbeddedThumbnail: false)
-                .map { orientation.apply(to: cropEdit.apply(to: CIImage(cgImage: $0))) }
-        }
+        guard let decoded = await StillImageThumbnail.admitted(
+            url: url, maxPixelSize: autoAnalysisSize, allowsEmbeddedThumbnail: false
+        ) else { return nil }
 
-        guard let image else { return nil }
-        return await kind.analyze(image)
+        return await kind.analyze(orientation.apply(to: cropEdit.apply(to: CIImage(cgImage: decoded))))
     }
 
     /// The size the file at `url` displays at, its orientation tag applied, read from its header
