@@ -94,7 +94,7 @@ public struct ImageAdjustmentRenderer: Sendable {
     }
 
     /// The source's color space when it is RGB, which `createCGImage` requires; sRGB otherwise.
-    static func renderColorSpace(for image: CGImage) -> CGColorSpace {
+    public static func renderColorSpace(for image: CGImage) -> CGColorSpace {
         if let space = image.colorSpace, space.model == .rgb {
             return space
         }

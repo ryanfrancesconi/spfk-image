@@ -118,6 +118,20 @@ struct RAWDevelopParametersTests {
         #expect(result.remaining == expected)
     }
 
+    @Test func takesAnyIsTrueOnlyForAValueTheDevelopTakes() {
+        var description = ImageAdjustmentDescription()
+        description[.contrast] = 0.4
+        #expect(!RAWDevelop.takesAny(of: description))
+
+        description[.tint] = 0.2
+        #expect(RAWDevelop.takesAny(of: description))
+
+        description.bypassed = [.color]
+        #expect(!RAWDevelop.takesAny(of: description))
+
+        #expect(RAWDevelop.takesAny(of: ImageAdjustmentDescription(light: .init(exposure: -1.5))))
+    }
+
     /// A step inserted ahead of the develop's steps would run after the develop it should precede.
     @Test func theDevelopTakesExactlyTheFirstRenderSteps() {
         #expect(Array(RenderStep.allCases.prefix(RAWDevelop.developSteps.count)) == RAWDevelop.developSteps)

@@ -14,6 +14,13 @@ extension RAWDevelop {
     /// `CIRAWFilter`'s tint per unit of CIE 1960 (u, v), Adobe's scale, so full Tint is +150 and -129.
     static let tintPerUVOffset: Double = 3000
 
+    /// Whether the develop takes any of `adjustments`' effective values, so developing with them
+    /// differs from the default develop. Noise Reduction counts, whether or not a given file supports it.
+    public static func takesAny(of adjustments: ImageAdjustmentDescription) -> Bool {
+        Parameters(adjustments, asShotTemperature: 5000, asShotTint: 0, supportsLuminanceNoiseReduction: true).remaining
+            != adjustments.effective
+    }
+
     /// The filter's values for one description, and what is left for the renderer.
     struct Parameters: Equatable {
         /// Stops; 0 leaves the filter's default.
