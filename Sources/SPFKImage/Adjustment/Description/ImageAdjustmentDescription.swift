@@ -7,7 +7,8 @@ import Foundation
 /// Values are slider positions rather than Core Image parameters, so retuning the renderer's mapping
 /// never changes stored data. Each is clamped to its ``Parameter/range`` on construction, decoding and
 /// assignment, a non-finite value becomes neutral, and neutral is 0 for every parameter. The renderer
-/// applies them in a fixed order, the case order of its internal `RenderStep`.
+/// applies them in a fixed order, the case order of its internal `RenderStep`. A RAW source takes noise
+/// reduction, exposure, temperature and tint in its develop instead (``RAWDevelop``).
 ///
 /// A ``bypassed`` section keeps its values but renders as neutral (see ``effective``).
 public struct ImageAdjustmentDescription: Hashable, Sendable, Codable {

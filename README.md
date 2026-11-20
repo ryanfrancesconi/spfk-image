@@ -23,6 +23,8 @@ conversion over Core Image and ImageIO.
     balances white and then takes vibrance, highlights, shadows and Levels from Core Image's
     automatic enhancement
   - Wide-gamut and HDR color, and transparency, kept through the chain
+- RAW develop through `CIRAWFilter`, with exposure, white balance and noise reduction applied in
+  the develop to recover highlights a decoded image has already clipped
 - Rotation and flip as a pending edit, written into a file's orientation tag or rendered upright
 - A byte fingerprint for exact matches, and a perceptual hash for images that look the same across
   re-encoding and resizing
