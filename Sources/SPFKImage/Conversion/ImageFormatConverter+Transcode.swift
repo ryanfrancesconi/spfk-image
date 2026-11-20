@@ -16,10 +16,12 @@ extension ImageFormatConverter {
         maxPixelSize: Int?
     ) throws {
         let scheme = source.options.metadata
+        let overlay = try overlayMetadata()
 
+        // An overlay over an input holding no metadata still needs the rewrite.
         let sourceMetadata = scheme == .stripAll || !Self.mergeTypeIdentifiers.contains(type.identifier)
             ? nil
-            : CGImageSourceCopyMetadataAtIndex(imageSource, index, nil)
+            : CGImageSourceCopyMetadataAtIndex(imageSource, index, nil) ?? overlay.map { _ in CGImageMetadataCreateMutable() }
 
         // A sibling in the conversion's own work directory.
         let encoded = sourceMetadata == nil
@@ -61,7 +63,7 @@ extension ImageFormatConverter {
 
         guard let sourceMetadata else { return }
 
-        try merge(sourceMetadata, from: encoded, into: url, type: type)
+        try merge(sourceMetadata, overlay: overlay, from: encoded, into: url, type: type)
     }
 
     /// Lossless for a lossless output, and keeps every field the source's metadata holds.
@@ -83,20 +85,25 @@ extension ImageFormatConverter {
         }
 
         CGImageDestinationAddImageAndMetadata(
-            destination, image, CGImageSourceCopyMetadataAtIndex(imageSource, index, nil), options as CFDictionary
+            destination, image, try Self.copiedMetadata(imageSource, index: index, overlay: overlayMetadata()), options as CFDictionary
         )
 
         guard CGImageDestinationFinalize(destination) else { throw ImageConversionError.encodeFailed(type.identifier) }
     }
 
-    /// Leaves the pixels, gain map and orientation as the transcode wrote them.
-    private func merge(_ metadata: CGImageMetadata, from encoded: URL, into url: URL, type: UTType) throws {
+    /// Leaves the pixels, gain map and orientation as the transcode wrote them. `overlay` is laid over
+    /// every namespace, the camera's included.
+    private func merge(_ metadata: CGImageMetadata, overlay: CGImageMetadata?, from encoded: URL, into url: URL, type: UTType) throws {
         let keepsLocation = source.options.metadata != .copyAllExceptLocation
 
         guard let encodedSource = CGImageSourceCreateWithURL(encoded as CFURL, nil),
               let merged = Self.mergeMetadata(metadata),
               let destination = CGImageDestinationCreateWithURL(url as CFURL, type.identifier as CFString, 1, nil)
         else { throw ImageConversionError.encodeFailed(type.identifier) }
+
+        if let overlay {
+            Self.lay(overlay, over: merged)
+        }
 
         var options: [CFString: Any] = [
             kCGImageDestinationMetadata: merged,

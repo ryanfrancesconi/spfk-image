@@ -26,6 +26,11 @@ public struct ImageConversionSource: Sendable {
     /// other input.
     public var rawDecoderVersion: String?
 
+    /// An XMP packet laid over the metadata copied from ``input``, such as a camera RAW's sidecar: each
+    /// top-level property it holds replaces the input's, and an empty one clears it. The metadata scheme
+    /// applies afterwards, so it strips the overlay as it strips the input's own.
+    public var overlayXMP: String?
+
     public init(
         input: URL,
         output: URL,
@@ -34,7 +39,8 @@ public struct ImageConversionSource: Sendable {
         adjustments: ImageAdjustmentDescription? = nil,
         orientation: OrientationEdit = .up,
         crop: CropEdit = CropEdit(),
-        rawDecoderVersion: String? = nil
+        rawDecoderVersion: String? = nil,
+        overlayXMP: String? = nil
     ) {
         self.input = input
         self.output = output
@@ -44,6 +50,7 @@ public struct ImageConversionSource: Sendable {
         self.orientation = orientation
         self.crop = crop
         self.rawDecoderVersion = rawDecoderVersion
+        self.overlayXMP = overlayXMP
     }
 
     var hasAdjustments: Bool {

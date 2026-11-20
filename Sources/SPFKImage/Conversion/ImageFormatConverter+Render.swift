@@ -108,7 +108,7 @@ extension ImageFormatConverter {
             options.merge(Self.headroomProperties(properties)) { $1 }
             CGImageDestinationAddImage(destination, cgImage, options as CFDictionary)
         } else {
-            let metadata = CGImageSourceCopyMetadataAtIndex(imageSource, index, nil).flatMap { CGImageMetadataCreateMutableCopy($0) }
+            let metadata = try Self.copiedMetadata(imageSource, index: index, overlay: overlayMetadata())
 
             if let metadata {
                 CGImageMetadataSetValueMatchingImageProperty(

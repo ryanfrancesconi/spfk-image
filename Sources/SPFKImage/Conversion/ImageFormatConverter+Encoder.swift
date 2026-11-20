@@ -22,7 +22,8 @@ extension ImageFormatConverter {
             index: index,
             scheme: source.options.metadata,
             size: PixelSize(width: image.width, height: image.height),
-            type: encoder.type
+            type: encoder.type,
+            overlay: overlayMetadata()
         ) { metadata in
             remapRegions(metadata, properties: properties, written: PixelSize(width: image.width, height: image.height))
         }
@@ -34,18 +35,19 @@ extension ImageFormatConverter {
         try data.write(to: url)
     }
 
-    /// The source's metadata as an EXIF block and an XMP packet, stating orientation 1 and `size`, after `fit`.
+    /// The source's metadata with `overlay` laid over it, as an EXIF block and an XMP packet, stating
+    /// orientation 1 and `size`, after `fit`.
     static func encoderMetadata(
         _ imageSource: CGImageSource,
         index: Int,
         scheme: ImageMetadataCopyScheme,
         size: PixelSize,
         type: UTType,
+        overlay: CGImageMetadata? = nil,
         fit: (CGMutableImageMetadata) -> Void = { _ in }
     ) throws -> (exif: Data?, xmp: Data?) {
         guard scheme != .stripAll,
-              let sourceMetadata = CGImageSourceCopyMetadataAtIndex(imageSource, index, nil),
-              let metadata = CGImageMetadataCreateMutableCopy(sourceMetadata)
+              let metadata = copiedMetadata(imageSource, index: index, overlay: overlay)
         else { return (nil, nil) }
 
         let values: [(dictionary: CFString, key: CFString, value: Int)] = [

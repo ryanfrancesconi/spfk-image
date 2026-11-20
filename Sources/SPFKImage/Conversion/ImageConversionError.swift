@@ -19,6 +19,8 @@ public enum ImageConversionError: LocalizedError, Equatable, Sendable {
     case encodeFailed(String)
     /// The written file does not display at the size it was written at.
     case readBackMismatch
+    /// The source's ``ImageConversionSource/overlayXMP`` is not XMP ImageIO can read.
+    case unreadableOverlayXMP
 
     public var errorDescription: String? {
         switch self {
@@ -38,6 +40,8 @@ public enum ImageConversionError: LocalizedError, Equatable, Sendable {
             "The image could not be encoded as \(Self.name(of: type))."
         case .readBackMismatch:
             "The converted file does not match the size it was written at."
+        case .unreadableOverlayXMP:
+            "The XMP metadata to add to the converted file could not be read."
         }
     }
 
