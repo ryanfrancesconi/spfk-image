@@ -66,6 +66,7 @@ extension ImageAdjustmentDescription {
         case noiseReduction
         case colorNoiseReduction
         case moireReduction
+        case lensCorrection
         case vignette
         case vignetteRadius
         case vignetteSoftness
@@ -84,7 +85,7 @@ extension ImageAdjustmentDescription {
             case .levelsWhite: -1 ... 0
             case .brilliance, .highlights, .contrast, .shadows, .brightness, .blackPoint, .whitePoint, .saturation, .vibrance, .temperature, .tint,
                  .blackAndWhiteRed, .blackAndWhiteYellow, .blackAndWhiteGreen, .blackAndWhiteCyan, .blackAndWhiteBlue, .blackAndWhiteMagenta,
-                 .sharpnessRadius, .colorNoiseReduction, .moireReduction, .vignette, .vignetteRadius, .vignetteSoftness, .grainSize: -1 ... 1
+                 .sharpnessRadius, .colorNoiseReduction, .moireReduction, .lensCorrection, .vignette, .vignetteRadius, .vignetteSoftness, .grainSize: -1 ... 1
             case .selectiveRedHue, .selectiveRedSaturation, .selectiveRedLuminance, .selectiveRedRange,
                  .selectiveYellowHue, .selectiveYellowSaturation, .selectiveYellowLuminance, .selectiveYellowRange,
                  .selectiveGreenHue, .selectiveGreenSaturation, .selectiveGreenLuminance, .selectiveGreenRange,
@@ -160,6 +161,7 @@ extension ImageAdjustmentDescription {
             case .noiseReduction: \.detail.noiseReduction
             case .colorNoiseReduction: \.raw.colorNoiseReduction
             case .moireReduction: \.raw.moireReduction
+            case .lensCorrection: \.raw.lensCorrection
             case .vignette: \.vignette.amount
             case .vignetteRadius: \.vignette.radius
             case .vignetteSoftness: \.vignette.softness
@@ -168,10 +170,12 @@ extension ImageAdjustmentDescription {
             }
         }
 
-        /// `value` clamped to ``range``, or neutral when it is not finite.
+        /// `value` clamped to ``range``, or neutral when it is not finite. Lens Correction takes only
+        /// whole values.
         public func sanitize(_ value: Double) -> Double {
             guard value.isFinite else { return 0 }
-            return min(max(value, range.lowerBound), range.upperBound)
+            let clamped = min(max(value, range.lowerBound), range.upperBound)
+            return self == .lensCorrection ? clamped.rounded() : clamped
         }
     }
 }

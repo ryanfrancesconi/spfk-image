@@ -22,8 +22,9 @@ extension RAWDevelop {
     /// given file supports them.
     public static func takesAny(of adjustments: ImageAdjustmentDescription) -> Bool {
         let file = FileValues(
-            asShotTemperature: 5000, asShotTint: 0, colorNoiseReduction: 0.5, moireReduction: 0.5,
-            supportsLuminanceNoiseReduction: true, supportsColorNoiseReduction: true, supportsMoireReduction: true
+            asShotTemperature: 5000, asShotTint: 0, colorNoiseReduction: 0.5, moireReduction: 0.5, lensCorrection: true,
+            supportsLuminanceNoiseReduction: true, supportsColorNoiseReduction: true, supportsMoireReduction: true,
+            supportsLensCorrection: true
         )
         return Parameters(adjustments, file: file).remaining != adjustments.effective
     }
@@ -35,9 +36,11 @@ extension RAWDevelop {
         /// The filter's own amounts, 0...1.
         var colorNoiseReduction: Double
         var moireReduction: Double
+        var lensCorrection: Bool
         var supportsLuminanceNoiseReduction: Bool
         var supportsColorNoiseReduction: Bool
         var supportsMoireReduction: Bool
+        var supportsLensCorrection: Bool
     }
 
     /// The filter amount for `value`, a RAW section position relative to `fileDefault`: 0 is the
@@ -79,6 +82,8 @@ extension RAWDevelop {
         /// Filter amounts; nil leaves the file's default.
         var colorNoiseReduction: Double?
         var moireReduction: Double?
+        /// nil leaves the file's default.
+        var lensCorrection: Bool?
         /// The effective description with each value the develop takes returned to 0.
         var remaining: ImageAdjustmentDescription
 
@@ -123,6 +128,7 @@ extension RAWDevelop {
                 ? RAWDevelop.amount(raw.colorNoiseReduction, relativeTo: file.colorNoiseReduction) : nil
             moireReduction = file.supportsMoireReduction && raw.moireReduction != 0
                 ? RAWDevelop.amount(raw.moireReduction, relativeTo: file.moireReduction) : nil
+            lensCorrection = file.supportsLensCorrection && raw.lensCorrection != 0 ? raw.lensCorrection > 0 : nil
             remaining.raw = ImageAdjustmentDescription.RAW()
 
             self.remaining = remaining

@@ -43,7 +43,7 @@ extension ImageAdjustmentDescription.Parameter {
         case .colorGradingShadowHue, .colorGradingShadowSaturation, .colorGradingMidtoneHue, .colorGradingMidtoneSaturation,
              .colorGradingHighlightHue, .colorGradingHighlightSaturation, .colorGradingBalance: .colorGrading
         case .sharpness, .sharpnessRadius, .definition, .noiseReduction: .detail
-        case .colorNoiseReduction, .moireReduction: .raw
+        case .colorNoiseReduction, .moireReduction, .lensCorrection: .raw
         case .vignette, .vignetteRadius, .vignetteSoftness: .vignette
         case .grain, .grainSize: .grain
         }

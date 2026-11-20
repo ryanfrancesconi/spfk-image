@@ -8,10 +8,13 @@ extension ImageAdjustmentDescription {
     public struct RAW: Hashable, Sendable, Codable {
         public var colorNoiseReduction: Double
         public var moireReduction: Double
+        /// -1, 0 or 1: off, as shot, or on.
+        public var lensCorrection: Double
 
-        public init(colorNoiseReduction: Double = 0, moireReduction: Double = 0) {
+        public init(colorNoiseReduction: Double = 0, moireReduction: Double = 0, lensCorrection: Double = 0) {
             self.colorNoiseReduction = colorNoiseReduction
             self.moireReduction = moireReduction
+            self.lensCorrection = lensCorrection
         }
 
         public var isNeutral: Bool { self == Self() }
@@ -19,6 +22,7 @@ extension ImageAdjustmentDescription {
         mutating func clamp() {
             clampField(&colorNoiseReduction, .colorNoiseReduction)
             clampField(&moireReduction, .moireReduction)
+            clampField(&lensCorrection, .lensCorrection)
         }
     }
 }

@@ -119,7 +119,7 @@ final class ImageAdjustmentDescriptionTests {
         case .grain:
             return .init(grain: .init(amount: v, size: v))
         case .raw:
-            return .init(raw: .init(colorNoiseReduction: v, moireReduction: v))
+            return .init(raw: .init(colorNoiseReduction: v, moireReduction: v, lensCorrection: v))
         }
     }
 

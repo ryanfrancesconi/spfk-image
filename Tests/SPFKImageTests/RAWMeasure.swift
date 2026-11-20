@@ -90,6 +90,20 @@ struct RAWMeasure {
         return Double(largest)
     }
 
+    /// The share of pixels whose largest channel difference exceeds `threshold`, or nil when the sizes differ.
+    func shareDiffering(from other: RAWMeasure, by threshold: Double) -> Double? {
+        guard width == other.width, height == other.height else { return nil }
+
+        var differing = 0
+        for pixel in 0 ..< pixelCount {
+            let i = pixel * 4
+            if (0 ..< 3).contains(where: { Double(abs(pixels[i + $0] - other.pixels[i + $0])) > threshold }) {
+                differing += 1
+            }
+        }
+        return Double(differing) / Double(pixelCount)
+    }
+
     /// The mean difference across color channels, or nil when the sizes differ.
     func meanDifference(from other: RAWMeasure) -> Double? {
         guard width == other.width, height == other.height else { return nil }

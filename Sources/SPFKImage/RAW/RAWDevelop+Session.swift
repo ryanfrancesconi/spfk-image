@@ -18,16 +18,19 @@ extension RAWDevelop {
         private let defaultNoiseReduction: Float
         private let defaultColorNoiseReduction: Float
         private let defaultMoireReduction: Float
+        private let defaultLensCorrection: Bool
         private let fileOrientation: CGImagePropertyOrientation
         private let supportsLuminanceNoiseReduction: Bool
         private let supportsColorNoiseReduction: Bool
         private let supportsMoireReduction: Bool
+        private let supportsLensCorrection: Bool
 
         /// The RAW section's parameters this file's develop supports.
         public var supportedDevelopParameters: Set<ImageAdjustmentDescription.Parameter> {
             var supported = Set<ImageAdjustmentDescription.Parameter>()
             if supportsColorNoiseReduction { supported.insert(.colorNoiseReduction) }
             if supportsMoireReduction { supported.insert(.moireReduction) }
+            if supportsLensCorrection { supported.insert(.lensCorrection) }
             return supported
         }
 
@@ -40,9 +43,11 @@ extension RAWDevelop {
                 asShotTint: Double(asShotTint),
                 colorNoiseReduction: Double(defaultColorNoiseReduction),
                 moireReduction: Double(defaultMoireReduction),
+                lensCorrection: defaultLensCorrection,
                 supportsLuminanceNoiseReduction: supportsLuminanceNoiseReduction,
                 supportsColorNoiseReduction: supportsColorNoiseReduction,
-                supportsMoireReduction: supportsMoireReduction
+                supportsMoireReduction: supportsMoireReduction,
+                supportsLensCorrection: supportsLensCorrection
             )
         }
 
@@ -66,10 +71,12 @@ extension RAWDevelop {
             defaultNoiseReduction = filter.luminanceNoiseReductionAmount
             defaultColorNoiseReduction = filter.colorNoiseReductionAmount
             defaultMoireReduction = filter.moireReductionAmount
+            defaultLensCorrection = filter.isLensCorrectionEnabled
             fileOrientation = filter.orientation
             supportsLuminanceNoiseReduction = filter.isLuminanceNoiseReductionSupported
             supportsColorNoiseReduction = filter.isColorNoiseReductionSupported
             supportsMoireReduction = filter.isMoireReductionSupported
+            supportsLensCorrection = filter.isLensCorrectionSupported
         }
 
         /// The file developed with `adjustments`. Every value a previous call set is set again, so
@@ -101,6 +108,11 @@ extension RAWDevelop {
             if supportsMoireReduction {
                 let amount = parameters.moireReduction.map(Float.init) ?? defaultMoireReduction
                 if filter.moireReductionAmount != amount { filter.moireReductionAmount = amount }
+            }
+
+            if supportsLensCorrection {
+                let enabled = parameters.lensCorrection ?? defaultLensCorrection
+                if filter.isLensCorrectionEnabled != enabled { filter.isLensCorrectionEnabled = enabled }
             }
 
             apply(options)

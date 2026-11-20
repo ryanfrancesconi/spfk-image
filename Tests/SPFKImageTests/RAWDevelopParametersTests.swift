@@ -18,6 +18,7 @@ struct RAWDevelopParametersTests {
         supportsNoiseReduction: Bool = true,
         colorNoiseDefault: Double = 0.5,
         moireDefault: Double = 0.5,
+        lensCorrectionDefault: Bool = true,
         supportsRAWSection: Bool = true
     ) -> Parameters {
         Parameters(adjustments, file: RAWDevelop.FileValues(
@@ -25,9 +26,11 @@ struct RAWDevelopParametersTests {
             asShotTint: asShotTint,
             colorNoiseReduction: colorNoiseDefault,
             moireReduction: moireDefault,
+            lensCorrection: lensCorrectionDefault,
             supportsLuminanceNoiseReduction: supportsNoiseReduction,
             supportsColorNoiseReduction: supportsRAWSection,
-            supportsMoireReduction: supportsRAWSection
+            supportsMoireReduction: supportsRAWSection,
+            supportsLensCorrection: supportsRAWSection
         ))
     }
 
@@ -44,6 +47,7 @@ struct RAWDevelopParametersTests {
         #expect(result.luminanceNoiseReduction == nil)
         #expect(result.colorNoiseReduction == nil)
         #expect(result.moireReduction == nil)
+        #expect(result.lensCorrection == nil)
         #expect(result.remaining.isEmpty)
     }
 
@@ -227,12 +231,40 @@ struct RAWDevelopParametersTests {
     }
 
     @Test func anUnsupportedRAWValueSetsNothingAndRendersNothing() {
-        let description = ImageAdjustmentDescription(raw: .init(colorNoiseReduction: -1, moireReduction: 0.5))
+        let description = ImageAdjustmentDescription(raw: .init(colorNoiseReduction: -1, moireReduction: 0.5, lensCorrection: -1))
         let result = parameters(description, supportsRAWSection: false)
 
         #expect(result.colorNoiseReduction == nil)
         #expect(result.moireReduction == nil)
+        #expect(result.lensCorrection == nil)
         #expect(result.remaining.isEmpty)
+    }
+
+    /// Off and On set the filter whatever the file's default; As Shot leaves it.
+    @Test(arguments: [true, false])
+    func lensCorrectionSetsTheFilterOnlyAwayFromAsShot(fileDefault: Bool) {
+        func lensCorrection(_ value: Double) -> Bool? {
+            parameters(ImageAdjustmentDescription(raw: .init(lensCorrection: value)), lensCorrectionDefault: fileDefault).lensCorrection
+        }
+
+        #expect(lensCorrection(-1) == false)
+        #expect(lensCorrection(0) == nil)
+        #expect(lensCorrection(1) == true)
+        #expect(parameters(ImageAdjustmentDescription(raw: .init(lensCorrection: -1))).remaining.isEmpty)
+    }
+
+    @Test func lensCorrectionTakesOnlyWholeValues() {
+        let lensCorrection = ImageAdjustmentDescription.Parameter.lensCorrection
+        let pairs: [(Double, Double)] = [(-0.7, -1), (-0.3, 0), (0.3, 0), (0.5, 1), (0.9, 1), (5, 1), (.nan, 0)]
+
+        for (value, expected) in pairs {
+            #expect(lensCorrection.sanitize(value) == expected, "\(value)")
+            #expect(ImageAdjustmentDescription(raw: .init(lensCorrection: value)).raw.lensCorrection == expected, "\(value)")
+        }
+    }
+
+    @Test func lensCorrectionAloneIsSomethingTheDevelopTakes() {
+        #expect(RAWDevelop.takesAny(of: ImageAdjustmentDescription(raw: .init(lensCorrection: -1))))
     }
 
     @Test func moireAloneIsSomethingTheDevelopTakes() {
