@@ -27,9 +27,9 @@ extension CaptureModes {
             modes.insert(.hdr)
         }
 
-        if types.contains(kCGImageAuxiliaryDataTypePortraitEffectsMatte as String),
-           types.contains(kCGImageAuxiliaryDataTypeDisparity as String)
-           || types.contains(kCGImageAuxiliaryDataTypeDepth as String) {
+        // Photos marks any photo carrying depth as Portrait, matte or not.
+        if types.contains(kCGImageAuxiliaryDataTypeDisparity as String)
+            || types.contains(kCGImageAuxiliaryDataTypeDepth as String) {
             modes.insert(.portrait)
         }
 

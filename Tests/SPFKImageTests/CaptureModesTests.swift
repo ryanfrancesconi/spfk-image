@@ -121,8 +121,7 @@ enum CaptureModesOracle {
                 modes.insert(.hdr)
             }
 
-            if has(kCGImageAuxiliaryDataTypePortraitEffectsMatte),
-               has(kCGImageAuxiliaryDataTypeDisparity) || has(kCGImageAuxiliaryDataTypeDepth) {
+            if has(kCGImageAuxiliaryDataTypeDisparity) || has(kCGImageAuxiliaryDataTypeDepth) {
                 modes.insert(.portrait)
             }
 
