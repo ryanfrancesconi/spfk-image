@@ -11,7 +11,7 @@ import UniformTypeIdentifiers
 @testable import SPFKImage
 
 /// Converting an adjusted RAW develops it, against real RAW files named by `SPFK_RAW_SAMPLES`.
-@Suite(.tags(.file, .conversion), .serialized, .enabled(if: RAWSamples.folder != nil))
+@Suite(.tags(.file, .conversion, .rawDevelop), .serialized, .enabled(if: RAWSamples.folder != nil))
 final class ImageFormatConverterRAWTests: BinTestCase {
     static let darker = ImageAdjustmentDescription(light: .init(exposure: -1.5))
 
@@ -23,14 +23,16 @@ final class ImageFormatConverterRAWTests: BinTestCase {
         _ input: URL,
         named name: String,
         adjustments: ImageAdjustmentDescription? = nil,
-        crop: CropEdit = CropEdit()
+        crop: CropEdit = CropEdit(),
+        rawDecoderVersion: String? = nil
     ) async throws -> URL {
         let source = ImageConversionSource(
             input: input,
             output: bin.appendingPathComponent(name).appendingPathExtension("heic"),
             options: ImageConversionOptions(format: UTType.heic.identifier),
             adjustments: adjustments,
-            crop: crop
+            crop: crop,
+            rawDecoderVersion: rawDecoderVersion
         )
         return try await ImageFormatConverter(source: source).convert().output
     }
@@ -75,6 +77,16 @@ final class ImageFormatConverterRAWTests: BinTestCase {
         print("DSCF3303 converted to HEIC, clipped at quarter scale: plain \(plainClipped), -1.5 EV \(darkerClipped)")
 
         #expect(darkerClipped < plainClipped / 2)
+    }
+
+    /// A pinned version this Mac does not offer develops with the default, as the preview does.
+    @Test func aVersionThisMacLacksConvertsWithTheDefault() async throws {
+        let input = try sample("P1061136.dng")
+
+        let output = try await convert(input, named: "unknown-version", adjustments: Self.darker, rawDecoderVersion: "not-a-version")
+
+        let source = ImageConversionSource(input: input, output: output, options: ImageConversionOptions(), adjustments: Self.darker)
+        #expect(try writtenSize(output) == expectedSize(source))
     }
 
     @Test func theCropFollowsTheDevelop() async throws {

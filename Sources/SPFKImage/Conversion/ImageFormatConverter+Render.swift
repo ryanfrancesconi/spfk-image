@@ -18,13 +18,21 @@ extension ImageFormatConverter {
         if source.developsRAW, RAWDevelop.isRAW(imageSource) {
             // The develop reads the file's main image. Its output is upright with `upright`'s extent.
             let developed: RAWDevelop.Developed
+            let adjustments = source.adjustments ?? ImageAdjustmentDescription()
 
             do {
-                developed = try RAWDevelop.develop(
-                    contentsOf: source.input,
-                    adjustments: source.adjustments ?? ImageAdjustmentDescription(),
-                    decoderVersion: source.rawDecoderVersion
-                )
+                do {
+                    developed = try RAWDevelop.develop(
+                        contentsOf: source.input,
+                        adjustments: adjustments,
+                        decoderVersion: source.rawDecoderVersion
+                    )
+                } catch let RAWDevelopError.unsupportedDecoderVersion(version) {
+                    Log.error(
+                        "\(source.input.lastPathComponent) was adjusted with RAW decoder version \(version), which this Mac does not offer; using the default"
+                    )
+                    developed = try RAWDevelop.develop(contentsOf: source.input, adjustments: adjustments)
+                }
             } catch {
                 Log.error("RAW develop failed for \(source.input.lastPathComponent): \(error)")
                 throw ImageConversionError.renderFailed
