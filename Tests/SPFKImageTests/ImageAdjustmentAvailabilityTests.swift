@@ -20,8 +20,14 @@ struct ImageAdjustmentAvailabilityTests {
         return description
     }
 
-    @Test func videoKeepsEverything() {
-        #expect(Self.full.restricted(to: .video) == Self.full)
+    /// Video renders without a develop, so only the RAW section goes.
+    @Test func videoKeepsEverythingButTheRAWSection() {
+        var expected = Self.full
+        expected.raw = ImageAdjustmentDescription.RAW()
+        expected.bypassed.remove(.raw)
+
+        #expect(Self.full.restricted(to: .video) == expected)
+        #expect(Self.full.restricted(to: .video).raw.isNeutral)
     }
 
     @Test func anExcludedParameterGoesToNeutral() {
