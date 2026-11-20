@@ -1,11 +1,13 @@
 // Copyright Ryan Francesconi. All Rights Reserved.
 
 import Foundation
+import SPFKTesting
 import Testing
 
 @testable import SPFKImage
 
 /// The mapping from slider positions to `CIRAWFilter`'s values, and what it leaves for the renderer.
+@Suite(.tags(.rawDevelop))
 struct RAWDevelopParametersTests {
     private typealias Parameters = RAWDevelop.Parameters
 
@@ -156,5 +158,39 @@ struct RAWDevelopParametersTests {
 
         #expect(taken == read)
         #expect(taken.allSatisfy { result.remaining[$0] == 0 })
+    }
+
+    // MARK: - White balance from a point
+
+    @Test func thePickedWhiteMapsBackToTheSlidersThatDevelopIt() throws {
+        let asShot = (temperature: 5000.0, tint: 10.0)
+
+        for (temperature, tint) in [(0.5, 0.2), (-0.7, -0.6), (0.1, -1.0), (-1.0, 1.0), (0.0, 0.35)] {
+            let forward = parameters(
+                ImageAdjustmentDescription(color: .init(temperature: temperature, tint: tint)),
+                asShotTemperature: asShot.temperature,
+                asShotTint: asShot.tint
+            )
+
+            let back = RAWDevelop.whiteBalance(
+                neutralTemperature: try #require(forward.neutralTemperature),
+                neutralTint: try #require(forward.neutralTint),
+                asShotTemperature: asShot.temperature,
+                asShotTint: asShot.tint
+            )
+
+            #expect(abs(back.temperature - temperature) < 1e-9, "temperature \(temperature) came back \(back.temperature)")
+            #expect(abs(back.tint - tint) < 1e-9, "tint \(tint) came back \(back.tint)")
+        }
+    }
+
+    @Test func aPickBeyondTheSlidersStopsAtTheirEdges() {
+        let warm = RAWDevelop.whiteBalance(neutralTemperature: 40000, neutralTint: 10_000, asShotTemperature: 5000, asShotTint: 10)
+        #expect(warm.temperature == ImageAdjustmentDescription.Parameter.temperature.range.upperBound)
+        #expect(warm.tint == ImageAdjustmentDescription.Parameter.tint.range.upperBound)
+
+        let cool = RAWDevelop.whiteBalance(neutralTemperature: 2100, neutralTint: -10_000, asShotTemperature: 5000, asShotTint: 10)
+        #expect(cool.temperature == ImageAdjustmentDescription.Parameter.temperature.range.lowerBound)
+        #expect(cool.tint == ImageAdjustmentDescription.Parameter.tint.range.lowerBound)
     }
 }

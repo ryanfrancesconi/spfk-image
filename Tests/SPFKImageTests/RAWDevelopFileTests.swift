@@ -10,7 +10,7 @@ import Testing
 @testable import SPFKImage
 
 /// `RAWDevelop` against real RAW files, named by `SPFK_RAW_SAMPLES` (see `RAWSamples`).
-@Suite(.tags(.file), .serialized, .enabled(if: RAWSamples.folder != nil))
+@Suite(.tags(.file, .rawDevelop), .serialized, .enabled(if: RAWSamples.folder != nil))
 final class RAWDevelopFileTests: BinTestCase {
     private let quarter = RAWDevelop.Options(scaleFactor: RAWMeasure.scaleFactor)
 
@@ -180,5 +180,74 @@ final class RAWDevelopFileTests: BinTestCase {
 
         // Assigning the as-shot white back, even unchanged, moves a channel by about 6e-7.
         #expect(try #require(reused.largestDifference(from: fresh)) < 1e-5)
+    }
+
+    // MARK: - White balance from a point
+
+    private let half = RAWDevelop.Options(scaleFactor: 0.5)
+
+    /// Red and blue over green, averaged in linear light over a 13 px box centered on `point`.
+    private func chroma(_ image: CIImage, at point: CGPoint) throws -> (red: Double, blue: Double) {
+        let extent = image.extent
+        let center = CGPoint(x: extent.minX + point.x * extent.width, y: extent.minY + (1 - point.y) * extent.height)
+        let box = CGRect(x: center.x - 6, y: center.y - 6, width: 13, height: 13)
+
+        let average = image.applyingFilter("CIAreaAverage", parameters: [kCIInputExtentKey: CIVector(cgRect: box)])
+        let space = try #require(CGColorSpace(name: CGColorSpace.extendedLinearDisplayP3))
+
+        var pixel = [Float](repeating: 0, count: 4)
+        RAWMeasure.context.render(
+            average, toBitmap: &pixel, rowBytes: 16, bounds: CGRect(x: 0, y: 0, width: 1, height: 1), format: .RGBAf, colorSpace: space
+        )
+        try #require(pixel[1] > 0)
+        return (Double(pixel[0] / pixel[1]), Double(pixel[2] / pixel[1]))
+    }
+
+    @Test func aPickedPointDevelopsGray() throws {
+        let url = try sample("P1061136.dng")
+        let session = try RAWDevelop.Session(contentsOf: url)
+
+        for point in [CGPoint(x: 0.3, y: 0.4), CGPoint(x: 0.5, y: 0.5)] {
+            let picked = try session.whiteBalance(atUnitPoint: point, options: half)
+            let adjustments = ImageAdjustmentDescription(color: .init(temperature: picked.temperature, tint: picked.tint))
+            let developed = try session.develop(adjustments, options: half)
+            let measured = try chroma(developed.image, at: point)
+
+            print("P1061136 pick at \(point): Temperature \(picked.temperature), Tint \(picked.tint), R/G \(measured.red), B/G \(measured.blue)")
+            #expect(abs(measured.red - 1) < 0.04)
+            #expect(abs(measured.blue - 1) < 0.04)
+        }
+    }
+
+    @Test func aPickDoesNotDependOnTheWhiteAlreadySet() throws {
+        let url = try sample("P1061136.dng")
+        let point = CGPoint(x: 0.3, y: 0.4)
+
+        let fresh = try RAWDevelop.Session(contentsOf: url).whiteBalance(atUnitPoint: point, options: half)
+
+        let session = try RAWDevelop.Session(contentsOf: url)
+        _ = try session.develop(ImageAdjustmentDescription(color: .init(temperature: 0.6)), options: half)
+        let warmed = try session.whiteBalance(atUnitPoint: point, options: half)
+
+        #expect(abs(warmed.temperature - fresh.temperature) < 1e-6)
+        #expect(abs(warmed.tint - fresh.tint) < 1e-6)
+    }
+
+    @Test func aPickLeavesTheSessionAsItWas() throws {
+        let url = try sample("P1061136.dng")
+        let session = try RAWDevelop.Session(contentsOf: url)
+
+        _ = try session.whiteBalance(atUnitPoint: CGPoint(x: 0.5, y: 0.5), options: half)
+        let afterPick = try RAWMeasure(session.develop(ImageAdjustmentDescription(), options: quarter).image)
+        let freshDevelop = try RAWMeasure(RAWDevelop.Session(contentsOf: url).develop(ImageAdjustmentDescription(), options: quarter).image)
+
+        #expect(try #require(afterPick.largestDifference(from: freshDevelop)) <= 1e-5)
+    }
+
+    @Test func aPointOutsideTheImageThrows() throws {
+        let session = try RAWDevelop.Session(contentsOf: sample("P1061136.dng"))
+        #expect(throws: RAWDevelopError.pointOutsideImage) {
+            try session.whiteBalance(atUnitPoint: CGPoint(x: 1.2, y: 0.5), options: half)
+        }
     }
 }

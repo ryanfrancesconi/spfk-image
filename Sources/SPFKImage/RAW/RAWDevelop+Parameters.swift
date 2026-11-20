@@ -21,6 +21,26 @@ extension RAWDevelop {
             != adjustments.effective
     }
 
+    /// Temperature and Tint, in slider units, that develop to the neutral pair against the as-shot
+    /// pair: the inverse of ``Parameters``' white balance, each limited to its parameter's range.
+    static func whiteBalance(
+        neutralTemperature: Double,
+        neutralTint: Double,
+        asShotTemperature: Double,
+        asShotTint: Double
+    ) -> (temperature: Double, tint: Double) {
+        let temperature = (1_000_000 / asShotTemperature - 1_000_000 / neutralTemperature) / WhiteBalanceStep.miredPerUnit
+
+        let difference = neutralTint - asShotTint
+        let offset = difference > 0 ? WhiteBalanceStep.maximumMagentaTintOffset : WhiteBalanceStep.maximumGreenTintOffset
+        let tint = difference / (offset * tintPerUVOffset)
+
+        return (
+            ImageAdjustmentDescription.Parameter.temperature.sanitize(temperature),
+            ImageAdjustmentDescription.Parameter.tint.sanitize(tint)
+        )
+    }
+
     /// The filter's values for one description, and what is left for the renderer.
     struct Parameters: Equatable {
         /// Stops; 0 leaves the filter's default.

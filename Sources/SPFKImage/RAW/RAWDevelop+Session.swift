@@ -67,16 +67,58 @@ extension RAWDevelop {
                 if filter.luminanceNoiseReductionAmount != amount { filter.luminanceNoiseReductionAmount = amount }
             }
 
+            apply(options)
+
+            guard let image = filter.outputImage else { throw RAWDevelopError.developFailed }
+
+            return Developed(image: image, remaining: parameters.remaining)
+        }
+
+        /// Temperature and Tint, in slider units, that make the point neutral. The point is in
+        /// fractions of the developed image, origin top left.
+        ///
+        /// The developed image is the one `develop` returns with `options`, before any pending
+        /// orientation edit. A point outside 0...1 throws.
+        public func whiteBalance(atUnitPoint point: CGPoint, options: Options = Options()) throws -> (temperature: Double, tint: Double) {
+            guard (0 ... 1).contains(point.x), (0 ... 1).contains(point.y) else {
+                throw RAWDevelopError.pointOutsideImage
+            }
+
+            apply(options)
+
+            guard let extent = filter.outputImage?.extent, !extent.isEmpty, !extent.isInfinite else {
+                throw RAWDevelopError.developFailed
+            }
+
+            let previousTemperature = filter.neutralTemperature
+            let previousTint = filter.neutralTint
+
+            // In the output's own coordinates: Core Image's, origin bottom left, at the current scale.
+            filter.neutralLocation = CGPoint(
+                x: extent.minX + point.x * extent.width,
+                y: extent.minY + (1 - point.y) * extent.height
+            )
+
+            let picked = (temperature: Double(filter.neutralTemperature), tint: Double(filter.neutralTint))
+
+            filter.neutralTemperature = previousTemperature
+            filter.neutralTint = previousTint
+
+            return RAWDevelop.whiteBalance(
+                neutralTemperature: picked.temperature,
+                neutralTint: picked.tint,
+                asShotTemperature: Double(asShotTemperature),
+                asShotTint: Double(asShotTint)
+            )
+        }
+
+        private func apply(_ options: Options) {
             let scaleFactor = Float(options.scaleFactor)
             if filter.scaleFactor != scaleFactor { filter.scaleFactor = scaleFactor }
             if filter.isDraftModeEnabled != options.isDraft { filter.isDraftModeEnabled = options.isDraft }
 
             let orientation = options.appliesFileOrientation ? fileOrientation : .up
             if filter.orientation != orientation { filter.orientation = orientation }
-
-            guard let image = filter.outputImage else { throw RAWDevelopError.developFailed }
-
-            return Developed(image: image, remaining: parameters.remaining)
         }
     }
 }

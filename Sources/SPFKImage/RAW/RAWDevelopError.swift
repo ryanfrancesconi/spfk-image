@@ -9,6 +9,8 @@ public enum RAWDevelopError: LocalizedError, Equatable, Sendable {
     /// The file cannot be developed with this decoder version on this system.
     case unsupportedDecoderVersion(String)
     case developFailed
+    /// A white balance point lies outside the developed image.
+    case pointOutsideImage
 
     public var errorDescription: String? {
         switch self {
@@ -18,6 +20,8 @@ public enum RAWDevelopError: LocalizedError, Equatable, Sendable {
             "This Mac cannot develop the file with RAW decoder version \(version)."
         case .developFailed:
             "The RAW image could not be developed."
+        case .pointOutsideImage:
+            "The point is outside the image."
         }
     }
 }

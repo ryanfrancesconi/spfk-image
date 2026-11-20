@@ -1,6 +1,7 @@
 // Copyright Ryan Francesconi. All Rights Reserved. Revision History at https://github.com/ryanfrancesconi/spfk-image
 
 import Foundation
+import SPFKBase
 
 /// A pending, non-destructive color adjustment to one image, one value per section of the Adjust tab.
 ///
@@ -160,4 +161,9 @@ public struct ImageAdjustmentDescription: Hashable, Sendable, Codable {
         get { self[keyPath: parameter.keyPath] }
         set { self[keyPath: parameter.keyPath] = newValue }
     }
+}
+
+extension ImageAdjustmentDescription: DefaultFilledDecodable {
+    /// Neutral: a section or value a stored description lacks renders nothing.
+    public static var decodingDefaults: ImageAdjustmentDescription { ImageAdjustmentDescription() }
 }
