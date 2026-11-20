@@ -154,4 +154,16 @@ struct ImageFormatConverterRoutingTests {
         options.maxPixelSize = -5
         #expect(options.maxPixelSize == nil)
     }
+
+    // MARK: - RAW decoder version
+
+    /// Neither a transcode nor a rewrap develops, so a pinned version needs the render.
+    @Test func aPinnedRAWDecoderVersionAloneRendersEdits() {
+        let input = URL(fileURLWithPath: "/in.dng")
+        let output = URL(fileURLWithPath: "/out.heic")
+        let options = ImageConversionOptions(format: UTType.heic.identifier)
+
+        #expect(!ImageConversionSource(input: input, output: output, options: options).rendersEdits)
+        #expect(ImageConversionSource(input: input, output: output, options: options, rawDecoderVersion: "8").rendersEdits)
+    }
 }

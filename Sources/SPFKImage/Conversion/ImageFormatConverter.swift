@@ -9,8 +9,9 @@ import UniformTypeIdentifiers
 /// cannot write.
 ///
 /// Copies through ImageIO where that keeps the source's pixels and metadata, and renders upright through
-/// Core Image where it would not. The output is written elsewhere and moved into place only once it reads
-/// back at the size it was written at, so it never exists half-written.
+/// Core Image where it would not; a RAW source with adjustments or a pinned decoder version is developed
+/// through ``RAWDevelop``. The output is written elsewhere and moved into place only once it reads back at
+/// the size it was written at, so it never exists half-written.
 public struct ImageFormatConverter: Sendable {
     public let source: ImageConversionSource
 

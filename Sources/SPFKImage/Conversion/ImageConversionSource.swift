@@ -22,6 +22,10 @@ public struct ImageConversionSource: Sendable {
     /// A pending crop rendered into the output, in the displayed picture before ``adjustments``.
     public var crop: CropEdit
 
+    /// The decoder version a RAW input is developed with, nil for the system's default. Ignored for any
+    /// other input.
+    public var rawDecoderVersion: String?
+
     public init(
         input: URL,
         output: URL,
@@ -29,7 +33,8 @@ public struct ImageConversionSource: Sendable {
         originalInput: URL? = nil,
         adjustments: ImageAdjustmentDescription? = nil,
         orientation: OrientationEdit = .up,
-        crop: CropEdit = CropEdit()
+        crop: CropEdit = CropEdit(),
+        rawDecoderVersion: String? = nil
     ) {
         self.input = input
         self.output = output
@@ -38,15 +43,22 @@ public struct ImageConversionSource: Sendable {
         self.adjustments = adjustments
         self.orientation = orientation
         self.crop = crop
+        self.rawDecoderVersion = rawDecoderVersion
     }
 
     var hasAdjustments: Bool {
         adjustments.map { !$0.effective.isEmpty } ?? false
     }
 
-    /// Whether the output needs a decode: neither a transcode nor a rewrap can take a pending edit.
+    /// Whether the output needs a decode: neither a transcode nor a rewrap can take a pending edit, nor
+    /// develop with a pinned RAW decoder version.
     var rendersEdits: Bool {
-        hasAdjustments || !orientation.isIdentity || !crop.isIdentity
+        hasAdjustments || !orientation.isIdentity || !crop.isIdentity || rawDecoderVersion != nil
+    }
+
+    /// Whether a RAW input is developed through ``RAWDevelop`` rather than decoded by ImageIO.
+    var developsRAW: Bool {
+        hasAdjustments || rawDecoderVersion != nil
     }
 
     /// The orientation the output displays with, from the source's own tag and ``orientation``.

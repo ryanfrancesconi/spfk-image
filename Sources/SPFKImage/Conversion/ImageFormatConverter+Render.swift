@@ -9,11 +9,33 @@ import UniformTypeIdentifiers
 
 extension ImageFormatConverter {
     /// Decodes upright, applies the source's crop, adjustments and orientation at full size and scales to `size`,
-    /// in the source's color space when it is RGB or gray and sRGB otherwise.
+    /// in the source's color space when it is RGB or gray and sRGB otherwise. An adjusted RAW is developed
+    /// through ``RAWDevelop`` before the crop.
     func renderedImage(_ imageSource: CGImageSource, index: Int, properties: [String: Any], size: PixelSize?) throws -> CGImage {
         let upright = CIImage(cgImageSource: imageSource, index: index, options: [.applyOrientationProperty: true])
-        let cropped = source.crop.apply(to: upright)
-        let adjusted = source.adjustments.map { ImageAdjustmentRenderer.apply($0, to: cropped) } ?? cropped
+        let adjusted: CIImage
+
+        if source.developsRAW, RAWDevelop.isRAW(imageSource) {
+            // The develop reads the file's main image. Its output is upright with `upright`'s extent.
+            let developed: RAWDevelop.Developed
+
+            do {
+                developed = try RAWDevelop.develop(
+                    contentsOf: source.input,
+                    adjustments: source.adjustments ?? ImageAdjustmentDescription(),
+                    decoderVersion: source.rawDecoderVersion
+                )
+            } catch {
+                Log.error("RAW develop failed for \(source.input.lastPathComponent): \(error)")
+                throw ImageConversionError.renderFailed
+            }
+
+            adjusted = ImageAdjustmentRenderer.apply(developed.remaining, to: source.crop.apply(to: developed.image))
+        } else {
+            let cropped = source.crop.apply(to: upright)
+            adjusted = source.adjustments.map { ImageAdjustmentRenderer.apply($0, to: cropped) } ?? cropped
+        }
+
         let decoded = source.orientation.apply(to: adjusted)
 
         // Core Image reports a CMYK source as RGB, so ImageIO's color model decides whose space is kept.
