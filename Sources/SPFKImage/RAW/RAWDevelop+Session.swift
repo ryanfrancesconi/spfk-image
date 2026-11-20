@@ -16,8 +16,32 @@ extension RAWDevelop {
         private let asShotTint: Float
         private let defaultExposure: Float
         private let defaultNoiseReduction: Float
+        private let defaultColorNoiseReduction: Float
+        private let defaultMoireReduction: Float
         private let fileOrientation: CGImagePropertyOrientation
         private let supportsLuminanceNoiseReduction: Bool
+        private let supportsColorNoiseReduction: Bool
+        private let supportsMoireReduction: Bool
+
+        /// The RAW section's parameters this file's develop supports.
+        public var supportedDevelopParameters: Set<ImageAdjustmentDescription.Parameter> {
+            var supported = Set<ImageAdjustmentDescription.Parameter>()
+            if supportsColorNoiseReduction { supported.insert(.colorNoiseReduction) }
+            if supportsMoireReduction { supported.insert(.moireReduction) }
+            return supported
+        }
+
+        private var fileValues: FileValues {
+            FileValues(
+                asShotTemperature: Double(asShotTemperature),
+                asShotTint: Double(asShotTint),
+                colorNoiseReduction: Double(defaultColorNoiseReduction),
+                moireReduction: Double(defaultMoireReduction),
+                supportsLuminanceNoiseReduction: supportsLuminanceNoiseReduction,
+                supportsColorNoiseReduction: supportsColorNoiseReduction,
+                supportsMoireReduction: supportsMoireReduction
+            )
+        }
 
         public init(contentsOf url: URL, decoderVersion: String? = nil) throws {
             guard RAWDevelop.isRAW(contentsOf: url), let filter = CIRAWFilter(imageURL: url) else {
@@ -37,19 +61,18 @@ extension RAWDevelop {
             asShotTint = filter.neutralTint
             defaultExposure = filter.exposure
             defaultNoiseReduction = filter.luminanceNoiseReductionAmount
+            defaultColorNoiseReduction = filter.colorNoiseReductionAmount
+            defaultMoireReduction = filter.moireReductionAmount
             fileOrientation = filter.orientation
             supportsLuminanceNoiseReduction = filter.isLuminanceNoiseReductionSupported
+            supportsColorNoiseReduction = filter.isColorNoiseReductionSupported
+            supportsMoireReduction = filter.isMoireReductionSupported
         }
 
         /// The file developed with `adjustments`. Every value a previous call set is set again, so
         /// nothing carries over from one call to the next.
         public func develop(_ adjustments: ImageAdjustmentDescription, options: Options = Options()) throws -> Developed {
-            let parameters = Parameters(
-                adjustments,
-                asShotTemperature: Double(asShotTemperature),
-                asShotTint: Double(asShotTint),
-                supportsLuminanceNoiseReduction: supportsLuminanceNoiseReduction
-            )
+            let parameters = Parameters(adjustments, file: fileValues)
 
             // Assigned only on a change, so an untouched filter develops exactly as a new one does.
             let exposure = parameters.exposure == 0 ? defaultExposure : Float(parameters.exposure)
@@ -65,6 +88,16 @@ extension RAWDevelop {
             if supportsLuminanceNoiseReduction {
                 let amount = parameters.luminanceNoiseReduction.map(Float.init) ?? defaultNoiseReduction
                 if filter.luminanceNoiseReductionAmount != amount { filter.luminanceNoiseReductionAmount = amount }
+            }
+
+            if supportsColorNoiseReduction {
+                let amount = parameters.colorNoiseReduction.map(Float.init) ?? defaultColorNoiseReduction
+                if filter.colorNoiseReductionAmount != amount { filter.colorNoiseReductionAmount = amount }
+            }
+
+            if supportsMoireReduction {
+                let amount = parameters.moireReduction.map(Float.init) ?? defaultMoireReduction
+                if filter.moireReductionAmount != amount { filter.moireReductionAmount = amount }
             }
 
             apply(options)

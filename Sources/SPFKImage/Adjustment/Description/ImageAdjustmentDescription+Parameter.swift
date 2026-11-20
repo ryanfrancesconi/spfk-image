@@ -64,6 +64,8 @@ extension ImageAdjustmentDescription {
         case sharpnessRadius
         case definition
         case noiseReduction
+        case colorNoiseReduction
+        case moireReduction
         case vignette
         case vignetteRadius
         case vignetteSoftness
@@ -82,7 +84,7 @@ extension ImageAdjustmentDescription {
             case .levelsWhite: -1 ... 0
             case .brilliance, .highlights, .contrast, .shadows, .brightness, .blackPoint, .whitePoint, .saturation, .vibrance, .temperature, .tint,
                  .blackAndWhiteRed, .blackAndWhiteYellow, .blackAndWhiteGreen, .blackAndWhiteCyan, .blackAndWhiteBlue, .blackAndWhiteMagenta,
-                 .sharpnessRadius, .vignette, .vignetteRadius, .vignetteSoftness, .grainSize: -1 ... 1
+                 .sharpnessRadius, .colorNoiseReduction, .moireReduction, .vignette, .vignetteRadius, .vignetteSoftness, .grainSize: -1 ... 1
             case .selectiveRedHue, .selectiveRedSaturation, .selectiveRedLuminance, .selectiveRedRange,
                  .selectiveYellowHue, .selectiveYellowSaturation, .selectiveYellowLuminance, .selectiveYellowRange,
                  .selectiveGreenHue, .selectiveGreenSaturation, .selectiveGreenLuminance, .selectiveGreenRange,
@@ -156,6 +158,8 @@ extension ImageAdjustmentDescription {
             case .sharpnessRadius: \.detail.sharpnessRadius
             case .definition: \.detail.definition
             case .noiseReduction: \.detail.noiseReduction
+            case .colorNoiseReduction: \.raw.colorNoiseReduction
+            case .moireReduction: \.raw.moireReduction
             case .vignette: \.vignette.amount
             case .vignetteRadius: \.vignette.radius
             case .vignetteSoftness: \.vignette.softness

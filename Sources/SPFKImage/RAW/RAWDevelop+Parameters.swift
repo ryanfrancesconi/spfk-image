@@ -7,6 +7,9 @@ extension RAWDevelop {
     /// everything left in ``Parameters/remaining`` runs after the develop in the renderer's own order.
     static let developSteps: [RenderStep] = [.noiseReduction, .exposure, .whiteBalance]
 
+    /// Groups no render step reads, taken only by the develop.
+    public static let developGroups: [ImageAdjustmentDescription.Group] = [.raw]
+
     /// The lowest and highest white the Temperature slider can name, in mired: 50,000 K and 2,000 K.
     static let minimumMired: Double = 20
     static let maximumMired: Double = 500
@@ -15,10 +18,32 @@ extension RAWDevelop {
     static let tintPerUVOffset: Double = 3000
 
     /// Whether the develop takes any of `adjustments`' effective values, so developing with them
-    /// differs from the default develop. Noise Reduction counts, whether or not a given file supports it.
+    /// differs from the default develop. Noise Reduction and the RAW section count, whether or not a
+    /// given file supports them.
     public static func takesAny(of adjustments: ImageAdjustmentDescription) -> Bool {
-        Parameters(adjustments, asShotTemperature: 5000, asShotTint: 0, supportsLuminanceNoiseReduction: true).remaining
-            != adjustments.effective
+        let file = FileValues(
+            asShotTemperature: 5000, asShotTint: 0, colorNoiseReduction: 0.5, moireReduction: 0.5,
+            supportsLuminanceNoiseReduction: true, supportsColorNoiseReduction: true, supportsMoireReduction: true
+        )
+        return Parameters(adjustments, file: file).remaining != adjustments.effective
+    }
+
+    /// What one file's develop starts from, read before any develop.
+    struct FileValues: Equatable {
+        var asShotTemperature: Double
+        var asShotTint: Double
+        /// The filter's own amounts, 0...1.
+        var colorNoiseReduction: Double
+        var moireReduction: Double
+        var supportsLuminanceNoiseReduction: Bool
+        var supportsColorNoiseReduction: Bool
+        var supportsMoireReduction: Bool
+    }
+
+    /// The filter amount for `value`, a RAW section position relative to `fileDefault`: 0 is the
+    /// default, -1 is 0 and 1 is 1.
+    static func amount(_ value: Double, relativeTo fileDefault: Double) -> Double {
+        value >= 0 ? fileDefault + value * (1 - fileDefault) : fileDefault * (1 + value)
     }
 
     /// Temperature and Tint, in slider units, that develop to the neutral pair against the as-shot
@@ -51,15 +76,15 @@ extension RAWDevelop {
         var neutralTint: Double?
         /// nil leaves the filter's default.
         var luminanceNoiseReduction: Double?
+        /// Filter amounts; nil leaves the file's default.
+        var colorNoiseReduction: Double?
+        var moireReduction: Double?
         /// The effective description with each value the develop takes returned to 0.
         var remaining: ImageAdjustmentDescription
 
-        init(
-            _ adjustments: ImageAdjustmentDescription,
-            asShotTemperature: Double,
-            asShotTint: Double,
-            supportsLuminanceNoiseReduction: Bool
-        ) {
+        init(_ adjustments: ImageAdjustmentDescription, file: FileValues) {
+            let asShotTemperature = file.asShotTemperature
+            let asShotTint = file.asShotTint
             var remaining = adjustments.effective
 
             exposure = remaining.light.exposure
@@ -86,12 +111,19 @@ extension RAWDevelop {
                 neutralTint = nil
             }
 
-            if supportsLuminanceNoiseReduction, remaining.detail.noiseReduction != 0 {
+            if file.supportsLuminanceNoiseReduction, remaining.detail.noiseReduction != 0 {
                 luminanceNoiseReduction = remaining.detail.noiseReduction
                 remaining.detail.noiseReduction = 0
             } else {
                 luminanceNoiseReduction = nil
             }
+
+            let raw = remaining.raw
+            colorNoiseReduction = file.supportsColorNoiseReduction && raw.colorNoiseReduction != 0
+                ? RAWDevelop.amount(raw.colorNoiseReduction, relativeTo: file.colorNoiseReduction) : nil
+            moireReduction = file.supportsMoireReduction && raw.moireReduction != 0
+                ? RAWDevelop.amount(raw.moireReduction, relativeTo: file.moireReduction) : nil
+            remaining.raw = ImageAdjustmentDescription.RAW()
 
             self.remaining = remaining
         }

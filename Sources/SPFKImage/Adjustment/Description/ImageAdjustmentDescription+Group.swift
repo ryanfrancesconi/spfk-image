@@ -13,6 +13,7 @@ extension ImageAdjustmentDescription {
         case selectiveColor
         case colorGrading
         case detail
+        case raw
         case vignette
         case grain
 
@@ -42,6 +43,7 @@ extension ImageAdjustmentDescription.Parameter {
         case .colorGradingShadowHue, .colorGradingShadowSaturation, .colorGradingMidtoneHue, .colorGradingMidtoneSaturation,
              .colorGradingHighlightHue, .colorGradingHighlightSaturation, .colorGradingBalance: .colorGrading
         case .sharpness, .sharpnessRadius, .definition, .noiseReduction: .detail
+        case .colorNoiseReduction, .moireReduction: .raw
         case .vignette, .vignetteRadius, .vignetteSoftness: .vignette
         case .grain, .grainSize: .grain
         }

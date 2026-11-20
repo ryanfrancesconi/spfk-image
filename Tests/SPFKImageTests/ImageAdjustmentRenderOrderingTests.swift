@@ -54,8 +54,8 @@ final class ImageAdjustmentRenderOrderingTests {
         #expect(fromInOrder < Self.tolerance)
     }
 
-    /// Every parameter and every section is read by exactly one step, so a step's place in the order
-    /// places everything it reads.
+    /// Every parameter and every section is read by exactly one step, or taken by the develop alone,
+    /// so a step's place in the order places everything it reads.
     @Test func everyParameterAndSectionBelongsToOneStep() {
         var parameters = [Description.Parameter]()
         var groups = [Description.Group]()
@@ -68,12 +68,14 @@ final class ImageAdjustmentRenderOrderingTests {
         }
 
         let viaGroups = groups.flatMap(\.parameters)
-        let all = parameters + viaGroups
+        let developOnly = RAWDevelop.developGroups.flatMap(\.parameters)
+        let all = parameters + viaGroups + developOnly
 
         #expect(Set(all).count == all.count)
         #expect(Set(all) == Set(Description.Parameter.allCases))
         #expect(Set(groups).count == groups.count)
         #expect(groups.contains(.curves))
+        #expect(Set(groups).isDisjoint(with: RAWDevelop.developGroups))
     }
 
     /// The histogram inputs hold what renders before their step, without noise reduction.

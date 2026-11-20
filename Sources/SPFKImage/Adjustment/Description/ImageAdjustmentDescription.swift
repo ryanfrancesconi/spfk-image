@@ -9,7 +9,8 @@ import SPFKBase
 /// never changes stored data. Each is clamped to its ``Parameter/range`` on construction, decoding and
 /// assignment, a non-finite value becomes neutral, and neutral is 0 for every parameter. The renderer
 /// applies them in a fixed order, the case order of its internal `RenderStep`. A RAW source takes noise
-/// reduction, exposure, temperature and tint in its develop instead (``RAWDevelop``).
+/// reduction, exposure, temperature and tint in its develop instead (``RAWDevelop``). The ``raw``
+/// section is taken by the develop alone and renders nothing on any other source.
 ///
 /// A ``bypassed`` section keeps its values but renders as neutral (see ``effective``).
 public struct ImageAdjustmentDescription: Hashable, Sendable, Codable {
@@ -24,6 +25,7 @@ public struct ImageAdjustmentDescription: Hashable, Sendable, Codable {
     public var detail: Detail { didSet { detail.clamp() } }
     public var vignette: Vignette { didSet { vignette.clamp() } }
     public var grain: Grain { didSet { grain.clamp() } }
+    public var raw: RAW { didSet { raw.clamp() } }
 
     /// Sections switched off: each keeps its values and renders as neutral.
     public var bypassed: Set<Group>
@@ -47,6 +49,7 @@ public struct ImageAdjustmentDescription: Hashable, Sendable, Codable {
         detail: Detail = Detail(),
         vignette: Vignette = Vignette(),
         grain: Grain = Grain(),
+        raw: RAW = RAW(),
         bypassed: Set<Group> = []
     ) {
         self.light = light
@@ -59,6 +62,7 @@ public struct ImageAdjustmentDescription: Hashable, Sendable, Codable {
         self.detail = detail
         self.vignette = vignette
         self.grain = grain
+        self.raw = raw
         self.bypassed = bypassed
 
         // Observers do not run in `init`.
@@ -71,10 +75,12 @@ public struct ImageAdjustmentDescription: Hashable, Sendable, Codable {
         self.detail.clamp()
         self.vignette.clamp()
         self.grain.clamp()
+        self.raw.clamp()
     }
 
-    /// Decodes through ``init(light:color:blackAndWhite:curves:levels:selectiveColor:colorGrading:detail:vignette:grain:bypassed:)``,
-    /// so a decoded value is clamped as an assigned one is.
+    /// Decodes through ``init(light:color:blackAndWhite:curves:levels:selectiveColor:colorGrading:detail:vignette:grain:raw:bypassed:)``,
+    /// so a decoded value is clamped as an assigned one is. Strict: a stored value's missing keys are
+    /// filled upstream (``decodeFillingGaps(from:using:)``).
     public init(from decoder: any Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
 
@@ -89,6 +95,7 @@ public struct ImageAdjustmentDescription: Hashable, Sendable, Codable {
             detail: c.decode(Detail.self, forKey: .detail),
             vignette: c.decode(Vignette.self, forKey: .vignette),
             grain: c.decode(Grain.self, forKey: .grain),
+            raw: c.decode(RAW.self, forKey: .raw),
             bypassed: c.decode(Set<Group>.self, forKey: .bypassed)
         )
     }
@@ -112,6 +119,7 @@ public struct ImageAdjustmentDescription: Hashable, Sendable, Codable {
         case .detail: detail.isNeutral
         case .vignette: vignette.isNeutral
         case .grain: grain.isNeutral
+        case .raw: raw.isNeutral
         }
     }
 
@@ -154,6 +162,7 @@ public struct ImageAdjustmentDescription: Hashable, Sendable, Codable {
         case .detail: detail = other.detail
         case .vignette: vignette = other.vignette
         case .grain: grain = other.grain
+        case .raw: raw = other.raw
         }
     }
 

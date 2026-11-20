@@ -250,4 +250,84 @@ final class RAWDevelopFileTests: BinTestCase {
             try session.whiteBalance(atUnitPoint: CGPoint(x: 1.2, y: 0.5), options: half)
         }
     }
+
+    // MARK: - The RAW section
+
+    private func raw(colorNoise: Double = 0, moire: Double = 0) -> ImageAdjustmentDescription {
+        ImageAdjustmentDescription(raw: .init(colorNoiseReduction: colorNoise, moireReduction: moire))
+    }
+
+    /// The 1024 px center of a full-scale develop, where Apple's develop applies these at full strength.
+    private func center(_ session: RAWDevelop.Session, _ adjustments: ImageAdjustmentDescription) throws -> RAWMeasure {
+        let image = try session.develop(adjustments).image
+        let extent = image.extent
+        let crop = CGRect(x: extent.midX - 512, y: extent.midY - 512, width: 1024, height: 1024).integral
+        return try RAWMeasure(image.cropped(to: crop))
+    }
+
+    /// The mean distance of red and blue, each less green, from their 3x3 neighborhood mean: color speckle.
+    private func chromaHighFrequency(_ m: RAWMeasure) -> Double {
+        func chroma(_ x: Int, _ y: Int, _ channel: Int) -> Float {
+            let i = (y * m.width + x) * 4
+            return m.pixels[i + channel] - m.pixels[i + 1]
+        }
+
+        var sum = 0.0
+        var count = 0
+        for y in 1 ..< m.height - 1 {
+            for x in 1 ..< m.width - 1 {
+                for channel in [0, 2] {
+                    var neighborhood: Float = 0
+                    for dy in -1 ... 1 { for dx in -1 ... 1 { neighborhood += chroma(x + dx, y + dy, channel) } }
+                    sum += Double(abs(chroma(x, y, channel) - neighborhood / 9))
+                    count += 1
+                }
+            }
+        }
+        return sum / Double(count)
+    }
+
+    @Test func lessMoireReductionShowsFalseColor() throws {
+        let session = try RAWDevelop.Session(contentsOf: sample("P1061136.dng"))
+
+        let base = try center(session, ImageAdjustmentDescription())
+        let less = try center(session, raw(moire: -1))
+        let more = try center(session, raw(moire: 1))
+
+        let speckle = (base: chromaHighFrequency(base), less: chromaHighFrequency(less))
+        print("P1061136 moire chroma high frequency: as shot \(speckle.base), -1 \(speckle.less)")
+
+        #expect(speckle.less > speckle.base)
+        #expect(try #require(more.meanDifference(from: base)) < #require(less.meanDifference(from: base)))
+    }
+
+    @Test func colorNoiseReductionReachesTheFilter() throws {
+        let session = try RAWDevelop.Session(contentsOf: sample("DSCF3303.RAF"))
+
+        let base = chromaHighFrequency(try center(session, ImageAdjustmentDescription()))
+        let less = chromaHighFrequency(try center(session, raw(colorNoise: -1)))
+        let more = chromaHighFrequency(try center(session, raw(colorNoise: 1)))
+        print("DSCF3303 color noise chroma high frequency: -1 \(less), as shot \(base), +1 \(more)")
+
+        #expect(less > base)
+        #expect(more < base)
+    }
+
+    @Test func everySampleSupportsTheRAWSection() throws {
+        for name in ["DSCF3303.RAF", "DSCF4449.RAF", "P1061136.dng", "01195_LCN Image.DNG"] {
+            let session = try RAWDevelop.Session(contentsOf: sample(name))
+            #expect(session.supportedDevelopParameters == Set(ImageAdjustmentDescription.Group.raw.parameters), "\(name)")
+        }
+    }
+
+    @Test func aRAWValueDoesNotCarryOver() throws {
+        let url = try sample("P1061136.dng")
+        let session = try RAWDevelop.Session(contentsOf: url)
+
+        _ = try session.develop(raw(colorNoise: -1, moire: -1), options: quarter)
+        let afterward = try RAWMeasure(session.develop(ImageAdjustmentDescription(), options: quarter).image)
+        let fresh = try RAWMeasure(RAWDevelop.Session(contentsOf: url).develop(ImageAdjustmentDescription(), options: quarter).image)
+
+        #expect(try #require(afterward.largestDifference(from: fresh)) <= 1e-5)
+    }
 }

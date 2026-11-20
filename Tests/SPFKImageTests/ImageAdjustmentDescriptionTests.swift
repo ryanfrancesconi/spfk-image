@@ -118,6 +118,8 @@ final class ImageAdjustmentDescriptionTests {
             return .init(vignette: .init(amount: v, radius: v, softness: v))
         case .grain:
             return .init(grain: .init(amount: v, size: v))
+        case .raw:
+            return .init(raw: .init(colorNoiseReduction: v, moireReduction: v))
         }
     }
 

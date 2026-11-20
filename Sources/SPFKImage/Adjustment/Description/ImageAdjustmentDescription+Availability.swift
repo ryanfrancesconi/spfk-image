@@ -15,8 +15,11 @@ extension ImageAdjustmentDescription {
             self.excludedParameters = excludedParameters
         }
 
-        /// What a video renders, through a per-frame Core Image composition.
-        public static let video = Availability(groups: Set(Group.allCases))
+        /// Every group but those only a RAW develop takes (``RAWDevelop``).
+        public static let withoutDevelop = Availability(groups: Set(Group.allCases).subtracting([.raw]))
+
+        /// What a video renders: through the renderer alone, with no develop.
+        public static let video = withoutDevelop
 
         /// No adjustment at all: what a file that only takes orientation shows.
         public static let empty = Availability(groups: [])

@@ -15,14 +15,20 @@ struct RAWDevelopParametersTests {
         _ adjustments: ImageAdjustmentDescription,
         asShotTemperature: Double = 5000,
         asShotTint: Double = 10,
-        supportsNoiseReduction: Bool = true
+        supportsNoiseReduction: Bool = true,
+        colorNoiseDefault: Double = 0.5,
+        moireDefault: Double = 0.5,
+        supportsRAWSection: Bool = true
     ) -> Parameters {
-        Parameters(
-            adjustments,
+        Parameters(adjustments, file: RAWDevelop.FileValues(
             asShotTemperature: asShotTemperature,
             asShotTint: asShotTint,
-            supportsLuminanceNoiseReduction: supportsNoiseReduction
-        )
+            colorNoiseReduction: colorNoiseDefault,
+            moireReduction: moireDefault,
+            supportsLuminanceNoiseReduction: supportsNoiseReduction,
+            supportsColorNoiseReduction: supportsRAWSection,
+            supportsMoireReduction: supportsRAWSection
+        ))
     }
 
     private func color(temperature: Double = 0, tint: Double = 0) -> ImageAdjustmentDescription {
@@ -36,6 +42,8 @@ struct RAWDevelopParametersTests {
         #expect(result.neutralTemperature == nil)
         #expect(result.neutralTint == nil)
         #expect(result.luminanceNoiseReduction == nil)
+        #expect(result.colorNoiseReduction == nil)
+        #expect(result.moireReduction == nil)
         #expect(result.remaining.isEmpty)
     }
 
@@ -155,6 +163,7 @@ struct RAWDevelopParametersTests {
             }
             read.formUnion(parameters)
         }
+        read.formUnion(RAWDevelop.developGroups.flatMap(\.parameters))
 
         #expect(taken == read)
         #expect(taken.allSatisfy { result.remaining[$0] == 0 })
@@ -192,5 +201,45 @@ struct RAWDevelopParametersTests {
         let cool = RAWDevelop.whiteBalance(neutralTemperature: 2100, neutralTint: -10_000, asShotTemperature: 5000, asShotTint: 10)
         #expect(cool.temperature == ImageAdjustmentDescription.Parameter.temperature.range.lowerBound)
         #expect(cool.tint == ImageAdjustmentDescription.Parameter.tint.range.lowerBound)
+    }
+
+    // MARK: - The RAW section
+
+    @Test func aRAWValueIsRelativeToTheFileDefault() throws {
+        for fileDefault in [0.0, 0.5, 0.75] {
+            for value in [-1.0, -0.5, 0, 0.5, 1] {
+                let description = ImageAdjustmentDescription(raw: .init(colorNoiseReduction: value, moireReduction: value))
+                let result = parameters(description, colorNoiseDefault: fileDefault, moireDefault: fileDefault)
+
+                let expected = value >= 0 ? fileDefault + value * (1 - fileDefault) : fileDefault * (1 + value)
+                let color = result.colorNoiseReduction ?? fileDefault
+                let moire = result.moireReduction ?? fileDefault
+
+                #expect(abs(color - expected) < 1e-12, "default \(fileDefault), value \(value)")
+                #expect(abs(moire - expected) < 1e-12, "default \(fileDefault), value \(value)")
+                #expect((value == 0) == (result.colorNoiseReduction == nil))
+                #expect(result.remaining.raw.isNeutral)
+            }
+        }
+
+        #expect(RAWDevelop.amount(-1, relativeTo: 0.75) == 0)
+        #expect(RAWDevelop.amount(1, relativeTo: 0.75) == 1)
+    }
+
+    @Test func anUnsupportedRAWValueSetsNothingAndRendersNothing() {
+        let description = ImageAdjustmentDescription(raw: .init(colorNoiseReduction: -1, moireReduction: 0.5))
+        let result = parameters(description, supportsRAWSection: false)
+
+        #expect(result.colorNoiseReduction == nil)
+        #expect(result.moireReduction == nil)
+        #expect(result.remaining.isEmpty)
+    }
+
+    @Test func moireAloneIsSomethingTheDevelopTakes() {
+        #expect(RAWDevelop.takesAny(of: ImageAdjustmentDescription(raw: .init(moireReduction: -0.4))))
+
+        var bypassed = ImageAdjustmentDescription(raw: .init(moireReduction: -0.4))
+        bypassed.bypassed = [.raw]
+        #expect(!RAWDevelop.takesAny(of: bypassed))
     }
 }
