@@ -31,6 +31,9 @@ extension RAWDevelop {
             return supported
         }
 
+        /// The develop's full size, before orientation.
+        public var nativeSize: CGSize { filter.nativeSize }
+
         private var fileValues: FileValues {
             FileValues(
                 asShotTemperature: Double(asShotTemperature),
