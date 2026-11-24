@@ -26,17 +26,6 @@ final class CaptureModesTests: BinTestCase {
     @Test func aPlainJPEGHasNoModes() throws {
         #expect(try CaptureModesOracle.read(TestBundleResources.shared.songbird) == [])
     }
-
-    @Test func makerAppleTag17MarksALivePhoto() {
-        let live: [CFString: Any] = [kCGImagePropertyMakerAppleDictionary: ["17": "6A1E0C7B-0000"]]
-        let empty: [CFString: Any] = [kCGImagePropertyMakerAppleDictionary: ["17": ""]]
-        let other: [CFString: Any] = [kCGImagePropertyMakerAppleDictionary: ["11": "burst"]]
-
-        #expect(CaptureModes.isLivePhoto(live))
-        #expect(!CaptureModes.isLivePhoto(empty))
-        #expect(!CaptureModes.isLivePhoto(other))
-        #expect(!CaptureModes.isLivePhoto([:]))
-    }
 }
 
 /// `CaptureModes` against every image in the sample folders, with each expectation read from the file

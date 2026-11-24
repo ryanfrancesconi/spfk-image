@@ -2,6 +2,7 @@
 
 import Foundation
 import ImageIO
+import SPFKFileSystem
 
 extension CaptureModes {
     /// The modes `source` records, given the properties of its image at index 0.
@@ -36,11 +37,8 @@ extension CaptureModes {
         self = modes
     }
 
-    /// Apple's maker-note tag 17 holds the Live Photo's content identifier, shared with its movie.
     static func isLivePhoto(_ properties: [CFString: Any]) -> Bool {
-        let makerApple = properties[kCGImagePropertyMakerAppleDictionary] as? [String: Any]
-        guard let identifier = makerApple?["17"] as? String else { return false }
-        return !identifier.isEmpty
+        LivePhotoIdentifier.value(inImageProperties: properties) != nil
     }
 
     private static var gainMapTypes: Set<String> {
