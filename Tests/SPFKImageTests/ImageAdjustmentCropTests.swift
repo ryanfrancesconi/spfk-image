@@ -317,4 +317,180 @@ final class ImageAdjustmentCropTests {
         #expect(displayed.width == storedHeight)
         #expect(displayed.height == storedWidth)
     }
+
+    // MARK: - Perspective
+
+    /// The crop step as it was before perspective, for the pin below.
+    private func turnedAndCropped(_ crop: CropEdit, _ image: CIImage) -> CIImage {
+        let extent = image.extent.integral
+        let width = Int(extent.width)
+        let height = Int(extent.height)
+        let kept = crop.contained(imageWidth: width, imageHeight: height)
+        let size = crop.keptPixelSize(imageWidth: width, imageHeight: height)
+        let topLeftCenter = kept.pixelCenter(imageWidth: width, imageHeight: height)
+        let center = CGPoint(x: extent.minX + topLeftCenter.x, y: extent.maxY - topLeftCenter.y)
+        let radians = -kept.straighten * .pi / 180
+        let turned = image.clampedToExtent().transformed(by: CGAffineTransform(translationX: -center.x, y: -center.y)
+            .concatenating(CGAffineTransform(rotationAngle: radians))
+            .concatenating(CGAffineTransform(translationX: center.x, y: center.y)))
+        let origin = CGPoint(x: (center.x - Double(size.width) / 2).rounded(), y: (center.y - Double(size.height) / 2).rounded())
+        return turned.cropped(to: CGRect(origin: origin, size: CGSize(width: size.width, height: size.height)))
+            .transformed(by: CGAffineTransform(translationX: -origin.x, y: -origin.y))
+    }
+
+    @Test func aCropWithoutPerspectiveRendersAsTheTurnAndCropAlone() throws {
+        let source = try CGImage.contentsOf(url: TestBundleResources.shared.songbird)
+        let input = CIImage(cgImage: source)
+        let crop = CropEdit(centerX: 0.08, centerY: -0.05, width: 0.6, height: 0.55, straighten: 6, vertical: 0, horizontal: 0)
+
+        let actual = crop.apply(to: input)
+        let expected = turnedAndCropped(crop, input)
+        #expect(actual.extent == expected.extent)
+        #expect(try bytes(renderer.context.createCGImage(actual, from: actual.extent)) == bytes(renderer.context.createCGImage(expected, from: expected.extent)))
+    }
+
+    /// One axis alone is `CIPerspectiveRotate` at 28 mm with Photos' signs: Vertical +N is pitch -N,
+    /// Horizontal +N is yaw -N. The kept rectangle of each is compared; the opposite sign is far off.
+    @Test(arguments: [(10.0, 0.0), (-20, 0), (0, 15), (0, -8)])
+    func oneAxisMatchesCoreImagesPerspectiveRotate(vertical: Double, horizontal: Double) throws {
+        let source = try CGImage.contentsOf(url: TestBundleResources.shared.songbird)
+        let input = CIImage(cgImage: source)
+
+        func ours(_ sign: Double) -> CIImage {
+            CropEdit(vertical: sign * vertical, horizontal: sign * horizontal).apply(to: input)
+        }
+
+        let kept = ours(1).extent
+        let width = Double(source.width)
+        let height = Double(source.height)
+        let origin = CGPoint(x: ((width - kept.width) / 2).rounded(), y: ((height - kept.height) / 2).rounded())
+
+        let reference = CIFilter.perspectiveRotate()
+        reference.inputImage = input
+        reference.focalLength = Float(CropEdit.perspectiveFocalLength)
+        reference.pitch = Float(-vertical * .pi / 180)
+        reference.yaw = Float(-horizontal * .pi / 180)
+        let expected = try #require(reference.outputImage)
+            .cropped(to: CGRect(origin: origin, size: kept.size))
+            .transformed(by: CGAffineTransform(translationX: -origin.x, y: -origin.y))
+
+        let match = try meanDifference(ours(1), expected, width: Int(kept.width), height: Int(kept.height))
+        let opposite = try meanDifference(ours(-1), expected, width: Int(kept.width), height: Int(kept.height))
+
+        #expect(match < Self.straightenTolerance, "V\(vertical) H\(horizontal): mean difference \(match)")
+        #expect(opposite > match * 4, "V\(vertical) H\(horizontal): opposite sign \(opposite) against \(match)")
+    }
+
+    /// 600 × 400 white, with 3-pixel black lines every 100 pixels each way.
+    private func grid() throws -> CGImage {
+        try bitmap(width: 600, height: 400) { context in
+            context.setFillColor(red: 1, green: 1, blue: 1, alpha: 1)
+            context.fill(CGRect(x: 0, y: 0, width: 600, height: 400))
+            context.setFillColor(red: 0, green: 0, blue: 0, alpha: 1)
+            for x in stride(from: 100, to: 600, by: 100) {
+                context.fill(CGRect(x: x - 1, y: 0, width: 3, height: 400))
+            }
+            for y in stride(from: 100, to: 400, by: 100) {
+                context.fill(CGRect(x: 0, y: y - 1, width: 600, height: 3))
+            }
+        }
+    }
+
+    /// The darkness-weighted center of `count` pixels from `start`, stepping by `stride`.
+    private func darkCentroid(_ data: [UInt8], start: Int, stride: Int, count: Int) -> Double? {
+        var total = 0.0
+        var weighted = 0.0
+        for index in 0 ..< count {
+            let darkness = 255 - Double(data[(start + index * stride) * 4])
+            total += darkness
+            weighted += darkness * Double(index)
+        }
+        return total > 200 ? weighted / total : nil
+    }
+
+    /// A grid photographed with a tilt (the correction's inverse) comes back with straight, upright lines.
+    @Test(arguments: [(10.0, 0.0), (0, -8), (10, -8)])
+    func aTiltedGridComesBackStraight(vertical: Double, horizontal: Double) throws {
+        let source = CIImage(cgImage: try grid())
+        let crop = CropEdit(vertical: vertical, horizontal: horizontal)
+        let tilt = crop.perspective(imageWidth: 600, imageHeight: 400).inverse
+
+        func corner(_ x: Double, _ y: Double) -> CIVector {
+            let p = tilt.apply(SIMD2(x, 400 - y))
+            return CIVector(x: p.x, y: 400 - p.y)
+        }
+
+        let tilted = source.clampedToExtent().cropped(to: CGRect(x: -1, y: -1, width: 602, height: 402))
+            .applyingFilter("CIPerspectiveTransform", parameters: [
+                "inputTopLeft": corner(-1, 401), "inputTopRight": corner(601, 401),
+                "inputBottomRight": corner(601, -1), "inputBottomLeft": corner(-1, -1),
+            ])
+            .composited(over: CIImage(color: .white))
+            .cropped(to: source.extent)
+
+        let output = crop.apply(to: tilted)
+        let image = try #require(renderer.context.createCGImage(output, from: output.extent))
+        let data = try bytes(image)
+        let width = image.width
+        let height = image.height
+        // The kept rectangle's top left in the source, from `apply`'s rounding.
+        let originX = Int(((600 - Double(width)) / 2).rounded())
+        let originY = 400 - height - Int(((400 - Double(height)) / 2).rounded())
+        let window = 12
+        var lines = 0
+
+        /// Whether a sample at `position` in the source lies clear of every line across it.
+        func isClear(_ position: Int) -> Bool {
+            abs(position - Int((Double(position) / 100).rounded()) * 100) > window + 2
+        }
+
+        for lineX in stride(from: 100, to: 600, by: 100) {
+            let x = lineX - originX
+            guard x - window >= 0, x + window < width else { continue }
+            let centroids = stride(from: 6, to: height - 6, by: 9).filter { isClear($0 + originY) }.compactMap { y in
+                darkCentroid(data, start: y * width + x - window, stride: 1, count: window * 2 + 1)
+            }
+            lines += 1
+            #expect((centroids.max() ?? 0) - (centroids.min() ?? .infinity) < 1, "column \(lineX): \(centroids)")
+        }
+
+        for lineY in stride(from: 100, to: 400, by: 100) {
+            let y = lineY - originY
+            guard y - window >= 0, y + window < height else { continue }
+            let centroids = stride(from: 6, to: width - 6, by: 9).filter { isClear($0 + originX) }.compactMap { x in
+                darkCentroid(data, start: (y - window) * width + x, stride: width, count: window * 2 + 1)
+            }
+            lines += 1
+            #expect((centroids.max() ?? 0) - (centroids.min() ?? .infinity) < 1, "row \(lineY): \(centroids)")
+        }
+
+        #expect(lines >= 4)
+    }
+
+    /// With perspective the render's size is still the size rule's, and every kept pixel is opaque.
+    @Test(arguments: [(200, 100), (201, 133), (97, 160)])
+    func theKeptExtentWithPerspectiveIsTheKeptPixelSizeAndOpaque(width: Int, height: Int) throws {
+        let input = CIImage(color: .gray).cropped(to: CGRect(x: 0, y: 0, width: width, height: height))
+        var generator = SeededGenerator(state: UInt64(width * 1000 + height + 7))
+
+        for _ in 0 ..< 40 {
+            let crop = CropEdit(
+                centerX: .random(in: -0.2 ... 0.2, using: &generator),
+                centerY: .random(in: -0.2 ... 0.2, using: &generator),
+                width: .random(in: 0.2 ... 1, using: &generator),
+                height: .random(in: 0.2 ... 1, using: &generator),
+                straighten: .random(in: -20 ... 20, using: &generator),
+                vertical: .random(in: -30 ... 30, using: &generator),
+                horizontal: .random(in: -30 ... 30, using: &generator)
+            )
+
+            let output = crop.apply(to: input)
+            let size = crop.keptPixelSize(imageWidth: width, imageHeight: height)
+            #expect(output.extent == CGRect(x: 0, y: 0, width: size.width, height: size.height), "\(crop)")
+
+            let data = try bytes(renderer.context.createCGImage(output, from: output.extent))
+            let transparent = stride(from: 3, to: data.count, by: 4).filter { data[$0] != 255 }.count
+            #expect(transparent == 0, "\(crop): \(transparent) pixels not opaque")
+        }
+    }
 }

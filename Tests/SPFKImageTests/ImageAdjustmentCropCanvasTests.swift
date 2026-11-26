@@ -53,6 +53,29 @@ final class ImageAdjustmentCropCanvasTests {
         return try #require(context.makeImage())
     }
 
+    /// 400 × 240 in 20-pixel checks, a different pair of colors in each quadrant, so any shift shows.
+    private func checks() throws -> CGImage {
+        let width = 400
+        let height = 240
+        let space = try #require(CGColorSpace(name: CGColorSpace.sRGB))
+        let context = try #require(CGContext(
+            data: nil, width: width, height: height, bitsPerComponent: 8, bytesPerRow: width * 4, space: space,
+            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+        ))
+
+        for row in 0 ..< height / 20 {
+            for column in 0 ..< width / 20 {
+                let light: CGFloat = (row + column) % 2 == 0 ? 1 : 0.2
+                let right = column >= width / 40
+                let top = row >= height / 40
+                context.setFillColor(red: right ? light : 0.1, green: top ? light : 0.3, blue: right == top ? light : 0.5, alpha: 1)
+                context.fill(CGRect(x: column * 20, y: row * 20, width: 20, height: 20))
+            }
+        }
+
+        return try #require(context.makeImage())
+    }
+
     /// RGBA8 sRGB bytes, top row first.
     private func bytes(_ image: CGImage) throws -> [UInt8] {
         let space = try #require(CGColorSpace(name: CGColorSpace.sRGB))
@@ -87,11 +110,12 @@ final class ImageAdjustmentCropCanvasTests {
 
     // MARK: - Paths
 
-    /// The oriented picture turned clockwise by `angle` about its center into the canvas, and the frame
-    /// cut from it at `size`.
+    /// The oriented picture corrected by ``CropCanvas/shownPerspective``, turned clockwise by `angle`
+    /// about its center into the canvas, and the frame cut from it at `size`.
     private func cropModeFrame(source: CGImage, canvas: CropCanvas, angle: Double, size: CGSize) throws -> CGImage {
-        let oriented = canvas.orientation.apply(to: CIImage(cgImage: source)).clampedToExtent()
         let shown = canvas.shownSize
+        let oriented = corrected(canvas.orientation.apply(to: CIImage(cgImage: source)), by: canvas.shownPerspective, shown: shown)
+            .clampedToExtent()
         let bounding = canvas.boundingSize
 
         // Clockwise on screen is negative in Core Image's y-up space.
@@ -105,6 +129,22 @@ final class ImageAdjustmentCropCanvasTests {
         let frame = turned.transformed(by: CGAffineTransform(translationX: -origin.x, y: -origin.y))
 
         return try #require(renderer.context.createCGImage(frame, from: CGRect(origin: .zero, size: size)))
+    }
+
+    /// `image`, at the origin and `shown` in size, under `map` in shown pixels (y down).
+    private func corrected(_ image: CIImage, by map: Homography, shown: SIMD2<Double>) -> CIImage {
+        guard map != .identity else { return image }
+
+        func corner(_ x: Double, _ y: Double) -> CIVector {
+            let p = map.apply(SIMD2(x, shown.y - y))
+            return CIVector(x: p.x, y: shown.y - p.y)
+        }
+
+        return image.clampedToExtent().cropped(to: CGRect(x: -1, y: -1, width: shown.x + 2, height: shown.y + 2))
+            .applyingFilter("CIPerspectiveTransform", parameters: [
+                "inputTopLeft": corner(-1, shown.y + 1), "inputTopRight": corner(shown.x + 1, shown.y + 1),
+                "inputBottomRight": corner(shown.x + 1, -1), "inputBottomLeft": corner(-1, -1),
+            ])
     }
 
     // MARK: - Tests
@@ -130,5 +170,41 @@ final class ImageAdjustmentCropCanvasTests {
 
         let opposite = try meanDifference(committed, cropModeFrame(source: source, canvas: canvas, angle: -canvas.shownAngle, size: size))
         #expect(opposite > max(match * 4, Self.tolerance), "\(orientation) \(straighten)°: opposite turn \(opposite) against \(match)")
+    }
+
+    /// The checks put an edge every 20 pixels, where resampling differs most: 1.46 to 1.56 levels in
+    /// every orientation alike, against 24 to 49 for the opposite correction.
+    private static let checksTolerance = 2.0
+
+    static let perspectiveCases: [(OrientationEdit, Double, Double)] = OrientationEdit.allCases.flatMap { orientation in
+        [(10.0, 0.0), (0, -8), (10, -8)].map { (orientation, $0, $1) }
+    }
+
+    /// Crop mode corrects the shown picture by the shown perspective before it turns it; the committed
+    /// render corrects the displayed picture, then orients. The frame's contents must be the same.
+    @Test(arguments: perspectiveCases)
+    func theFrameShowsWhatTheCommittedRenderKeepsWithPerspective(orientation: OrientationEdit, vertical: Double, horizontal: Double) throws {
+        let source = try checks()
+        var crop = Self.crop
+        crop.straighten = 7
+        crop.vertical = vertical
+        crop.horizontal = horizontal
+        crop = crop.contained(imageWidth: source.width, imageHeight: source.height)
+
+        let committed = try #require(renderer.render(ImageAdjustmentDescription(), orientation: orientation, cropEdit: crop, source: source))
+        let canvas = CropCanvas(crop: crop, imageWidth: source.width, imageHeight: source.height, orientation: orientation)
+        let size = CGSize(width: committed.width, height: committed.height)
+
+        #expect(abs(canvas.frameSize.x - size.width) <= 1 && abs(canvas.frameSize.y - size.height) <= 1)
+
+        let match = try meanDifference(committed, cropModeFrame(source: source, canvas: canvas, angle: canvas.shownAngle, size: size))
+        #expect(match < Self.checksTolerance, "\(orientation) V\(vertical) H\(horizontal): mean difference \(match)")
+
+        var opposite = crop
+        opposite.vertical = -vertical
+        opposite.horizontal = -horizontal
+        let wrong = CropCanvas(crop: opposite, imageWidth: source.width, imageHeight: source.height, orientation: orientation)
+        let mismatch = try meanDifference(committed, cropModeFrame(source: source, canvas: wrong, angle: canvas.shownAngle, size: size))
+        #expect(mismatch > match * 10, "\(orientation) V\(vertical) H\(horizontal): opposite \(mismatch) against \(match)")
     }
 }
