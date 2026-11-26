@@ -58,7 +58,13 @@ final class ImageFormatConverterMemoryTests: BinTestCase {
     /// 4:5 with 5° of straighten: each map now passes through a Core Image render per file.
     static let photoCrop = CropEdit.largestCentered(aspect: 4.0 / 5, imageWidth: 4032, imageHeight: 3024, straighten: 5)
 
-    @Test func croppingGainMapsHoldsNoMemoryPerFile() async throws {
+    /// ``photoCrop`` with a perspective correction, which adds a `CIPerspectiveTransform` per image and map.
+    static let photoCorrectedCrop = CropEdit.largestCentered(
+        aspect: 4.0 / 5, imageWidth: 4032, imageHeight: 3024, straighten: 5, vertical: 10, horizontal: 5
+    )
+
+    @Test(.serialized, arguments: [photoCrop, photoCorrectedCrop])
+    func croppingGainMapsHoldsNoMemoryPerFile(crop: CropEdit) async throws {
         guard #available(macOS 15, iOS 18, *) else { return }
 
         let input = try await Self.photoSizedGainMappedHEIC(in: bin)
@@ -69,7 +75,7 @@ final class ImageFormatConverterMemoryTests: BinTestCase {
 
         let grown = try await retainedMemoryMB(warmUp: 16, measured: 60, width: 8) { index in
             let output = bin.appendingPathComponent("cropped-\(index).heic")
-            let source = ImageConversionSource(input: input, output: output, options: options, crop: Self.photoCrop)
+            let source = ImageConversionSource(input: input, output: output, options: options, crop: crop)
             _ = try await ImageFormatConverter(source: source).convert()
             try FileManager.default.removeItem(at: output)
         }

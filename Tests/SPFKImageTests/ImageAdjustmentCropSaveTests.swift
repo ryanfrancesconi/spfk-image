@@ -11,7 +11,7 @@ import UniformTypeIdentifiers
 @testable import SPFKImage
 
 /// The crop's definition: the preview, Save and Convert Files show the same picture for every file tag,
-/// pending orientation and crop.
+/// pending orientation and crop, perspective included.
 @Suite(.tags(.file))
 final class ImageAdjustmentCropSaveTests {
     private let directory: URL
@@ -31,6 +31,9 @@ final class ImageAdjustmentCropSaveTests {
         CropEdit(centerX: 0.1, centerY: -0.15, width: 0.5, height: 0.4),
         CropEdit(centerX: 0.1, centerY: -0.15, width: 0.5, height: 0.4, straighten: 7),
         CropEdit(width: 0.333, height: 0.333, straighten: -20),
+        CropEdit(vertical: 12),
+        CropEdit(straighten: 7, horizontal: -10),
+        CropEdit(centerX: 0.1, centerY: -0.15, width: 0.4, height: 0.5, vertical: -8, horizontal: 6),
     ]
 
     /// Phase 1's threshold, at the best offset of up to a pixel: a crop edge on a half pixel lands one pixel
@@ -121,7 +124,7 @@ final class ImageAdjustmentCropSaveTests {
             let convert = try uprightDecode(converted)
 
             for (name, image) in [("save", save), ("convert", convert)] {
-                let label = "\(name) tag \(tag) pending \(pending) crop \(crop.width)x\(crop.height) at \(crop.straighten)"
+                let label = "\(name) tag \(tag) pending \(pending) crop \(crop.width)x\(crop.height) at \(crop.straighten) V\(crop.vertical) H\(crop.horizontal)"
                 try #require(image.width == preview.width && image.height == preview.height, "\(label): \(image.width)x\(image.height) against \(preview.width)x\(preview.height)")
 
                 let first = try bytes(image)

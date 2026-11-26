@@ -89,6 +89,132 @@ final class ImageCropMetadataTests {
         #expect(CGImageMetadataCopyTagWithPath(metadata, nil, "mwg-rs:Regions" as CFString) == nil)
     }
 
+    // MARK: - Perspective
+
+    /// `point` in the 600 × 400 picture's pixels, through the correction, as a fraction of the kept crop.
+    private func expectedInCrop(_ point: SIMD2<Double>, crop: CropEdit) -> SIMD2<Double> {
+        let contained = crop.contained(imageWidth: 600, imageHeight: 400)
+        let kept = crop.keptPixelSize(imageWidth: 600, imageHeight: 400)
+        let offset = crop.perspective(imageWidth: 600, imageHeight: 400).apply(point) - contained.pixelCenter(imageWidth: 600, imageHeight: 400)
+        return SIMD2(offset.x / Double(kept.width) + 0.5, offset.y / Double(kept.height) + 0.5)
+    }
+
+    @Test func aRegionNearACorrectedCornerMovesWhereTheCorrectionSendsIt() throws {
+        let crop = CropEdit(vertical: 12, horizontal: -6)
+        let point = SIMD2(0.15 * 600, 0.85 * 400)
+        let result = try remapped([Region(name: "corner", x: 0.15, y: 0.85, w: 0.04, h: 0.06)], crop: crop, written: (1, 1))
+        let region = try #require(result.regions["corner"])
+        let expected = expectedInCrop(point, crop: crop)
+
+        // Uncorrected it would sit elsewhere, so the comparison can fail.
+        let uncorrected = SIMD2(point.x - 300, point.y - 200)
+        let kept = crop.keptPixelSize(imageWidth: 600, imageHeight: 400)
+        #expect(abs(uncorrected.x / Double(kept.width) + 0.5 - expected.x) > 0.01)
+
+        #expect(abs(region.x - expected.x) < 1e-9, "\(region.x) against \(expected.x)")
+        #expect(abs(region.y - expected.y) < 1e-9, "\(region.y) against \(expected.y)")
+
+        // The size follows the correction's local scale, measured here by a finite difference.
+        let step = 0.5
+        let map = crop.perspective(imageWidth: 600, imageHeight: 400)
+        let alongX = (map.apply(point + SIMD2(step, 0)) - map.apply(point - SIMD2(step, 0))) / (2 * step)
+        let alongY = (map.apply(point + SIMD2(0, step)) - map.apply(point - SIMD2(0, step))) / (2 * step)
+        let width = 0.04 * 600 * (alongX * alongX).sum().squareRoot() / Double(kept.width)
+        let height = 0.06 * 400 * (alongY * alongY).sum().squareRoot() / Double(kept.height)
+
+        #expect(abs(region.w - width) < 1e-6, "\(region.w) against \(width)")
+        #expect(abs(region.h - height) < 1e-6, "\(region.h) against \(height)")
+    }
+
+    @Test func aRegionTheCorrectionPushesOutOfTheCropIsRemoved() throws {
+        // Vertical narrows the top and widens the bottom, so a point inside the crop's bottom-left corner leaves it.
+        let crop = CropEdit(width: 0.5, height: 0.5, vertical: 20)
+        let point = SIMD2(0.27 * 600, 0.73 * 400)
+        let unmoved = SIMD2(point.x - 300, point.y - 200)
+        let kept = crop.keptPixelSize(imageWidth: 600, imageHeight: 400)
+        let expected = expectedInCrop(point, crop: crop)
+
+        try #require(abs(unmoved.x) < Double(kept.width) / 2 && abs(unmoved.y) < Double(kept.height) / 2)
+        try #require(expected.x < 0 || expected.y > 1)
+
+        let result = try remapped(
+            [Region(name: "pushed", x: 0.27, y: 0.73, w: 0.02, h: 0.02), Region(name: "center", x: 0.5, y: 0.5, w: 0.02, h: 0.02)],
+            crop: crop, written: (1, 1)
+        )
+
+        #expect(result.regions["pushed"] == nil)
+        #expect(result.regions["center"] != nil)
+    }
+
+    /// The mapping without perspective, before perspective joined it.
+    private func regionWithoutPerspective(
+        storedWidth: Int, storedHeight: Int, before: OrientationEdit, crop: CropEdit, after: OrientationEdit,
+        x: Double, y: Double, w: Double, h: Double
+    ) -> (x: Double, y: Double, w: Double, h: Double)? {
+        let width = before.swapsDimensions ? storedHeight : storedWidth
+        let height = before.swapsDimensions ? storedWidth : storedHeight
+        let contained = crop.contained(imageWidth: width, imageHeight: height)
+        let kept = crop.keptPixelSize(imageWidth: width, imageHeight: height)
+        let center = contained.pixelCenter(imageWidth: width, imageHeight: height)
+        let radians = contained.straighten * .pi / 180
+
+        let shown = before.shownUnitPoint(forDisplayed: SIMD2(x, y))
+        let offset = SIMD2(shown.x * Double(width), shown.y * Double(height)) - center
+        let c = cos(radians)
+        let s = sin(radians)
+        let turned = SIMD2(c * offset.x - s * offset.y, s * offset.x + c * offset.y)
+        let inCrop = SIMD2(turned.x / Double(kept.width) + 0.5, turned.y / Double(kept.height) + 0.5)
+
+        guard (0 ... 1).contains(inCrop.x), (0 ... 1).contains(inCrop.y) else { return nil }
+
+        let point = after.shownUnitPoint(forDisplayed: inCrop)
+        let storedSize = before.swapsDimensions ? SIMD2(h, w) : SIMD2(w, h)
+        var size = SIMD2(storedSize.x * Double(width) / Double(kept.width), storedSize.y * Double(height) / Double(kept.height))
+
+        if after.swapsDimensions {
+            size = SIMD2(size.y, size.x)
+        }
+
+        return (point.x, point.y, size.x, size.y)
+    }
+
+    @Test func noPerspectiveLeavesTheMappingExactlyAsItWas() {
+        let crops = [
+            CropEdit(),
+            CropEdit(centerX: -0.25, centerY: -0.25, width: 0.5, height: 0.5),
+            CropEdit(centerX: 0.1, centerY: -0.15, width: 0.5, height: 0.4, straighten: 7),
+            CropEdit(width: 0.333, height: 0.333, straighten: -20),
+        ]
+        let points = stride(from: 0.05, through: 0.95, by: 0.15).flatMap { x in
+            stride(from: 0.05, through: 0.95, by: 0.15).map { y in SIMD2(x, y) }
+        }
+        var compared = 0
+
+        for crop in crops {
+            for before in OrientationEdit.allCases {
+                for after in [OrientationEdit.up, .right, .leftMirrored] {
+                    let mapping = RegionMapping(storedWidth: 600, storedHeight: 400, before: before, crop: crop, after: after)
+
+                    for point in points {
+                        let mapped = mapping.region(x: point.x, y: point.y, w: 0.05, h: 0.08)
+                        let reference = regionWithoutPerspective(
+                            storedWidth: 600, storedHeight: 400, before: before, crop: crop, after: after,
+                            x: point.x, y: point.y, w: 0.05, h: 0.08
+                        )
+
+                        #expect((mapped == nil) == (reference == nil))
+                        if let mapped, let reference {
+                            #expect(mapped.x == reference.x && mapped.y == reference.y && mapped.w == reference.w && mapped.h == reference.h)
+                            compared += 1
+                        }
+                    }
+                }
+            }
+        }
+
+        #expect(compared > 100)
+    }
+
     // MARK: - Through Save and Convert Files
 
     /// The white mark's center in the upright decode, as fractions of it.
@@ -135,17 +261,22 @@ final class ImageCropMetadataTests {
     }
 
     /// A crop holding the mark, a little off its center.
-    private func crop(around tag: OrientationEdit, straighten: Double) -> CropEdit {
-        let mark = tag.shownUnitPoint(forDisplayed: SIMD2(AdjustmentFileFixtures.mark.x, AdjustmentFileFixtures.mark.y))
-        return CropEdit(centerX: mark.x - 0.5 + 0.06, centerY: mark.y - 0.5 + 0.04, width: 0.45, height: 0.45, straighten: straighten)
+    private func crop(around item: Case) -> CropEdit {
+        let mark = item.tag.shownUnitPoint(forDisplayed: SIMD2(AdjustmentFileFixtures.mark.x, AdjustmentFileFixtures.mark.y))
+        return CropEdit(
+            centerX: mark.x - 0.5 + 0.06, centerY: mark.y - 0.5 + 0.04, width: 0.45, height: 0.45,
+            straighten: item.straighten, vertical: item.vertical, horizontal: item.horizontal
+        )
     }
 
     struct Case: Sendable, CustomTestStringConvertible {
         let tag: OrientationEdit
         let pending: OrientationEdit
         let straighten: Double
+        var vertical: Double = 0
+        var horizontal: Double = 0
 
-        var testDescription: String { "tag \(tag) pending \(pending) at \(straighten)" }
+        var testDescription: String { "tag \(tag) pending \(pending) at \(straighten) V\(vertical) H\(horizontal)" }
     }
 
     static let cases: [Case] = [
@@ -156,6 +287,10 @@ final class ImageCropMetadataTests {
         Case(tag: .leftMirrored, pending: .up, straighten: 10),
         Case(tag: .right, pending: .upMirrored, straighten: -10),
         Case(tag: .down, pending: .left, straighten: 10),
+        Case(tag: .up, pending: .up, straighten: 0, vertical: 12),
+        Case(tag: .right, pending: .up, straighten: 5, horizontal: -10),
+        Case(tag: .leftMirrored, pending: .right, straighten: 0, vertical: -8, horizontal: 6),
+        Case(tag: .down, pending: .upMirrored, straighten: -7, vertical: 10, horizontal: 8),
     ]
 
     /// 1.5 % of the picture: the mark is 50 × 40 pixels and its centroid is rounded at the crop's edges.
@@ -165,7 +300,7 @@ final class ImageCropMetadataTests {
     func theRegionFollowsTheMarkThroughSave(item: Case) async throws {
         let source = try AdjustmentFileFixtures.asymmetric(.tiff, orientation: item.tag.rawValue, regions: [AdjustmentFileFixtures.mark], in: directory)
         let output = directory.appendingPathComponent("saved-\(UUID().uuidString).tiff")
-        let crop = crop(around: item.tag, straighten: item.straighten)
+        let crop = crop(around: item)
 
         try await renderer.renderFile(ImageAdjustmentDescription(), orientation: item.pending, crop: crop, source: source, destination: output)
 
@@ -182,7 +317,7 @@ final class ImageCropMetadataTests {
 
         _ = try await ImageFormatConverter(source: ImageConversionSource(
             input: source, output: output, options: ImageConversionOptions(format: UTType.jpeg.identifier),
-            orientation: item.pending, crop: crop(around: item.tag, straighten: item.straighten)
+            orientation: item.pending, crop: crop(around: item)
         )).convert()
 
         let mark = try markCenter(output)

@@ -92,11 +92,15 @@ extension ImageFormatConverter {
 }
 
 /// A normalized region of the stored pixels, followed through a turn, a crop and a turn.
+///
+/// A perspective correction moves the region's center through the homography and scales each side by
+/// the map's local scale at that center, which is close enough for a region as small as a face.
 struct RegionMapping {
     let before: OrientationEdit
     let after: OrientationEdit
     let displayedWidth: Double
     let displayedHeight: Double
+    let perspective: Homography?
     let center: SIMD2<Double>
     let keptWidth: Double
     let keptHeight: Double
@@ -112,6 +116,7 @@ struct RegionMapping {
         self.after = after
         displayedWidth = Double(width)
         displayedHeight = Double(height)
+        perspective = crop.hasPerspective ? crop.perspective(imageWidth: width, imageHeight: height) : nil
         center = contained.pixelCenter(imageWidth: width, imageHeight: height)
         keptWidth = Double(kept.width)
         keptHeight = Double(kept.height)
@@ -122,7 +127,16 @@ struct RegionMapping {
     /// outside it.
     func region(x: Double, y: Double, w: Double, h: Double) -> (x: Double, y: Double, w: Double, h: Double)? {
         let shown = before.shownUnitPoint(forDisplayed: SIMD2(x, y))
-        let offset = SIMD2(shown.x * displayedWidth, shown.y * displayedHeight) - center
+        var position = SIMD2(shown.x * displayedWidth, shown.y * displayedHeight)
+        var scale = SIMD2<Double>(1, 1)
+
+        if let perspective {
+            guard perspective.weight(position) > 0 else { return nil }
+            scale = Self.sideScale(of: perspective, at: position)
+            position = perspective.apply(position)
+        }
+
+        let offset = position - center
 
         // Clockwise as displayed, y down.
         let c = cos(radians)
@@ -135,8 +149,8 @@ struct RegionMapping {
         let point = after.shownUnitPoint(forDisplayed: inCrop)
         let storedSize = before.swapsDimensions ? SIMD2(h, w) : SIMD2(w, h)
         var size = SIMD2(
-            storedSize.x * displayedWidth / keptWidth,
-            storedSize.y * displayedHeight / keptHeight
+            storedSize.x * scale.x * displayedWidth / keptWidth,
+            storedSize.y * scale.y * displayedHeight / keptHeight
         )
 
         if after.swapsDimensions {
@@ -144,5 +158,19 @@ struct RegionMapping {
         }
 
         return (point.x, point.y, size.x, size.y)
+    }
+
+    /// How much `map` stretches a horizontal and a vertical segment at `point`: the lengths of its
+    /// Jacobian's columns there.
+    static func sideScale(of map: Homography, at point: SIMD2<Double>) -> SIMD2<Double> {
+        let p = SIMD3(point.x, point.y, 1)
+        let u = (map.row0 * p).sum()
+        let v = (map.row1 * p).sum()
+        let w = (map.row2 * p).sum()
+
+        // d(u/w) = (du·w - u·dw) / w², column by column.
+        let alongX = SIMD2(map.row0.x * w - u * map.row2.x, map.row1.x * w - v * map.row2.x) / (w * w)
+        let alongY = SIMD2(map.row0.y * w - u * map.row2.y, map.row1.y * w - v * map.row2.y) / (w * w)
+        return SIMD2((alongX * alongX).sum().squareRoot(), (alongY * alongY).sum().squareRoot())
     }
 }

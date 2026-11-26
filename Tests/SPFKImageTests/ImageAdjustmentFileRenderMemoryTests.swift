@@ -10,7 +10,8 @@ import Testing
 /// Save over many cropped files holds no more memory at the end than after its first files.
 @Suite(.tags(.file, .slow))
 final class ImageAdjustmentFileRenderMemoryTests: BinTestCase {
-    @Test func croppedSavesHoldNoMemoryPerFile() async throws {
+    @Test(.serialized, arguments: [ImageFormatConverterMemoryTests.photoCrop, ImageFormatConverterMemoryTests.photoCorrectedCrop])
+    func croppedSavesHoldNoMemoryPerFile(crop: CropEdit) async throws {
         guard #available(macOS 15, iOS 18, *) else { return }
 
         let input = try await ImageFormatConverterMemoryTests.photoSizedGainMappedHEIC(in: bin)
@@ -22,7 +23,7 @@ final class ImageAdjustmentFileRenderMemoryTests: BinTestCase {
         let grown = try await retainedMemoryMB(warmUp: 16, measured: 60, width: 8) { index in
             let output = bin.appendingPathComponent("saved-\(index).heic")
             try await renderer.renderFile(
-                ImageAdjustmentDescription(), crop: ImageFormatConverterMemoryTests.photoCrop, source: input, destination: output
+                ImageAdjustmentDescription(), crop: crop, source: input, destination: output
             )
             try FileManager.default.removeItem(at: output)
         }

@@ -17,6 +17,7 @@ final class ImageAdjustmentFileCropTests {
     private let directory: URL
     private let renderer = ImageAdjustmentRenderer()
     private let crop = CropEdit(centerX: 0.1, centerY: -0.15, width: 0.5, height: 0.4, straighten: 7)
+    private let corrected = CropEdit(centerX: 0.1, centerY: -0.15, width: 0.5, height: 0.4, straighten: 7, vertical: 10, horizontal: -6)
 
     init() throws {
         directory = FileManager.default.temporaryDirectory
@@ -112,8 +113,10 @@ final class ImageAdjustmentFileCropTests {
         type: UTType,
         formats: [AdjustmentFileFixtures.GainMapFormat],
         orientation: Int,
+        crop: CropEdit? = nil,
         comparesHDR: Bool = true
     ) async throws {
+        let crop = crop ?? self.crop
         let directory = directory
         let source = try await AdjustmentFileFixtures.checkerMapped(type, formats: formats, orientation: orientation, in: directory)
         let output = destination(source)
@@ -162,6 +165,25 @@ final class ImageAdjustmentFileCropTests {
     @Test func aCroppedTwoMapHEICCarriesBoth() async throws {
         guard #available(macOS 15, iOS 18, *) else { return }
         try await expectCroppedMapsFollow(type: .heic, formats: [.apple, .iso], orientation: 6)
+    }
+
+    // MARK: - Perspective
+
+    @Test(arguments: [UTType.jpeg, .heic, AdjustmentFileFixtures.avif], AdjustmentFileFixtures.GainMapFormat.allCases)
+    func aCorrectedSaveCorrectsItsGainMap(type: UTType, format: AdjustmentFileFixtures.GainMapFormat) async throws {
+        guard #available(macOS 15, iOS 18, *) else { return }
+        try await expectCroppedMapsFollow(type: type, formats: [format], orientation: 1, crop: corrected)
+    }
+
+    @Test(arguments: [UTType.jpeg, .heic], AdjustmentFileFixtures.GainMapFormat.allCases)
+    func aCorrectedSaveOfATurnedFileCorrectsItsGainMapInStoredPixels(type: UTType, format: AdjustmentFileFixtures.GainMapFormat) async throws {
+        guard #available(macOS 15, iOS 18, *) else { return }
+        try await expectCroppedMapsFollow(type: type, formats: [format], orientation: 6, crop: corrected)
+    }
+
+    @Test func aCorrectedTwoMapHEICCarriesBoth() async throws {
+        guard #available(macOS 15, iOS 18, *) else { return }
+        try await expectCroppedMapsFollow(type: .heic, formats: [.apple, .iso], orientation: 6, crop: corrected)
     }
 
     // MARK: - Auxiliary images
